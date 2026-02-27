@@ -1,0 +1,43 @@
+{
+  "treasury_10y": {
+    "value": 4.05,
+    "change_1w": -0.04,
+    "trend": "stable",
+    "gold_signal": "neutral",
+    "explanation": "10Y Yield at 4.05% (falling 0.04pp). Yields stable \u2014 neutral for gold."
+  },
+  "yield_curve": {
+    "value": 0.6,
+    "spread_2y_10y": 0.6,
+    "inverted": false,
+    "gold_signal": "neutral",
+    "explanation": "2Y-10Y spread: 0.600%. Normal curve \u2014 neutral for gold."
+  },
+  "fed_rate": {
+    "value": 3.64,
+    "change_1m": 0.0,
+    "gold_signal": "neutral",
+    "explanation": "Fed Funds Rate at 3.64%. Rate unchanged."
+  },
+  "cpi": {
+    "value": 325.252,
+    "mom_change_pct": 0.37,
+    "gold_signal": "bullish",
+    "explanation": "CPI at 325.252 (MoM: +0.37%). Rising CPI = inflation hedge demand for gold."
+  },
+  "inflation": {
+    "value": 2.94952520485207,
+    "date": "2024-01-01",
+    "gold_signal": "neutral",
+    "explanation": "Annual inflation: 2.94952520485207%. Moderate inflation \u2014 neutral for gold."
+  },
+  "macro_score": {
+    "score": 60,
+    "bullish_count": 1,
+    "bearish_count": 0,
+    "neutral_count": 4,
+    "total": 5,
+    "direction": "neutral"
+  },
+  "_cached_at": "2026-02-27T02:23:45.845983+00:00"
+}

@@ -1,0 +1,43 @@
+# Cryptocurrency pairs configuration
+
+pairs:
+  - symbol: BTCUSD
+    name: Bitcoin / US Dollar
+    base_currency: BTC
+    quote_currency: USD
+    exchange: binance
+    on_chain: true
+    chain: bitcoin
+
+  - symbol: ETHUSD
+    name: Ethereum / US Dollar
+    base_currency: ETH
+    quote_currency: USD
+    exchange: binance
+    on_chain: true
+    chain: ethereum
+
+  - symbol: ETHBTC
+    name: Ethereum / Bitcoin
+    base_currency: ETH
+    quote_currency: BTC
+    exchange: binance
+
+  - symbol: SOLUSD
+    name: Solana / US Dollar
+    base_currency: SOL
+    quote_currency: USD
+    exchange: binance
+    on_chain: true
+    chain: solana
+
+  - symbol: XRPUSD
+    name: XRP / US Dollar
+    base_currency: XRP
+    quote_currency: USD
+    exchange: binance
+
+benchmarks:
+  - symbol: BTC.D
+    name: Bitcoin Dominance
+    description: BTC market cap as percentage of total crypto market cap

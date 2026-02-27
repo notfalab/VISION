@@ -1,0 +1,76 @@
+# Forex pairs configuration
+# Majors, minors, and selected exotics
+
+majors:
+  - symbol: EURUSD
+    name: Euro / US Dollar
+    base_currency: EUR
+    quote_currency: USD
+    tick_size: "0.00001"
+    cot_code: "099741"  # CFTC contract code for Euro FX
+
+  - symbol: GBPUSD
+    name: British Pound / US Dollar
+    base_currency: GBP
+    quote_currency: USD
+    tick_size: "0.00001"
+    cot_code: "096742"
+
+  - symbol: USDJPY
+    name: US Dollar / Japanese Yen
+    base_currency: USD
+    quote_currency: JPY
+    tick_size: "0.001"
+    cot_code: "097741"
+
+  - symbol: USDCHF
+    name: US Dollar / Swiss Franc
+    base_currency: USD
+    quote_currency: CHF
+    tick_size: "0.00001"
+    cot_code: "092741"
+
+  - symbol: AUDUSD
+    name: Australian Dollar / US Dollar
+    base_currency: AUD
+    quote_currency: USD
+    tick_size: "0.00001"
+    cot_code: "232741"
+
+  - symbol: USDCAD
+    name: US Dollar / Canadian Dollar
+    base_currency: USD
+    quote_currency: CAD
+    tick_size: "0.00001"
+    cot_code: "090741"
+
+  - symbol: NZDUSD
+    name: New Zealand Dollar / US Dollar
+    base_currency: NZD
+    quote_currency: USD
+    tick_size: "0.00001"
+    cot_code: "112741"
+
+minors:
+  - symbol: EURGBP
+    name: Euro / British Pound
+    base_currency: EUR
+    quote_currency: GBP
+    tick_size: "0.00001"
+
+  - symbol: EURJPY
+    name: Euro / Japanese Yen
+    base_currency: EUR
+    quote_currency: JPY
+    tick_size: "0.001"
+
+  - symbol: GBPJPY
+    name: British Pound / Japanese Yen
+    base_currency: GBP
+    quote_currency: JPY
+    tick_size: "0.001"
+
+benchmarks:
+  - symbol: DXY
+    name: US Dollar Index
+    description: Benchmark for forex relative strength

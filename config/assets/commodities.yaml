@@ -1,0 +1,26 @@
+# Commodities configuration — gold, silver, and related
+
+metals:
+  - symbol: XAUUSD
+    name: Gold Spot / US Dollar
+    base_currency: XAU
+    quote_currency: USD
+    tick_size: "0.01"
+    cot_code: "088691"  # CFTC Gold futures
+    related_etf: GLD
+
+  - symbol: XAGUSD
+    name: Silver Spot / US Dollar
+    base_currency: XAG
+    quote_currency: USD
+    tick_size: "0.001"
+    cot_code: "084691"
+    related_etf: SLV
+
+benchmarks:
+  - symbol: TIPS10Y
+    name: 10-Year TIPS Yield
+    description: Real interest rates — inversely correlated with gold
+  - symbol: DXY
+    name: US Dollar Index
+    description: Strong dollar = bearish gold pressure

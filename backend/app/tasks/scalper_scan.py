@@ -1,0 +1,195 @@
+"""
+Celery task: Auto-scan XAUUSD for scalper signals every 5 minutes.
+
+Fetches fresh OHLCV data, runs the signal engine on 5m/15m/30m,
+and sends Telegram notifications for any new signals.
+"""
+
+import asyncio
+from datetime import datetime, timezone
+
+from backend.app.tasks.celery_app import celery_app
+from backend.app.logging_config import get_logger
+
+logger = get_logger("tasks.scalper_scan")
+
+
+def _run_async(coro):
+    """Run an async coroutine from sync Celery context."""
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                return pool.submit(asyncio.run, coro).result()
+        return loop.run_until_complete(coro)
+    except RuntimeError:
+        return asyncio.run(coro)
+
+
+async def _async_scan(symbol: str = "XAUUSD"):
+    """Async implementation of the scan task."""
+    from backend.app.data.ingestion import ingest_ohlcv
+    from backend.app.core.scalper.signal_engine import scan_multi_timeframe
+    from backend.app.core.scalper.loss_learning import get_active_loss_filters
+    from backend.app.notifications.telegram import notify_signal
+
+    # Import signal store from scalper router
+    from backend.app.api.v1.scalper import _get_signals, _save_signal, _signal_store
+
+    logger.info("scalper_scan_start", symbol=symbol)
+
+    # 1. Ingest fresh data for all scalper timeframes
+    ingested = {}
+    for tf in ["5m", "15m", "30m"]:
+        try:
+            count = await ingest_ohlcv(symbol, tf, limit=500)
+            ingested[tf] = count
+            logger.info("data_ingested", symbol=symbol, timeframe=tf, rows=count)
+        except Exception as e:
+            logger.warning("ingest_failed", symbol=symbol, timeframe=tf, error=str(e))
+            ingested[tf] = 0
+
+    # 2. Load data from DB for signal generation
+    import pandas as pd
+    from sqlalchemy import select
+    from backend.app.database import async_session
+    from backend.app.models.asset import Asset
+    from backend.app.models.ohlcv import OHLCVData, Timeframe
+
+    TF_MAP = {"5m": Timeframe.M5, "15m": Timeframe.M15, "30m": Timeframe.M30}
+
+    dataframes = {}
+    async with async_session() as session:
+        result = await session.execute(select(Asset).where(Asset.symbol == symbol.upper()))
+        asset = result.scalar_one_or_none()
+        if not asset:
+            logger.error("asset_not_found", symbol=symbol)
+            return {"error": f"Asset {symbol} not found"}
+
+        for tf_str, tf_enum in TF_MAP.items():
+            query = (
+                select(OHLCVData)
+                .where(OHLCVData.asset_id == asset.id, OHLCVData.timeframe == tf_enum)
+                .order_by(OHLCVData.timestamp.desc())
+                .limit(500)
+            )
+            rows = await session.execute(query)
+            ohlcv_list = rows.scalars().all()
+
+            if len(ohlcv_list) >= 50:
+                df = pd.DataFrame([{
+                    "timestamp": r.timestamp,
+                    "open": float(r.open),
+                    "high": float(r.high),
+                    "low": float(r.low),
+                    "close": float(r.close),
+                    "volume": float(r.volume),
+                } for r in reversed(ohlcv_list)])
+                dataframes[tf_str] = df
+
+    if not dataframes:
+        logger.warning("no_data_for_scan", symbol=symbol)
+        return {"signals": 0, "reason": "No data available"}
+
+    # 3. Get active loss patterns
+    existing = _get_signals(symbol=symbol)
+    loss_patterns = get_active_loss_filters(existing)
+
+    # 4. Run multi-timeframe scan
+    signals = scan_multi_timeframe(dataframes, symbol, loss_patterns)
+
+    # 5. Save signals and notify via Telegram
+    saved = 0
+    for sig in signals:
+        _save_signal(sig)
+        saved += 1
+
+        # Send Telegram notification
+        try:
+            await notify_signal(sig)
+        except Exception as e:
+            logger.warning("telegram_notify_failed", error=str(e))
+
+    # 6. Check active signals for SL/TP hits
+    from backend.app.core.scalper.outcome_tracker import check_signal_outcome
+    from backend.app.core.scalper.loss_learning import categorize_loss
+    from backend.app.notifications.telegram import notify_outcome
+
+    active_signals = _get_signals(symbol=symbol, status="active") + _get_signals(symbol=symbol, status="pending")
+    outcomes = 0
+
+    for sig in active_signals:
+        tf = sig.get("timeframe", "15m")
+        df = dataframes.get(tf)
+        if df is None or len(df) == 0:
+            continue
+
+        current_price = float(df["close"].iloc[-1])
+        high = float(df["high"].iloc[-1])
+        low = float(df["low"].iloc[-1])
+
+        update = check_signal_outcome(sig, current_price, high, low)
+        if update:
+            old_status = sig.get("status")
+            sig.update(update)
+
+            if update.get("status") == "loss":
+                analysis = categorize_loss(sig)
+                sig["loss_analysis"] = analysis
+                sig["loss_category"] = analysis["category"]
+
+            new_status = update.get("status")
+            if new_status in ("win", "loss") and old_status != new_status:
+                outcomes += 1
+                try:
+                    await notify_outcome(sig)
+                except Exception:
+                    pass
+
+    logger.info(
+        "scalper_scan_complete",
+        symbol=symbol,
+        signals_generated=saved,
+        outcomes_resolved=outcomes,
+        timeframes=list(dataframes.keys()),
+    )
+
+    return {
+        "symbol": symbol,
+        "signals_generated": saved,
+        "outcomes_resolved": outcomes,
+        "data_ingested": ingested,
+        "scanned_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@celery_app.task(name="backend.app.tasks.scalper_scan.auto_scan_xauusd")
+def auto_scan_xauusd():
+    """
+    Celery Beat task: auto-scan XAUUSD every 5 minutes.
+    Fetches data, generates signals, checks outcomes, sends Telegram alerts.
+    """
+    return _run_async(_async_scan("XAUUSD"))
+
+
+@celery_app.task(name="backend.app.tasks.scalper_scan.daily_summary")
+def daily_summary():
+    """
+    Celery Beat task: send daily performance summary to Telegram.
+    Runs once at market close (22:00 UTC).
+    """
+    async def _send_summary():
+        from backend.app.api.v1.scalper import _get_signals
+        from backend.app.core.scalper.outcome_tracker import compute_analytics
+        from backend.app.notifications.telegram import notify_summary
+
+        signals = _get_signals(symbol="XAUUSD")
+        if not signals:
+            return {"status": "no_signals"}
+
+        analytics = compute_analytics(signals)
+        await notify_summary(analytics)
+        return {"status": "sent"}
+
+    return _run_async(_send_summary())

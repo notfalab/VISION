@@ -1,0 +1,63 @@
+[project]
+name = "vision"
+version = "0.1.0"
+description = "Trading analytics platform for detecting institutional position changes"
+requires-python = ">=3.11"
+dependencies = [
+    # Web framework
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.30.0",
+    "websockets>=13.0",
+    # Database
+    "sqlalchemy[asyncio]>=2.0.30",
+    "asyncpg>=0.30.0",
+    "alembic>=1.13.0",
+    # Redis
+    "redis>=5.0.0",
+    # Settings & validation
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.3.0",
+    # HTTP client
+    "httpx>=0.27.0",
+    "aiohttp>=3.10.0",
+    # Data processing
+    "pandas>=2.2.0",
+    "numpy>=2.0.0",
+    # Task queue
+    "celery[redis]>=5.4.0",
+    # Logging
+    "structlog>=24.1.0",
+    # Security
+    "passlib[bcrypt]>=1.7.4",
+    "python-jose[cryptography]>=3.3.0",
+    "python-multipart>=0.0.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=5.0.0",
+    "httpx>=0.27.0",
+    "ruff>=0.5.0",
+]
+ml = [
+    "scikit-learn>=1.5.0",
+    "xgboost>=2.0.0",
+    "joblib>=1.4.0",
+]
+ta = [
+    "TA-Lib>=0.4.28",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+asyncio_mode = "auto"
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
