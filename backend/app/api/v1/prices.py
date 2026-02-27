@@ -97,6 +97,8 @@ async def get_orderbook(
         await adapter.connect()
         try:
             ob = await adapter.fetch_orderbook(symbol, depth)
+            if ob is None:
+                raise HTTPException(status_code=404, detail=f"Order book not available for {symbol}")
             return {
                 "symbol": ob.symbol,
                 "timestamp": ob.timestamp.isoformat(),
@@ -105,5 +107,7 @@ async def get_orderbook(
             }
         finally:
             await adapter.disconnect()
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Order book fetch failed: {str(e)}")

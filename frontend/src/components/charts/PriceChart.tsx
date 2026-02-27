@@ -348,8 +348,13 @@ export default function PriceChart() {
     fetchPatterns();
   }, [data.length, activeSymbol, activeTimeframe]);
 
-  // Fetch accumulation zones from order book (via PAXG on Binance)
+  // Fetch accumulation zones from order book (crypto symbols only)
+  const isCrypto = activeSymbol.endsWith("USDT") || activeSymbol.endsWith("USDC") || activeSymbol.endsWith("BTC");
   useEffect(() => {
+    if (!isCrypto) {
+      setZones([]);
+      return;
+    }
 
     const fetchZones = async () => {
       try {
@@ -375,7 +380,7 @@ export default function PriceChart() {
     fetchZones();
     const interval = setInterval(fetchZones, 60000);
     return () => clearInterval(interval);
-  }, [activeSymbol]);
+  }, [activeSymbol, isCrypto]);
 
   // Clean up old zone shifts (fade after 30s)
   useEffect(() => {
