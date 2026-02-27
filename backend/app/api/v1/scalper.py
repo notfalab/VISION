@@ -7,6 +7,12 @@ from sqlalchemy import select, desc, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api.deps import get_db
+from backend.app.core.scalper.signal_store import (
+    save_signal,
+    get_signals,
+    update_signal,
+    get_signal_by_id,
+)
 from backend.app.models.asset import Asset
 from backend.app.models.ohlcv import OHLCVData, Timeframe
 
@@ -50,38 +56,6 @@ async def _fetch_ohlcv_df(db: AsyncSession, symbol: str, timeframe: str, limit: 
         "close": float(r.close),
         "volume": float(r.volume),
     } for r in reversed(ohlcv_list)])
-
-
-# ── In-memory signal store (MVP — will migrate to DB later) ──
-_signal_store: list[dict] = []
-
-
-def _get_signals(symbol: str | None = None, status: str | None = None, timeframe: str | None = None) -> list[dict]:
-    """Filter signals from store."""
-    results = _signal_store
-    if symbol:
-        results = [s for s in results if s.get("symbol") == symbol.upper()]
-    if status:
-        results = [s for s in results if s.get("status") == status]
-    if timeframe:
-        results = [s for s in results if s.get("timeframe") == timeframe]
-    return results
-
-
-def _save_signal(signal: dict):
-    """Save signal to store."""
-    signal["id"] = len(_signal_store) + 1
-    _signal_store.append(signal)
-    return signal
-
-
-def _update_signal(signal_id: int, updates: dict):
-    """Update signal in store."""
-    for s in _signal_store:
-        if s.get("id") == signal_id:
-            s.update(updates)
-            return s
-    return None
 
 
 @router.get("/{symbol}/scan")
@@ -135,7 +109,7 @@ async def scan_signals(
         )
 
     # Get active loss patterns
-    existing_signals = _get_signals(symbol=symbol)
+    existing_signals = get_signals(symbol=symbol)
     loss_patterns = get_active_loss_filters(existing_signals)
 
     # Generate signals
@@ -205,7 +179,7 @@ async def scan_and_save(
         )
 
     # Get loss patterns
-    existing = _get_signals(symbol=symbol)
+    existing = get_signals(symbol=symbol)
     loss_patterns = get_active_loss_filters(existing)
 
     # Scan all timeframes
@@ -214,7 +188,7 @@ async def scan_and_save(
     # Save signals and notify via Telegram
     saved = []
     for sig in signals:
-        saved_sig = _save_signal(sig)
+        saved_sig = save_signal(sig)
         saved.append(saved_sig)
 
         # Send Telegram notification for each signal
@@ -238,7 +212,7 @@ async def scan_and_save(
 
 
 @router.get("/{symbol}/signals")
-async def get_signals(
+async def list_signals(
     symbol: str,
     status: str | None = Query(None, description="Filter: pending, active, win, loss, expired"),
     timeframe: str | None = Query(None, description="Filter: 5m, 15m, 30m"),
@@ -246,7 +220,7 @@ async def get_signals(
     offset: int = Query(0, ge=0),
 ):
     """Get signal history with optional filters."""
-    signals = _get_signals(symbol=symbol, status=status, timeframe=timeframe)
+    signals = get_signals(symbol=symbol, status=status, timeframe=timeframe)
 
     # Sort by generated_at descending
     signals.sort(key=lambda s: s.get("generated_at", ""), reverse=True)
@@ -266,11 +240,10 @@ async def get_signals(
 @router.get("/{symbol}/signals/{signal_id}")
 async def get_signal_detail(symbol: str, signal_id: int):
     """Get a single signal with full analysis."""
-    for s in _signal_store:
-        if s.get("id") == signal_id and s.get("symbol") == symbol.upper():
-            return s
-
-    raise HTTPException(status_code=404, detail=f"Signal {signal_id} not found")
+    sig = get_signal_by_id(symbol, signal_id)
+    if not sig:
+        raise HTTPException(status_code=404, detail=f"Signal {signal_id} not found")
+    return sig
 
 
 @router.get("/{symbol}/journal")
@@ -282,7 +255,7 @@ async def get_journal(
     Journal view — all completed signals with outcomes.
     Shows wins/losses/expired with P&L and analysis.
     """
-    signals = _get_signals(symbol=symbol)
+    signals = get_signals(symbol=symbol)
     completed = [
         s for s in signals
         if s.get("status") in ("win", "loss", "expired")
@@ -319,7 +292,7 @@ async def get_analytics(symbol: str):
     """
     from backend.app.core.scalper.outcome_tracker import compute_analytics
 
-    signals = _get_signals(symbol=symbol)
+    signals = get_signals(symbol=symbol)
     analytics = compute_analytics(signals)
 
     return {
@@ -336,7 +309,7 @@ async def get_loss_patterns(symbol: str):
     """
     from backend.app.core.scalper.loss_learning import analyze_loss_patterns, categorize_loss
 
-    signals = _get_signals(symbol=symbol)
+    signals = get_signals(symbol=symbol)
 
     # Ensure all losses have analysis
     for s in signals:
@@ -412,7 +385,7 @@ def _check_active_signals(symbol: str, dataframes: dict):
     from backend.app.core.scalper.outcome_tracker import check_signal_outcome
     from backend.app.core.scalper.loss_learning import categorize_loss
 
-    active_signals = _get_signals(symbol=symbol, status="active") + _get_signals(symbol=symbol, status="pending")
+    active_signals = get_signals(symbol=symbol, status="active") + get_signals(symbol=symbol, status="pending")
 
     for sig in active_signals:
         tf = sig.get("timeframe", "15m")
@@ -434,6 +407,10 @@ def _check_active_signals(symbol: str, dataframes: dict):
                 analysis = categorize_loss(sig)
                 sig["loss_analysis"] = analysis
                 sig["loss_category"] = analysis["category"]
+
+            # Update in Redis
+            if sig.get("id"):
+                update_signal(sig["id"], sig)
 
             # Notify outcome via Telegram (win or loss)
             new_status = update.get("status")

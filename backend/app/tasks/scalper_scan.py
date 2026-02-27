@@ -1,7 +1,7 @@
 """
 Celery task: Auto-scan XAUUSD for scalper signals every 5 minutes.
 
-Fetches fresh OHLCV data, runs the signal engine on 5m/15m/30m,
+Fetches fresh OHLCV data, runs the signal engine on 5m/15m/30m (+ 1d fallback),
 and sends Telegram notifications for any new signals.
 """
 
@@ -32,20 +32,19 @@ async def _async_scan(symbol: str = "XAUUSD"):
     from backend.app.data.ingestion import ingest_ohlcv
     from backend.app.core.scalper.signal_engine import scan_multi_timeframe
     from backend.app.core.scalper.loss_learning import get_active_loss_filters
+    from backend.app.core.scalper.signal_store import save_signal, get_signals, update_signal
     from backend.app.notifications.telegram import notify_signal
-
-    # Import signal store from scalper router
-    from backend.app.api.v1.scalper import _get_signals, _save_signal, _signal_store
 
     logger.info("scalper_scan_start", symbol=symbol)
 
-    # 1. Ingest fresh data for all scalper timeframes
+    # 1. Ingest fresh data for all scalper timeframes (+ daily as fallback)
     ingested = {}
-    for tf in ["5m", "15m", "30m"]:
+    for tf in ["5m", "15m", "30m", "1d"]:
         try:
             count = await ingest_ohlcv(symbol, tf, limit=500)
             ingested[tf] = count
-            logger.info("data_ingested", symbol=symbol, timeframe=tf, rows=count)
+            if count > 0:
+                logger.info("data_ingested", symbol=symbol, timeframe=tf, rows=count)
         except Exception as e:
             logger.warning("ingest_failed", symbol=symbol, timeframe=tf, error=str(e))
             ingested[tf] = 0
@@ -57,7 +56,12 @@ async def _async_scan(symbol: str = "XAUUSD"):
     from backend.app.models.asset import Asset
     from backend.app.models.ohlcv import OHLCVData, Timeframe
 
-    TF_MAP = {"5m": Timeframe.M5, "15m": Timeframe.M15, "30m": Timeframe.M30}
+    TF_MAP = {
+        "5m": Timeframe.M5,
+        "15m": Timeframe.M15,
+        "30m": Timeframe.M30,
+        "1d": Timeframe.D1,
+    }
 
     dataframes = {}
     async with async_session() as session:
@@ -89,20 +93,20 @@ async def _async_scan(symbol: str = "XAUUSD"):
                 dataframes[tf_str] = df
 
     if not dataframes:
-        logger.warning("no_data_for_scan", symbol=symbol)
+        logger.warning("no_data_for_scan", symbol=symbol, ingested=ingested)
         return {"signals": 0, "reason": "No data available"}
 
-    # 3. Get active loss patterns
-    existing = _get_signals(symbol=symbol)
+    # 3. Get active loss patterns from Redis store
+    existing = get_signals(symbol=symbol)
     loss_patterns = get_active_loss_filters(existing)
 
     # 4. Run multi-timeframe scan
     signals = scan_multi_timeframe(dataframes, symbol, loss_patterns)
 
-    # 5. Save signals and notify via Telegram
+    # 5. Save signals to Redis and notify via Telegram
     saved = 0
     for sig in signals:
-        _save_signal(sig)
+        save_signal(sig)
         saved += 1
 
         # Send Telegram notification
@@ -116,11 +120,11 @@ async def _async_scan(symbol: str = "XAUUSD"):
     from backend.app.core.scalper.loss_learning import categorize_loss
     from backend.app.notifications.telegram import notify_outcome
 
-    active_signals = _get_signals(symbol=symbol, status="active") + _get_signals(symbol=symbol, status="pending")
+    active_signals = get_signals(symbol=symbol, status="active") + get_signals(symbol=symbol, status="pending")
     outcomes = 0
 
     for sig in active_signals:
-        tf = sig.get("timeframe", "15m")
+        tf = sig.get("timeframe", "1d")
         df = dataframes.get(tf)
         if df is None or len(df) == 0:
             continue
@@ -139,6 +143,10 @@ async def _async_scan(symbol: str = "XAUUSD"):
                 sig["loss_analysis"] = analysis
                 sig["loss_category"] = analysis["category"]
 
+            # Persist update to Redis
+            if sig.get("id"):
+                update_signal(sig["id"], sig)
+
             new_status = update.get("status")
             if new_status in ("win", "loss") and old_status != new_status:
                 outcomes += 1
@@ -153,6 +161,7 @@ async def _async_scan(symbol: str = "XAUUSD"):
         signals_generated=saved,
         outcomes_resolved=outcomes,
         timeframes=list(dataframes.keys()),
+        data_ingested=ingested,
     )
 
     return {
@@ -160,6 +169,7 @@ async def _async_scan(symbol: str = "XAUUSD"):
         "signals_generated": saved,
         "outcomes_resolved": outcomes,
         "data_ingested": ingested,
+        "timeframes_available": list(dataframes.keys()),
         "scanned_at": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -180,16 +190,16 @@ def daily_summary():
     Runs once at market close (22:00 UTC).
     """
     async def _send_summary():
-        from backend.app.api.v1.scalper import _get_signals
+        from backend.app.core.scalper.signal_store import get_signals
         from backend.app.core.scalper.outcome_tracker import compute_analytics
         from backend.app.notifications.telegram import notify_summary
 
-        signals = _get_signals(symbol="XAUUSD")
+        signals = get_signals(symbol="XAUUSD")
         if not signals:
             return {"status": "no_signals"}
 
         analytics = compute_analytics(signals)
         await notify_summary(analytics)
-        return {"status": "sent"}
+        return {"status": "sent", "signals_analyzed": len(signals)}
 
     return _run_async(_send_summary())
