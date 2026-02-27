@@ -141,7 +141,7 @@ async def scan_signals(
     # Generate signals
     signals = generate_signals(df, symbol, actual_timeframe, loss_patterns)
 
-    return {
+    response = {
         "symbol": symbol.upper(),
         "timeframe": actual_timeframe,
         "signals": signals,
@@ -151,6 +151,19 @@ async def scan_signals(
         "scanned_at": datetime.now(timezone.utc).isoformat(),
         "note": f"Using {actual_timeframe} data (intraday requires premium API)" if actual_timeframe != timeframe else None,
     }
+
+    # Add diagnostics when no signals generated
+    if not signals:
+        from backend.app.core.scalper.signal_engine import _get_thresholds
+        thresholds = _get_thresholds(actual_timeframe)
+        response["diagnostics"] = {
+            "thresholds": thresholds,
+            "latest_close": float(df["close"].iloc[-1]) if len(df) > 0 else None,
+            "latest_timestamp": str(df["timestamp"].iloc[-1]) if len(df) > 0 else None,
+            "hint": "No indicators produced a strong enough directional signal. This is normal in ranging/neutral markets.",
+        }
+
+    return response
 
 
 @router.post("/{symbol}/scan")

@@ -30,10 +30,15 @@ SCALPER_WEIGHTS = {
     "candle_patterns": 1.5, # Pattern recognition
 }
 
-# Signal thresholds
-MIN_COMPOSITE_SCORE = 60  # Minimum composite score to emit signal
-MIN_ML_CONFIDENCE = 0.55  # Minimum ML model confidence
-MIN_CONFLUENCE = 4         # Minimum number of agreeing indicators
+# Signal thresholds (per-timeframe)
+THRESHOLDS = {
+    "default": {"min_score": 60, "min_confidence": 0.55, "min_confluence": 4},
+    "1d":      {"min_score": 55, "min_confidence": 0.45, "min_confluence": 3},
+    "1w":      {"min_score": 55, "min_confidence": 0.40, "min_confluence": 3},
+}
+
+def _get_thresholds(timeframe: str) -> dict:
+    return THRESHOLDS.get(timeframe, THRESHOLDS["default"])
 
 # SL/TP ATR multipliers
 SL_ATR_MULT = 1.5
@@ -162,6 +167,11 @@ def generate_signals(
     if total_weight == 0:
         return []
 
+    thresholds = _get_thresholds(timeframe)
+    min_composite_score = thresholds["min_score"]
+    min_confidence = thresholds["min_confidence"]
+    min_confluence = thresholds["min_confluence"]
+
     # ── 3. ML Prediction ──
     ml_direction = "neutral"
     ml_confidence = 0.0
@@ -202,16 +212,23 @@ def generate_signals(
     composite_score = round(50 + (net_score * 50), 1)
 
     # ── 6. Determine Direction ──
-    if composite_score >= MIN_COMPOSITE_SCORE:
+    if composite_score >= min_composite_score:
         direction = "long"
         confluence_count = len(bullish_reasons)
         reasons = bullish_reasons
-    elif composite_score <= (100 - MIN_COMPOSITE_SCORE):
+    elif composite_score <= (100 - min_composite_score):
         direction = "short"
         confluence_count = len(bearish_reasons)
         reasons = bearish_reasons
     else:
         # Score too neutral — no signal
+        logger.info(
+            "signal_score_neutral",
+            symbol=symbol, timeframe=timeframe,
+            composite_score=composite_score,
+            threshold=min_composite_score,
+            bullish=bullish_reasons, bearish=bearish_reasons,
+        )
         return []
 
     # ── 7. Validate ML agreement ──
@@ -255,7 +272,7 @@ def generate_signals(
     if not regime_compatible:
         confidence *= 0.6  # Heavy penalty for regime mismatch
 
-    if confluence_count < MIN_CONFLUENCE:
+    if confluence_count < min_confluence:
         confidence *= 0.8  # Penalty for low confluence
 
     confidence = round(min(max(confidence, 0), 1.0), 3)
@@ -281,13 +298,13 @@ def generate_signals(
                     loss_filter_applied = True
 
     # ── 11. Check minimum thresholds ──
-    if confidence < MIN_ML_CONFIDENCE:
-        logger.debug(
-            "signal_below_threshold",
-            symbol=symbol,
-            timeframe=timeframe,
-            confidence=confidence,
-            score=composite_score,
+    if confidence < min_confidence:
+        logger.info(
+            "signal_below_confidence",
+            symbol=symbol, timeframe=timeframe,
+            confidence=confidence, threshold=min_confidence,
+            composite_score=composite_score, direction=direction,
+            confluence=confluence_count,
         )
         return []
 
