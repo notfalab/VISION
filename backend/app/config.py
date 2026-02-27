@@ -68,6 +68,7 @@ class Settings(BaseSettings):
     binance_secret_key: str = ""
     oanda_api_key: str = ""
     oanda_account_id: str = ""
+    goldapi_api_key: str = ""
 
     # Alerts
     sendgrid_api_key: str = ""

@@ -37,21 +37,21 @@ async def lifespan(app: FastAPI):
     # 3. Register data source adapters
     from backend.app.data.registry import data_registry
     from backend.app.data.binance_adapter import BinanceAdapter
-    from backend.app.data.oanda_adapter import OandaAdapter
+    from backend.app.data.goldapi_adapter import GoldAPIAdapter
     from backend.app.data.alpha_vantage import AlphaVantageAdapter
 
     data_registry.register(BinanceAdapter())
-    data_registry.register(OandaAdapter())
+    data_registry.register(GoldAPIAdapter())
     data_registry.register(AlphaVantageAdapter())
 
-    # Route gold/silver to OANDA (real institutional prices)
-    data_registry.set_route("XAUUSD", "oanda")
-    data_registry.set_route("XAGUSD", "oanda")
+    # Route gold/silver to GoldAPI.io (real spot prices)
+    data_registry.set_route("XAUUSD", "goldapi")
+    data_registry.set_route("XAGUSD", "goldapi")
 
-    # Route forex pairs to OANDA
+    # Route forex pairs to Alpha Vantage (fallback handles rate limits)
     for pair in ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD",
                  "EURGBP", "EURJPY", "GBPJPY"]:
-        data_registry.set_route(pair, "oanda")
+        data_registry.set_route(pair, "alpha_vantage")
 
     # Route crypto to Binance
     for pair in ["BTCUSD", "ETHUSD", "ETHBTC", "SOLUSD", "XRPUSD"]:
@@ -109,8 +109,7 @@ def create_app() -> FastAPI:
         s = get_settings()
 
         results = {"adapters": {}, "config": {}}
-        results["config"]["oanda_key_set"] = bool(s.oanda_api_key)
-        results["config"]["oanda_key_prefix"] = s.oanda_api_key[:8] + "..." if s.oanda_api_key else ""
+        results["config"]["goldapi_key_set"] = bool(s.goldapi_api_key)
         results["config"]["alpha_vantage_key_set"] = bool(s.alpha_vantage_api_key)
         results["config"]["binance_key_set"] = bool(s.binance_api_key)
         results["config"]["db_host"] = s.postgres_host
@@ -124,7 +123,7 @@ def create_app() -> FastAPI:
                 await adapter.connect()
                 try:
                     # Try fetching 1 candle
-                    test_symbol = {"oanda": "XAUUSD", "binance": "BTCUSD", "alpha_vantage": "XAUUSD"}
+                    test_symbol = {"goldapi": "XAUUSD", "binance": "BTCUSD", "alpha_vantage": "EURUSD"}
                     sym = test_symbol.get(name, "XAUUSD")
                     df = await adapter.fetch_ohlcv(sym, "1d", 1)
                     results["adapters"][name] = {
