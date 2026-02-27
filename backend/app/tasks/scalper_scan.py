@@ -27,8 +27,39 @@ def _run_async(coro):
         return asyncio.run(coro)
 
 
+def _ensure_adapters():
+    """Register data adapters if not already registered (worker doesn't run main.py lifespan)."""
+    from backend.app.data.registry import data_registry
+    if data_registry.list_adapters():
+        return  # Already registered
+
+    from backend.app.data.binance_adapter import BinanceAdapter
+    from backend.app.data.goldapi_adapter import GoldAPIAdapter
+    from backend.app.data.alpha_vantage import AlphaVantageAdapter
+    from backend.app.data.oanda_adapter import OandaAdapter
+    from backend.app.data.massive_adapter import MassiveAdapter
+
+    data_registry.register(BinanceAdapter())
+    data_registry.register(GoldAPIAdapter())
+    data_registry.register(AlphaVantageAdapter())
+    data_registry.register(OandaAdapter())
+    data_registry.register(MassiveAdapter())
+
+    data_registry.set_route("XAUUSD", "massive")
+    data_registry.set_route("XAGUSD", "massive")
+    for pair in ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD",
+                 "EURGBP", "EURJPY", "GBPJPY"]:
+        data_registry.set_route(pair, "alpha_vantage")
+    for pair in ["BTCUSD", "ETHUSD", "ETHBTC", "SOLUSD", "XRPUSD"]:
+        data_registry.set_route(pair, "binance")
+
+    logger.info("adapters_registered_in_worker")
+
+
 async def _async_scan(symbol: str = "XAUUSD"):
     """Async implementation of the scan task."""
+    _ensure_adapters()
+
     from backend.app.data.ingestion import ingest_ohlcv
     from backend.app.core.scalper.signal_engine import scan_multi_timeframe
     from backend.app.core.scalper.loss_learning import get_active_loss_filters
