@@ -17,13 +17,46 @@ from backend.app.models.ohlcv import OHLCVData, Timeframe
 logger = get_logger("ingestion")
 
 
+async def _try_adapter(adapter_name: str, symbol: str, timeframe: str, limit: int, since: datetime | None) -> pd.DataFrame:
+    """Try fetching from a specific adapter by name."""
+    try:
+        adapter = data_registry.get_adapter(adapter_name)
+        await adapter.connect()
+        try:
+            df = await adapter.fetch_ohlcv(symbol, timeframe, limit, since)
+            if not df.empty:
+                logger.info("adapter_fetched", adapter=adapter_name, symbol=symbol, rows=len(df))
+            return df
+        finally:
+            await adapter.disconnect()
+    except Exception as e:
+        logger.warning("adapter_fetch_failed", adapter=adapter_name, symbol=symbol, error=str(e))
+        return pd.DataFrame()
+
+
+def _merge_dataframes(dfs: list[pd.DataFrame], limit: int) -> pd.DataFrame:
+    """Merge multiple OHLCV DataFrames, dedup by timestamp, keep latest."""
+    non_empty = [df for df in dfs if not df.empty]
+    if not non_empty:
+        return pd.DataFrame()
+    if len(non_empty) == 1:
+        return non_empty[0]
+    combined = pd.concat(non_empty).drop_duplicates(
+        subset="timestamp", keep="last"
+    ).sort_values("timestamp").tail(limit).reset_index(drop=True)
+    return combined
+
+
 async def _fetch_with_fallback(symbol: str, timeframe: str, limit: int, since: datetime | None) -> pd.DataFrame:
-    """Try the primary adapter, fall back to Alpha Vantage if insufficient data."""
-    primary_df = pd.DataFrame()
+    """Try the primary adapter, then fallbacks (OANDA, Alpha Vantage) until we have enough data."""
+    min_rows = min(limit, 50)
 
     # Primary adapter
+    primary_name = None
+    primary_df = pd.DataFrame()
     try:
         adapter = data_registry.route_symbol(symbol)
+        primary_name = adapter.name
         await adapter.connect()
         try:
             primary_df = await adapter.fetch_ohlcv(symbol, timeframe, limit, since)
@@ -32,34 +65,37 @@ async def _fetch_with_fallback(symbol: str, timeframe: str, limit: int, since: d
     except Exception as e:
         logger.warning("primary_adapter_failed", symbol=symbol, error=str(e))
 
-    # If primary returned enough data, use it
-    if not primary_df.empty and len(primary_df) >= min(limit, 50):
+    if not primary_df.empty and len(primary_df) >= min_rows:
         return primary_df
 
-    # Fallback: Alpha Vantage (supports forex + gold + crypto)
-    # Try AV when primary returned nothing or too few rows
-    try:
-        av = data_registry.get_adapter("alpha_vantage")
-        await av.connect()
-        try:
-            av_df = await av.fetch_ohlcv(symbol, timeframe, limit, since)
-            if not av_df.empty:
-                logger.info("fallback_success", symbol=symbol, adapter="alpha_vantage",
-                            primary_rows=len(primary_df), av_rows=len(av_df))
-                # Merge: AV historical + primary's latest candle (more current)
-                if not primary_df.empty:
-                    combined = pd.concat([av_df, primary_df]).drop_duplicates(
-                        subset="timestamp", keep="last"
-                    ).sort_values("timestamp").tail(limit).reset_index(drop=True)
-                    return combined
-                return av_df
-        finally:
-            await av.disconnect()
-    except Exception as e:
-        logger.warning("fallback_adapter_failed", symbol=symbol, error=str(e))
+    logger.info("primary_insufficient", symbol=symbol, primary=primary_name,
+                rows=len(primary_df) if not primary_df.empty else 0, need=min_rows)
 
-    # Return whatever primary had (even if just 1 row)
-    return primary_df
+    # Fallback chain: try adapters that weren't the primary
+    fallback_adapters = ["oanda", "alpha_vantage", "goldapi"]
+    best_df = primary_df
+
+    for fb_name in fallback_adapters:
+        if fb_name == primary_name:
+            continue
+        try:
+            data_registry.get_adapter(fb_name)  # Check it exists
+        except Exception:
+            continue
+
+        fb_df = await _try_adapter(fb_name, symbol, timeframe, limit, since)
+        if fb_df.empty:
+            continue
+
+        # Merge fallback data with what we have
+        best_df = _merge_dataframes([best_df, fb_df], limit)
+        logger.info("fallback_success", symbol=symbol, adapter=fb_name,
+                    total_rows=len(best_df))
+
+        if len(best_df) >= min_rows:
+            return best_df
+
+    return best_df
 
 
 async def ingest_ohlcv(
