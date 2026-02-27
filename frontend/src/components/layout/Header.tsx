@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Activity } from "lucide-react";
+import { Activity, Send, MessageCircle } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { binanceWS, isBinanceSymbol } from "@/lib/binance-ws";
 import { formatPrice, formatChange, priceColor } from "@/lib/format";
@@ -62,8 +62,28 @@ export default function Header() {
         )}
       </div>
 
-      {/* Right — status */}
-      <div className="flex items-center gap-3 shrink-0 ml-auto">
+      {/* Right — community + status */}
+      <div className="flex items-center gap-2 md:gap-3 shrink-0 ml-auto">
+        <a
+          href="https://t.me/YOUR_BOT_USERNAME"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider transition-colors hover:bg-[var(--color-bg-hover)] text-[#29B6F6]"
+          title="Join Telegram for signals"
+        >
+          <Send className="w-3 h-3" />
+          <span className="hidden sm:inline">Signals</span>
+        </a>
+        <a
+          href="https://discord.gg/YOUR_INVITE_CODE"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider transition-colors hover:bg-[var(--color-bg-hover)] text-[#7289DA]"
+          title="Join Discord community"
+        >
+          <MessageCircle className="w-3 h-3" />
+          <span className="hidden sm:inline">Discord</span>
+        </a>
         <div className="flex items-center gap-1.5">
           <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-neon-green)] pulse-live" />
           <span className="text-[10px] text-[var(--color-text-muted)]">LIVE</span>
