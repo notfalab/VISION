@@ -119,8 +119,8 @@ class MassiveAdapter(DataSourceAdapter):
                 from_date = to_date - timedelta(days=int(limit * 45))
             elif timespan == "hour":
                 from_date = to_date - timedelta(hours=int(limit * multiplier * 1.5))
-            else:  # minute
-                from_date = to_date - timedelta(minutes=int(limit * multiplier * 1.5))
+            else:  # minute — forex closes weekends, so add extra days
+                from_date = to_date - timedelta(days=max(7, int(limit * multiplier / 60 / 24 * 2)))
 
         from_str = from_date.strftime("%Y-%m-%d")
         to_str = to_date.strftime("%Y-%m-%d")
@@ -149,14 +149,18 @@ class MassiveAdapter(DataSourceAdapter):
             logger.error("massive_request_failed", symbol=symbol, error=str(e))
             return pd.DataFrame()
 
-        if data.get("status") != "OK" or not data.get("results"):
+        status = data.get("status", "")
+        if status not in ("OK", "DELAYED") or not data.get("results"):
             logger.warning(
                 "massive_no_results",
-                status=data.get("status"),
+                status=status,
                 symbol=symbol,
                 count=data.get("resultsCount", 0),
             )
             return pd.DataFrame()
+
+        if status == "DELAYED":
+            logger.info("massive_delayed_data", symbol=symbol, count=data.get("resultsCount", 0))
 
         rows = []
         for r in data["results"]:
