@@ -51,6 +51,7 @@ services:
       - .env.prod
     environment:
       POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
       REDIS_HOST: redis
       REDIS_PORT: 6379
       APP_ENV: production

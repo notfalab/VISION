@@ -17,6 +17,38 @@ from backend.app.models.ohlcv import OHLCVData, Timeframe
 logger = get_logger("ingestion")
 
 
+async def _fetch_with_fallback(symbol: str, timeframe: str, limit: int, since: datetime | None) -> pd.DataFrame:
+    """Try the primary adapter, fall back to Alpha Vantage on failure."""
+    # Primary adapter
+    try:
+        adapter = data_registry.route_symbol(symbol)
+        await adapter.connect()
+        try:
+            df = await adapter.fetch_ohlcv(symbol, timeframe, limit, since)
+            if not df.empty:
+                return df
+        finally:
+            await adapter.disconnect()
+    except Exception as e:
+        logger.warning("primary_adapter_failed", symbol=symbol, error=str(e))
+
+    # Fallback: Alpha Vantage (supports forex + gold + crypto)
+    try:
+        av = data_registry.get_adapter("alpha_vantage")
+        await av.connect()
+        try:
+            df = await av.fetch_ohlcv(symbol, timeframe, limit, since)
+            if not df.empty:
+                logger.info("fallback_success", symbol=symbol, adapter="alpha_vantage")
+                return df
+        finally:
+            await av.disconnect()
+    except Exception as e:
+        logger.warning("fallback_adapter_failed", symbol=symbol, error=str(e))
+
+    return pd.DataFrame()
+
+
 async def ingest_ohlcv(
     symbol: str,
     timeframe: str = "1d",
@@ -28,13 +60,7 @@ async def ingest_ohlcv(
     Uses upsert to avoid duplicates.
     Returns number of rows inserted/updated.
     """
-    adapter = data_registry.route_symbol(symbol)
-    await adapter.connect()
-
-    try:
-        df = await adapter.fetch_ohlcv(symbol, timeframe, limit, since)
-    finally:
-        await adapter.disconnect()
+    df = await _fetch_with_fallback(symbol, timeframe, limit, since)
 
     if df.empty:
         logger.warning("no_data_fetched", symbol=symbol, timeframe=timeframe)

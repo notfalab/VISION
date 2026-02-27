@@ -17,7 +17,7 @@ from backend.app.database import Base
 # Import all models so Alembic detects them
 from backend.app.models import (  # noqa: F401
     Asset, OHLCVData, IndicatorValue, COTReport,
-    Alert, AlertHistory, User, Trade, OnchainEvent,
+    Alert, AlertHistory, User, Trade, OnchainEvent, ScalperSignal,
 )
 
 config = context.config

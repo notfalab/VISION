@@ -17,17 +17,46 @@ async def lifespan(app: FastAPI):
     logger = get_logger("app")
     logger.info("vision_starting", env=get_settings().app_env)
 
-    # Register data source adapters
+    # 1. Auto-create database tables if they don't exist
+    from backend.app.database import engine, Base
+    from backend.app.models import (  # noqa: F401
+        Asset, OHLCVData, IndicatorValue, COTReport,
+        Alert, AlertHistory, User, Trade, OnchainEvent, ScalperSignal,
+    )
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+    logger.info("database_tables_ready")
+
+    # 2. Auto-seed assets if the assets table is empty
+    from backend.app.seed import seed_assets
+    try:
+        await seed_assets()
+    except Exception as e:
+        logger.warning("seed_failed", error=str(e))
+
+    # 3. Register data source adapters
     from backend.app.data.registry import data_registry
     from backend.app.data.binance_adapter import BinanceAdapter
     from backend.app.data.oanda_adapter import OandaAdapter
+    from backend.app.data.alpha_vantage import AlphaVantageAdapter
 
     data_registry.register(BinanceAdapter())
     data_registry.register(OandaAdapter())
+    data_registry.register(AlphaVantageAdapter())
 
-    # Route gold to OANDA (real institutional gold prices)
+    # Route gold/silver to OANDA (real institutional prices)
     data_registry.set_route("XAUUSD", "oanda")
     data_registry.set_route("XAGUSD", "oanda")
+
+    # Route forex pairs to OANDA
+    for pair in ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD",
+                 "EURGBP", "EURJPY", "GBPJPY"]:
+        data_registry.set_route(pair, "oanda")
+
+    # Route crypto to Binance
+    for pair in ["BTCUSD", "ETHUSD", "ETHBTC", "SOLUSD", "XRPUSD"]:
+        data_registry.set_route(pair, "binance")
+
     logger.info("adapters_registered", adapters=data_registry.list_adapters())
 
     yield

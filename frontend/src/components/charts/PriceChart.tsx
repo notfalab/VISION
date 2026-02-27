@@ -223,17 +223,24 @@ export default function PriceChart() {
       }
       setLoading(true);
       try {
-        let prices = await api.prices(activeSymbol, activeTimeframe, 2000);
-        // Fetch more data if we have fewer than expected
-        if (prices.length < 1000) {
-          await api.fetchPrices(activeSymbol, activeTimeframe, 2000);
-          prices = await api.prices(activeSymbol, activeTimeframe, 2000);
-        }
+        // Always trigger ingestion first to ensure data exists in DB
+        await api.fetchPrices(activeSymbol, activeTimeframe, 2000);
+        const prices = await api.prices(activeSymbol, activeTimeframe, 2000);
         const sorted = [...prices].reverse();
         setData(sorted);
         setCandles(cacheKey, sorted);
       } catch (err) {
         console.error("Failed to load prices:", err);
+        // Try a smaller fetch as fallback
+        try {
+          await api.fetchPrices(activeSymbol, activeTimeframe, 500);
+          const prices = await api.prices(activeSymbol, activeTimeframe, 500);
+          const sorted = [...prices].reverse();
+          setData(sorted);
+          setCandles(cacheKey, sorted);
+        } catch {
+          // Data source may be unavailable
+        }
       } finally {
         setLoading(false);
       }

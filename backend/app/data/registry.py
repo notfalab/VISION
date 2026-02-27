@@ -26,6 +26,12 @@ class DataSourceRegistry:
             raise KeyError(f"Adapter '{name}' not registered. Available: {list(self._adapters)}")
         return self._adapters[name]
 
+    # Known crypto base currencies for auto-detection
+    _CRYPTO_BASES = {"BTC", "ETH", "SOL", "XRP", "BNB", "ADA", "DOGE", "DOT", "AVAX", "MATIC", "LINK", "UNI"}
+
+    # Known forex base currencies
+    _FOREX_BASES = {"EUR", "GBP", "USD", "JPY", "AUD", "CAD", "NZD", "CHF"}
+
     def route_symbol(self, symbol: str) -> DataSourceAdapter:
         """Find the right adapter for a symbol."""
         symbol = symbol.upper()
@@ -34,15 +40,27 @@ class DataSourceRegistry:
         if symbol in self._symbol_routes:
             return self._adapters[self._symbol_routes[symbol]]
 
-        # Auto-detect by market conventions
-        # Gold/Silver
+        # Gold/Silver → commodity/forex adapter
         if symbol in {"XAUUSD", "XAGUSD", "GC", "SI", "GLD"}:
             for adapter in self._adapters.values():
                 if adapter.market_type.value in ("commodity", "forex"):
                     return adapter
 
-        # Forex (6-char pairs like EURUSD, GBPJPY)
-        if len(symbol) == 6 and symbol.isalpha():
+        # Crypto detection: base currency is a known crypto
+        if len(symbol) >= 5 and symbol[:3] in self._CRYPTO_BASES:
+            for adapter in self._adapters.values():
+                if adapter.market_type.value == "crypto":
+                    return adapter
+
+        # Also check 4-char crypto bases (e.g. DOGE, AVAX)
+        for base in self._CRYPTO_BASES:
+            if symbol.startswith(base):
+                for adapter in self._adapters.values():
+                    if adapter.market_type.value == "crypto":
+                        return adapter
+
+        # Forex (6-char pairs where base is a known fiat currency)
+        if len(symbol) == 6 and symbol.isalpha() and symbol[:3] in self._FOREX_BASES:
             for adapter in self._adapters.values():
                 if adapter.market_type.value == "forex":
                     return adapter

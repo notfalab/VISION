@@ -11,6 +11,15 @@ async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
+/** Like fetchAPI but returns a fallback value on error instead of throwing. */
+async function fetchAPISafe<T>(path: string, fallback: T, options?: RequestInit): Promise<T> {
+  try {
+    return await fetchAPI<T>(path, options);
+  } catch {
+    return fallback;
+  }
+}
+
 // Deduplicate concurrent fetchPrices calls — multiple widgets requesting the
 // same symbol+timeframe share a single in-flight promise.
 const inflightFetches = new Map<string, Promise<{ rows_ingested: number }>>();
@@ -24,8 +33,9 @@ function fetchPricesDeduped(
   const existing = inflightFetches.get(key);
   if (existing) return existing;
 
-  const promise = fetchAPI<{ rows_ingested: number }>(
+  const promise = fetchAPISafe<{ rows_ingested: number }>(
     `/api/v1/prices/${symbol}/fetch?timeframe=${timeframe}&limit=${limit}`,
+    { rows_ingested: 0 },
     { method: "POST" },
   ).finally(() => {
     inflightFetches.delete(key);
@@ -42,9 +52,9 @@ export const api = {
   // Assets
   assets: () => fetchAPI<{ id: number; symbol: string; name: string; market_type: string }[]>("/api/v1/assets"),
 
-  // Prices
+  // Prices (returns empty array if asset/data not found yet)
   prices: (symbol: string, timeframe = "1d", limit = 200) =>
-    fetchAPI<any[]>(`/api/v1/prices/${symbol}?timeframe=${timeframe}&limit=${limit}`),
+    fetchAPISafe<any[]>(`/api/v1/prices/${symbol}?timeframe=${timeframe}&limit=${limit}`, []),
 
   fetchPrices: fetchPricesDeduped,
 
