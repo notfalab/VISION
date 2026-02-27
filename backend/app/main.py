@@ -40,15 +40,17 @@ async def lifespan(app: FastAPI):
     from backend.app.data.goldapi_adapter import GoldAPIAdapter
     from backend.app.data.alpha_vantage import AlphaVantageAdapter
     from backend.app.data.oanda_adapter import OandaAdapter
+    from backend.app.data.massive_adapter import MassiveAdapter
 
     data_registry.register(BinanceAdapter())
     data_registry.register(GoldAPIAdapter())
     data_registry.register(AlphaVantageAdapter())
     data_registry.register(OandaAdapter())
+    data_registry.register(MassiveAdapter())
 
-    # Route gold/silver to OANDA (institutional prices + full historical data)
-    data_registry.set_route("XAUUSD", "oanda")
-    data_registry.set_route("XAGUSD", "oanda")
+    # Route gold/silver to Massive.com (full historical + intraday data)
+    data_registry.set_route("XAUUSD", "massive")
+    data_registry.set_route("XAGUSD", "massive")
 
     # Route forex pairs to Alpha Vantage (fallback handles rate limits)
     for pair in ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD",
@@ -125,7 +127,7 @@ def create_app() -> FastAPI:
                 await adapter.connect()
                 try:
                     # Try fetching 1 candle
-                    test_symbol = {"goldapi": "XAUUSD", "binance": "BTCUSD", "alpha_vantage": "EURUSD", "oanda": "XAUUSD"}
+                    test_symbol = {"goldapi": "XAUUSD", "binance": "BTCUSD", "alpha_vantage": "EURUSD", "oanda": "XAUUSD", "massive": "XAUUSD"}
                     sym = test_symbol.get(name, "XAUUSD")
                     df = await adapter.fetch_ohlcv(sym, "1d", 1)
                     results["adapters"][name] = {
