@@ -3,7 +3,8 @@ import type { NextConfig } from "next";
 const isProd = process.env.NODE_ENV === "production";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  // output: "standalone" is only needed for Docker; Vercel handles its own build
+  ...(process.env.VERCEL ? {} : { output: "standalone" as const }),
   async rewrites() {
     // In development, proxy API calls to the backend
     // In production, nginx handles the proxying
