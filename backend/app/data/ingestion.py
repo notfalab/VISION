@@ -1,7 +1,9 @@
 """Data ingestion service — fetches OHLCV from adapters and stores in DB."""
 
 from datetime import datetime, timezone
+from io import StringIO
 
+import httpx
 import pandas as pd
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -15,6 +17,111 @@ from backend.app.models.asset import Asset
 from backend.app.models.ohlcv import OHLCVData, Timeframe
 
 logger = get_logger("ingestion")
+
+# ── Free data sources (no API key needed) ──
+
+STOOQ_SYMBOLS = {
+    "XAUUSD": "xauusd", "XAGUSD": "xagusd",
+    "EURUSD": "eurusd", "GBPUSD": "gbpusd", "USDJPY": "usdjpy",
+    "USDCHF": "usdchf", "AUDUSD": "audusd", "USDCAD": "usdcad",
+    "NZDUSD": "nzdusd", "EURGBP": "eurgbp", "EURJPY": "eurjpy",
+}
+
+YAHOO_SYMBOLS = {
+    "XAUUSD": "GC=F", "XAGUSD": "SI=F",
+    "EURUSD": "EURUSD=X", "GBPUSD": "GBPUSD=X", "USDJPY": "JPY=X",
+    "BTCUSD": "BTC-USD", "ETHUSD": "ETH-USD",
+}
+
+
+async def _fetch_stooq(symbol: str, limit: int) -> pd.DataFrame:
+    """Fetch daily OHLCV from Stooq.com (free, no API key)."""
+    ticker = STOOQ_SYMBOLS.get(symbol.upper())
+    if not ticker:
+        return pd.DataFrame()
+
+    url = f"https://stooq.com/q/d/l/?s={ticker}&i=d"
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(url)
+            if resp.status_code != 200:
+                logger.warning("stooq_http_error", status=resp.status_code, symbol=symbol)
+                return pd.DataFrame()
+
+            df = pd.read_csv(StringIO(resp.text))
+            if df.empty or "Date" not in df.columns:
+                logger.warning("stooq_empty_response", symbol=symbol)
+                return pd.DataFrame()
+
+            df = df.rename(columns={
+                "Date": "timestamp", "Open": "open", "High": "high",
+                "Low": "low", "Close": "close", "Volume": "volume",
+            })
+            df["timestamp"] = pd.to_datetime(df["timestamp"]).dt.tz_localize("UTC")
+            if "volume" not in df.columns:
+                df["volume"] = 0.0
+            df = df.sort_values("timestamp").tail(limit).reset_index(drop=True)
+            logger.info("stooq_fetched", symbol=symbol, rows=len(df))
+            return df
+    except Exception as e:
+        logger.warning("stooq_fetch_failed", symbol=symbol, error=str(e))
+        return pd.DataFrame()
+
+
+async def _fetch_yahoo(symbol: str, limit: int) -> pd.DataFrame:
+    """Fetch daily OHLCV from Yahoo Finance chart API (free, no API key)."""
+    ticker = YAHOO_SYMBOLS.get(symbol.upper())
+    if not ticker:
+        return pd.DataFrame()
+
+    import urllib.parse
+    encoded = urllib.parse.quote(ticker)
+    url = f"https://query2.finance.yahoo.com/v8/finance/chart/{encoded}?interval=1d&range=2y&includePrePost=false"
+
+    try:
+        headers = {"User-Agent": "Mozilla/5.0 (compatible; VISION/1.0)"}
+        async with httpx.AsyncClient(timeout=30.0, headers=headers) as client:
+            resp = await client.get(url)
+            if resp.status_code != 200:
+                logger.warning("yahoo_http_error", status=resp.status_code, symbol=symbol)
+                return pd.DataFrame()
+
+            data = resp.json()
+            result = data.get("chart", {}).get("result", [])
+            if not result:
+                return pd.DataFrame()
+
+            r = result[0]
+            timestamps = r.get("timestamp", [])
+            quote = r.get("indicators", {}).get("quote", [{}])[0]
+
+            if not timestamps or not quote:
+                return pd.DataFrame()
+
+            rows = []
+            for i, ts in enumerate(timestamps):
+                o = quote.get("open", [None] * len(timestamps))[i]
+                h = quote.get("high", [None] * len(timestamps))[i]
+                lo = quote.get("low", [None] * len(timestamps))[i]
+                c = quote.get("close", [None] * len(timestamps))[i]
+                v = quote.get("volume", [0] * len(timestamps))[i]
+                if o is None or c is None:
+                    continue
+                rows.append({
+                    "timestamp": pd.Timestamp(ts, unit="s", tz="UTC"),
+                    "open": float(o), "high": float(h), "low": float(lo),
+                    "close": float(c), "volume": float(v or 0),
+                })
+
+            if not rows:
+                return pd.DataFrame()
+
+            df = pd.DataFrame(rows).sort_values("timestamp").tail(limit).reset_index(drop=True)
+            logger.info("yahoo_fetched", symbol=symbol, rows=len(df))
+            return df
+    except Exception as e:
+        logger.warning("yahoo_fetch_failed", symbol=symbol, error=str(e))
+        return pd.DataFrame()
 
 
 async def _try_adapter(adapter_name: str, symbol: str, timeframe: str, limit: int, since: datetime | None) -> pd.DataFrame:
@@ -94,6 +201,20 @@ async def _fetch_with_fallback(symbol: str, timeframe: str, limit: int, since: d
 
         if len(best_df) >= min_rows:
             return best_df
+
+    # Last resort: free data sources (no API key needed, daily only)
+    if timeframe in ("1d", "1w") or len(best_df) < min_rows:
+        for free_fetch, name in [(_fetch_stooq, "stooq"), (_fetch_yahoo, "yahoo")]:
+            try:
+                free_df = await free_fetch(symbol, limit)
+                if not free_df.empty:
+                    best_df = _merge_dataframes([best_df, free_df], limit)
+                    logger.info("free_source_success", symbol=symbol, source=name,
+                                total_rows=len(best_df))
+                    if len(best_df) >= min_rows:
+                        return best_df
+            except Exception as e:
+                logger.warning("free_source_failed", source=name, symbol=symbol, error=str(e))
 
     return best_df
 
