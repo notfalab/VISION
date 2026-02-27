@@ -46,7 +46,7 @@ export default function Header() {
         </span>
       </div>
 
-      <div className="h-4 w-px bg-[var(--color-border-primary)] mx-3 shrink-0" />
+      <div className="hidden md:block h-4 w-px bg-[var(--color-border-primary)] mx-3 shrink-0" />
 
       {/* Gold ticker */}
       <div className="flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-mono bg-[var(--color-neon-blue)]/10 border border-[var(--color-neon-blue)]/30">
@@ -54,7 +54,7 @@ export default function Header() {
         <span className="text-[var(--color-text-secondary)] tabular-nums">
           {live ? formatPrice(live.price, "XAUUSD") : "—"}
         </span>
-        <span className={`text-[10px] tabular-nums ${priceColor(live?.change ?? 0)}`}>
+        <span className={`hidden sm:inline text-[10px] tabular-nums ${priceColor(live?.change ?? 0)}`}>
           {live ? formatChange(live.change) : ""}
         </span>
         {live && (
@@ -68,7 +68,7 @@ export default function Header() {
           <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-neon-green)] pulse-live" />
           <span className="text-[10px] text-[var(--color-text-muted)]">LIVE</span>
         </div>
-        <span className="text-[10px] text-[var(--color-text-muted)] font-mono tabular-nums">
+        <span className="hidden md:inline text-[10px] text-[var(--color-text-muted)] font-mono tabular-nums">
           {clock.toLocaleTimeString("en-US", { hour12: false })}
         </span>
       </div>

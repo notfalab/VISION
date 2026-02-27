@@ -99,7 +99,7 @@ export default function MTFConfluence() {
             {/* Matrix: rows=indicators, cols=timeframes */}
             <div className="rounded-md bg-[var(--color-bg-secondary)] border border-[var(--color-border-primary)] overflow-hidden">
               {/* Header row */}
-              <div className="grid grid-cols-[1fr_40px_40px_40px] gap-0 px-2 py-1 border-b border-[var(--color-border-primary)]">
+              <div className="grid grid-cols-[1fr_36px_36px_36px] md:grid-cols-[1fr_40px_40px_40px] gap-0 px-2 py-1 border-b border-[var(--color-border-primary)]">
                 <span className="text-[8px] text-[var(--color-text-muted)] uppercase">Indicator</span>
                 {["1h", "4h", "1d"].map(tf => (
                   <span key={tf} className="text-[8px] text-[var(--color-text-muted)] uppercase text-center">
@@ -110,7 +110,7 @@ export default function MTFConfluence() {
 
               {/* Data rows */}
               {Object.keys(IND_LABELS).map(ind => (
-                <div key={ind} className="grid grid-cols-[1fr_40px_40px_40px] gap-0 px-2 py-1 border-b border-[var(--color-border-primary)] last:border-b-0">
+                <div key={ind} className="grid grid-cols-[1fr_36px_36px_36px] md:grid-cols-[1fr_40px_40px_40px] gap-0 px-2 py-1 border-b border-[var(--color-border-primary)] last:border-b-0">
                   <span className="text-[8px] font-mono text-[var(--color-text-secondary)]">{IND_LABELS[ind]}</span>
                   {["1h", "4h", "1d"].map(tf => {
                     const tfData = data.timeframes[tf];

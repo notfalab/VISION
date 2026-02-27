@@ -251,7 +251,7 @@ export default function OrderFlow() {
               <ShieldAlert className="w-2.5 h-2.5" />
               Walls Detected
             </div>
-            <div className="grid grid-cols-2 gap-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
               {data.buy_walls.slice(0, 3).map((w, i) => (
                 <div
                   key={`b${i}`}

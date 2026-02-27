@@ -268,7 +268,7 @@ export default function ScalperMode() {
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`flex-1 flex items-center justify-center gap-1 py-1.5 text-[8px] font-semibold uppercase tracking-wider transition-colors ${
+            className={`flex-1 flex items-center justify-center gap-1 py-1.5 min-h-[36px] lg:min-h-0 text-[8px] font-semibold uppercase tracking-wider transition-colors ${
               tab === t.key
                 ? "text-[var(--color-neon-cyan)] border-b border-[var(--color-neon-cyan)]"
                 : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"

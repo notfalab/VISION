@@ -145,7 +145,7 @@ export default function SmartMoney() {
             </div>
 
             {/* Order Blocks & FVG counts */}
-            <div className="grid grid-cols-2 gap-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
               <div className="rounded-md bg-[var(--color-bg-secondary)] px-2 py-1.5 border border-[var(--color-border-primary)]">
                 <div className="text-[8px] text-[var(--color-text-muted)] uppercase mb-0.5">Order Blocks</div>
                 <div className="flex gap-2 text-[9px] font-mono">
@@ -265,7 +265,7 @@ export default function SmartMoney() {
               {heat.description}
             </p>
             {/* Component breakdown */}
-            <div className="grid grid-cols-3 gap-1">
+            <div className="grid grid-cols-3 gap-1 min-w-0">
               {heat.components && Object.entries(heat.components).map(([key, comp]) => (
                 <div key={key} className="text-center">
                   <div className="text-[6px] text-[var(--color-text-muted)] uppercase">{key === "volume_profile" ? "Vol" : key.toUpperCase()}</div>
