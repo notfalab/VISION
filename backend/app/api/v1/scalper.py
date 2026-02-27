@@ -345,7 +345,7 @@ async def telegram_setup():
 
     # Try sending a test message
     test_sent = await send_message(
-        "✅ <b>VISION Bot conectado!</b>\n\nRecibirás señales de scalping aquí.",
+        "✅ <b>VISION Bot connected!</b>\n\nYou will receive scalping signals here.",
     )
 
     return {

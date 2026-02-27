@@ -128,25 +128,25 @@ def format_signal_message(signal: dict) -> str:
     # Loss filter note
     filter_text = ""
     if reasons.get("loss_filter_applied"):
-        filter_text = "\n⚠️ <i>Loss filter applied — confidence adjusted</i>"
+        filter_text = "\n⚠️ <i>Loss filter active — confidence adjusted</i>"
 
     msg = f"""
-{emoji} <b>SEÑAL: {dir_text}</b>
+{emoji} <b>SIGNAL: {dir_text}</b>
 ━━━━━━━━━━━━━━━━━━━━
 
 📊 <b>{symbol}</b> | {timeframe}
-🏷️ Régimen: <code>{regime.replace('_', ' ').title()}</code>
+🏷️ Regime: <code>{regime.replace('_', ' ').title()}</code>
 
 💰 <b>Entry:</b>  <code>{entry:,.2f}</code>
 🛑 <b>SL:</b>     <code>{sl:,.2f}</code>
 🎯 <b>TP:</b>     <code>{tp:,.2f}</code>
 ⚖️ <b>R:R:</b>    <code>{rr:.2f}</code>
 
-📈 <b>Probabilidad:</b> {conf_pct}%
+📈 <b>Confidence:</b> {conf_pct}%
 {conf_bar}
 
-🧠 Score: {score}/100 | {confluence} confluencias
-{'✅ ML confirma' if ml_agrees else '⚠️ ML no confirma'}{mtf_text}{filter_text}
+🧠 Score: {score}/100 | {confluence} confluences
+{'✅ ML agrees' if ml_agrees else '⚠️ ML disagrees'}{mtf_text}{filter_text}
 
 ⏰ {datetime.now(timezone.utc).strftime('%H:%M UTC')}
 """
@@ -166,20 +166,20 @@ def format_outcome_message(signal: dict) -> str:
 
     if status == "win":
         emoji = "✅"
-        header = "GANADORA"
+        header = "WINNER"
     elif status == "loss":
         emoji = "❌"
-        header = "PERDEDORA"
+        header = "LOSER"
         loss_cat = signal.get("loss_category", "")
         loss_detail = (signal.get("loss_analysis") or {}).get("detail", "")
     else:
         emoji = "⏰"
-        header = "EXPIRADA"
+        header = "EXPIRED"
 
     pnl_sign = "+" if pnl >= 0 else ""
 
     msg = f"""
-{emoji} <b>RESULTADO: {header}</b>
+{emoji} <b>OUTCOME: {header}</b>
 ━━━━━━━━━━━━━━━━━━━━
 
 📊 {symbol} | {timeframe} | {'BUY' if direction == 'long' else 'SELL'}
@@ -198,7 +198,7 @@ def format_outcome_message(signal: dict) -> str:
             "news_event": "📰",
         }
         cat_emoji = cat_emojis.get(loss_cat, "❓")
-        msg += f"\n{cat_emoji} <b>Razón:</b> {loss_cat.replace('_', ' ').title()}"
+        msg += f"\n{cat_emoji} <b>Reason:</b> {loss_cat.replace('_', ' ').title()}"
         if loss_detail:
             msg += f"\n<i>{loss_detail[:150]}</i>"
 
@@ -219,15 +219,15 @@ def format_daily_summary(analytics: dict) -> str:
     pf_text = "∞" if profit_factor == float("inf") else f"{profit_factor:.2f}"
 
     msg = f"""
-📊 <b>RESUMEN DIARIO — VISION</b>
+📊 <b>DAILY SUMMARY — VISION</b>
 ━━━━━━━━━━━━━━━━━━━━
 
 🎯 Win Rate: <b>{win_rate}%</b> ({wins}W / {losses}L)
-💰 P&L Total: <code>{'+'if total_pnl >= 0 else ''}{total_pnl:,.2f}</code>
+💰 Total P&L: <code>{'+'if total_pnl >= 0 else ''}{total_pnl:,.2f}</code>
 📈 Profit Factor: <code>{pf_text}</code>
-🏆 Mejor: <code>+{best:,.2f}</code>
-💀 Peor: <code>{worst:,.2f}</code>
-📋 Señales: {total}
+🏆 Best: <code>+{best:,.2f}</code>
+💀 Worst: <code>{worst:,.2f}</code>
+📋 Signals: {total}
 
 ⏰ {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}
 """
