@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,7 +20,8 @@ class Settings(BaseSettings):
     secret_key: str = "change-me-to-a-random-string-in-production"
     log_level: str = "INFO"
 
-    # Database
+    # Database — Railway injects DATABASE_URL; fallback to individual vars
+    database_url_env: str = Field(default="", validation_alias="DATABASE_URL")
     postgres_host: str = "localhost"
     postgres_port: int = 5432
     postgres_user: str = "vision"
@@ -28,6 +30,12 @@ class Settings(BaseSettings):
 
     @property
     def database_url(self) -> str:
+        if self.database_url_env:
+            url = self.database_url_env
+            # Railway provides postgresql:// but SQLAlchemy async needs asyncpg
+            if url.startswith("postgresql://"):
+                url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            return url
         return (
             f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
@@ -36,26 +44,33 @@ class Settings(BaseSettings):
     @property
     def database_url_sync(self) -> str:
         """Sync URL for Alembic migrations."""
+        if self.database_url_env:
+            url = self.database_url_env
+            # Ensure plain postgresql:// for sync driver
+            if "+asyncpg" in url:
+                url = url.replace("postgresql+asyncpg://", "postgresql://", 1)
+            return url
         return (
             f"postgresql://{self.postgres_user}:{self.postgres_password}"
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
 
-    # Redis
+    # Redis — Railway injects REDIS_URL; fallback to individual vars
+    redis_url_env: str = Field(default="", validation_alias="REDIS_URL")
     redis_host: str = "localhost"
     redis_port: int = 6379
 
     @property
     def redis_url(self) -> str:
-        return f"redis://{self.redis_host}:{self.redis_port}/0"
+        return self.redis_url_env or f"redis://{self.redis_host}:{self.redis_port}/0"
 
     @property
     def celery_broker_url(self) -> str:
-        return f"redis://{self.redis_host}:{self.redis_port}/1"
+        return self.redis_url_env or f"redis://{self.redis_host}:{self.redis_port}/1"
 
     @property
     def celery_result_backend(self) -> str:
-        return f"redis://{self.redis_host}:{self.redis_port}/2"
+        return self.redis_url_env or f"redis://{self.redis_host}:{self.redis_port}/2"
 
     # JWT
     jwt_secret_key: str = "change-me-jwt-secret"
