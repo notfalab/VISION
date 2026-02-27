@@ -132,7 +132,6 @@ def format_signal_message(signal: dict) -> str:
 
     msg = f"""
 {emoji} <b>SIGNAL: {dir_text}</b>
-━━━━━━━━━━━━━━━━━━━━
 
 📊 <b>{symbol}</b> | {timeframe}
 🏷️ Regime: <code>{regime.replace('_', ' ').title()}</code>
@@ -180,7 +179,6 @@ def format_outcome_message(signal: dict) -> str:
 
     msg = f"""
 {emoji} <b>OUTCOME: {header}</b>
-━━━━━━━━━━━━━━━━━━━━
 
 📊 {symbol} | {timeframe} | {'BUY' if direction == 'long' else 'SELL'}
 💰 Entry: <code>{entry:,.2f}</code> → Exit: <code>{exit_price:,.2f}</code>
@@ -220,7 +218,6 @@ def format_daily_summary(analytics: dict) -> str:
 
     msg = f"""
 📊 <b>DAILY SUMMARY — VISION</b>
-━━━━━━━━━━━━━━━━━━━━
 
 🎯 Win Rate: <b>{win_rate}%</b> ({wins}W / {losses}L)
 💰 Total P&L: <code>{'+'if total_pnl >= 0 else ''}{total_pnl:,.2f}</code>
