@@ -349,9 +349,9 @@ export default function PriceChart() {
   }, [data.length, activeSymbol, activeTimeframe]);
 
   // Fetch accumulation zones from order book (crypto symbols only)
-  const isCrypto = activeSymbol.endsWith("USDT") || activeSymbol.endsWith("USDC") || activeSymbol.endsWith("BTC");
   useEffect(() => {
-    if (!isCrypto) {
+    const crypto = activeSymbol.endsWith("USDT") || activeSymbol.endsWith("USDC") || activeSymbol.endsWith("BTC");
+    if (!crypto) {
       setZones([]);
       return;
     }
@@ -380,7 +380,7 @@ export default function PriceChart() {
     fetchZones();
     const interval = setInterval(fetchZones, 60000);
     return () => clearInterval(interval);
-  }, [activeSymbol, isCrypto]);
+  }, [activeSymbol]);
 
   // Clean up old zone shifts (fade after 30s)
   useEffect(() => {
