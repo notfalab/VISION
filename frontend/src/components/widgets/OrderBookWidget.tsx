@@ -55,7 +55,7 @@ export default function OrderBookWidget() {
       }
     };
     load();
-    const interval = setInterval(load, 5000);
+    const interval = setInterval(load, 15000);
     return () => clearInterval(interval);
   }, [activeSymbol]);
 

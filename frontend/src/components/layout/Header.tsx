@@ -9,7 +9,7 @@ import { formatPrice, formatChange, priceColor } from "@/lib/format";
 export default function Header() {
   const { activeSymbol, watchlist, livePrices, updateLivePrice } =
     useMarketStore();
-  const [clock, setClock] = useState(new Date());
+  const [clock, setClock] = useState<Date | null>(null);
   const wsConnected = useRef(false);
 
   // Connect Binance WebSocket for real-time gold prices
@@ -28,8 +28,9 @@ export default function Header() {
     };
   }, [watchlist, updateLivePrice]);
 
-  // Clock
+  // Clock — initialize on client only to avoid hydration mismatch
   useEffect(() => {
+    setClock(new Date());
     const t = setInterval(() => setClock(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
@@ -89,7 +90,7 @@ export default function Header() {
           <span className="text-[10px] text-[var(--color-text-muted)]">LIVE</span>
         </div>
         <span className="hidden md:inline text-[10px] text-[var(--color-text-muted)] font-mono tabular-nums">
-          {clock.toLocaleTimeString("en-US", { hour12: false })}
+          {clock ? clock.toLocaleTimeString("en-US", { hour12: false }) : "--:--:--"}
         </span>
       </div>
     </header>

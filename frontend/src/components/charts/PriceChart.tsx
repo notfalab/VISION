@@ -373,7 +373,7 @@ export default function PriceChart() {
     };
 
     fetchZones();
-    const interval = setInterval(fetchZones, 5000);
+    const interval = setInterval(fetchZones, 60000);
     return () => clearInterval(interval);
   }, [activeSymbol]);
 
