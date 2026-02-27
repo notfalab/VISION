@@ -8,6 +8,7 @@ from backend.app.models.alert import Alert, AlertHistory
 from backend.app.models.user import User
 from backend.app.models.trade import Trade
 from backend.app.models.onchain_event import OnchainEvent
+from backend.app.models.signal import ScalperSignal
 
 __all__ = [
     "Asset",
@@ -19,4 +20,5 @@ __all__ = [
     "User",
     "Trade",
     "OnchainEvent",
+    "ScalperSignal",
 ]
