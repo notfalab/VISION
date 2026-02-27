@@ -18,35 +18,48 @@ logger = get_logger("ingestion")
 
 
 async def _fetch_with_fallback(symbol: str, timeframe: str, limit: int, since: datetime | None) -> pd.DataFrame:
-    """Try the primary adapter, fall back to Alpha Vantage on failure."""
+    """Try the primary adapter, fall back to Alpha Vantage if insufficient data."""
+    primary_df = pd.DataFrame()
+
     # Primary adapter
     try:
         adapter = data_registry.route_symbol(symbol)
         await adapter.connect()
         try:
-            df = await adapter.fetch_ohlcv(symbol, timeframe, limit, since)
-            if not df.empty:
-                return df
+            primary_df = await adapter.fetch_ohlcv(symbol, timeframe, limit, since)
         finally:
             await adapter.disconnect()
     except Exception as e:
         logger.warning("primary_adapter_failed", symbol=symbol, error=str(e))
 
+    # If primary returned enough data, use it
+    if not primary_df.empty and len(primary_df) >= min(limit, 50):
+        return primary_df
+
     # Fallback: Alpha Vantage (supports forex + gold + crypto)
+    # Try AV when primary returned nothing or too few rows
     try:
         av = data_registry.get_adapter("alpha_vantage")
         await av.connect()
         try:
-            df = await av.fetch_ohlcv(symbol, timeframe, limit, since)
-            if not df.empty:
-                logger.info("fallback_success", symbol=symbol, adapter="alpha_vantage")
-                return df
+            av_df = await av.fetch_ohlcv(symbol, timeframe, limit, since)
+            if not av_df.empty:
+                logger.info("fallback_success", symbol=symbol, adapter="alpha_vantage",
+                            primary_rows=len(primary_df), av_rows=len(av_df))
+                # Merge: AV historical + primary's latest candle (more current)
+                if not primary_df.empty:
+                    combined = pd.concat([av_df, primary_df]).drop_duplicates(
+                        subset="timestamp", keep="last"
+                    ).sort_values("timestamp").tail(limit).reset_index(drop=True)
+                    return combined
+                return av_df
         finally:
             await av.disconnect()
     except Exception as e:
         logger.warning("fallback_adapter_failed", symbol=symbol, error=str(e))
 
-    return pd.DataFrame()
+    # Return whatever primary had (even if just 1 row)
+    return primary_df
 
 
 async def ingest_ohlcv(
