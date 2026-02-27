@@ -101,6 +101,44 @@ def create_app() -> FastAPI:
             "env": settings.app_env,
         }
 
+    @app.get("/diag", tags=["system"])
+    async def diagnostics():
+        """Diagnostic endpoint to check data adapters and connectivity."""
+        from backend.app.data.registry import data_registry
+        from backend.app.config import get_settings
+        s = get_settings()
+
+        results = {"adapters": {}, "config": {}}
+        results["config"]["oanda_key_set"] = bool(s.oanda_api_key)
+        results["config"]["oanda_key_prefix"] = s.oanda_api_key[:8] + "..." if s.oanda_api_key else ""
+        results["config"]["alpha_vantage_key_set"] = bool(s.alpha_vantage_api_key)
+        results["config"]["binance_key_set"] = bool(s.binance_api_key)
+        results["config"]["db_host"] = s.postgres_host
+        results["config"]["redis_host"] = s.redis_host
+
+        # Test each adapter
+        for adapter_info in data_registry.list_adapters():
+            name = adapter_info["name"]
+            try:
+                adapter = data_registry.get_adapter(name)
+                await adapter.connect()
+                try:
+                    # Try fetching 1 candle
+                    test_symbol = {"oanda": "XAUUSD", "binance": "BTCUSD", "alpha_vantage": "XAUUSD"}
+                    sym = test_symbol.get(name, "XAUUSD")
+                    df = await adapter.fetch_ohlcv(sym, "1d", 1)
+                    results["adapters"][name] = {
+                        "status": "ok" if not df.empty else "empty",
+                        "rows": len(df),
+                        "symbol_tested": sym,
+                    }
+                finally:
+                    await adapter.disconnect()
+            except Exception as e:
+                results["adapters"][name] = {"status": "error", "error": str(e)}
+
+        return results
+
     return app
 
 
