@@ -22,7 +22,7 @@ export default function OrderBookWidget() {
       setLoading(true);
       try {
         const res = await fetch(
-          `http://localhost:8000/api/v1/prices/${activeSymbol}/orderbook?depth=15`
+          `/api/v1/prices/${activeSymbol}/orderbook?depth=15`
         );
         if (!res.ok) throw new Error("Failed");
         const data = await res.json();

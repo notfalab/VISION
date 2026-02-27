@@ -20,7 +20,7 @@ export default function WhaleTracker() {
     const load = async () => {
       try {
         const res = await fetch(
-          "http://localhost:8000/api/v1/institutional/whale-transfers?min_value_eth=100"
+          "/api/v1/institutional/whale-transfers?min_value_eth=100"
         );
         if (!res.ok) throw new Error("Failed");
         const data = await res.json();
