@@ -190,13 +190,13 @@ export default function SmartMoney() {
                 {levels.nearest_resistance && (
                   <div>
                     <span className="text-[var(--color-bear)]">R: {formatPrice(levels.nearest_resistance.price, activeSymbol)}</span>
-                    <span className="text-[var(--color-text-muted)] ml-1">({(levels.resistance_distance_pct * 100).toFixed(2)}%)</span>
+                    <span className="text-[var(--color-text-muted)] ml-1">({((levels.resistance_distance_pct ?? 0) * 100).toFixed(2)}%)</span>
                   </div>
                 )}
                 {levels.nearest_support && (
                   <div>
                     <span className="text-[var(--color-bull)]">S: {formatPrice(levels.nearest_support.price, activeSymbol)}</span>
-                    <span className="text-[var(--color-text-muted)] ml-1">({(levels.support_distance_pct * 100).toFixed(2)}%)</span>
+                    <span className="text-[var(--color-text-muted)] ml-1">({((levels.support_distance_pct ?? 0) * 100).toFixed(2)}%)</span>
                   </div>
                 )}
               </div>
@@ -251,7 +251,7 @@ export default function SmartMoney() {
                         : "var(--color-neon-amber)",
                 }}
               >
-                {heat.score.toFixed(0)}/100
+                {(heat.score ?? 0).toFixed(0)}/100
               </span>
             </div>
             {/* Heat gradient bar */}
@@ -280,7 +280,7 @@ export default function SmartMoney() {
                             : "var(--color-text-muted)",
                     }}
                   >
-                    {comp.score.toFixed(0)}
+                    {(comp.score ?? 0).toFixed(0)}
                   </div>
                 </div>
               ))}

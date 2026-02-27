@@ -314,8 +314,8 @@ export default function MLPrediction() {
                   Regime: {regime.regime.replace(/_/g, " ")}
                 </span>
                 <span className="text-[7px] font-mono ml-auto text-[var(--color-text-muted)]">
-                  {(regime.confidence * 100).toFixed(0)}% •
-                  Stability {(regime.stability * 100).toFixed(0)}%
+                  {((regime.confidence ?? 0) * 100).toFixed(0)}% •
+                  Stability {((regime.stability ?? 0) * 100).toFixed(0)}%
                 </span>
               </div>
               <p className="text-[7px] text-[var(--color-text-secondary)]">
@@ -332,7 +332,7 @@ export default function MLPrediction() {
             <span>
               Model age: {prediction.model_age_hours < 1
                 ? "< 1h"
-                : `${prediction.model_age_hours.toFixed(0)}h`}
+                : `${(prediction.model_age_hours ?? 0).toFixed(0)}h`}
             </span>
           </div>
         )}

@@ -167,7 +167,7 @@ export default function OrderFlow() {
               style={{ color: data.delta >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}
             >
               {data.delta >= 0 ? "+" : ""}
-              {data.delta_pct.toFixed(1)}%
+              {(data.delta_pct ?? 0).toFixed(1)}%
             </span>
           </div>
           {/* Bid/Ask bar */}
@@ -303,15 +303,15 @@ export default function OrderFlow() {
         {/* Stats footer */}
         <div className="flex items-center gap-2 text-[7px] font-mono text-[var(--color-text-muted)]">
           <span>
-            Imb: {data.imbalance_ratio.toFixed(2)}
+            Imb: {(data.imbalance_ratio ?? 0).toFixed(2)}
           </span>
           <span>•</span>
           <span>
-            Spread: {data.spread_pct.toFixed(3)}%
+            Spread: {(data.spread_pct ?? 0).toFixed(3)}%
           </span>
           <span>•</span>
           <span>
-            Str: {(data.signal_strength * 100).toFixed(0)}%
+            Str: {((data.signal_strength ?? 0) * 100).toFixed(0)}%
           </span>
         </div>
       </div>

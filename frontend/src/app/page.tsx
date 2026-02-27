@@ -1,6 +1,7 @@
 "use client";
 
 import Header from "@/components/layout/Header";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import PriceChart from "@/components/charts/PriceChart";
 import VolumeProfile from "@/components/charts/VolumeProfile";
 import TradeScore from "@/components/widgets/TradeScore";
@@ -24,16 +25,22 @@ export default function Dashboard() {
           <div className="lg:flex-1 flex flex-col gap-2 min-w-0 lg:min-h-0">
             {/* Chart */}
             <div className="h-[300px] md:h-[400px] lg:flex-1 lg:min-h-0 shrink-0 lg:shrink">
-              <PriceChart />
+              <ErrorBoundary>
+                <PriceChart />
+              </ErrorBoundary>
             </div>
 
             {/* Bottom row: Volume Profile + Indicators (desktop only) */}
             <div className="hidden lg:flex gap-2 shrink-0" style={{ height: "240px" }}>
               <div className="w-40 shrink-0 h-full">
-                <VolumeProfile />
+                <ErrorBoundary>
+                  <VolumeProfile />
+                </ErrorBoundary>
               </div>
               <div className="flex-1 min-w-0 h-full">
-                <IndicatorPanel />
+                <ErrorBoundary>
+                  <IndicatorPanel />
+                </ErrorBoundary>
               </div>
             </div>
           </div>
@@ -41,15 +48,15 @@ export default function Dashboard() {
           {/* Right panel — scrollable on desktop, inline on mobile */}
           <div className="w-full lg:w-[340px] lg:shrink-0 lg:overflow-y-auto lg:min-h-0">
             <div className="space-y-2">
-              <ScalperMode />
-              <TradeScore />
-              <MLPrediction />
-              <OrderFlow />
-              <MTFConfluence />
-              <SmartMoney />
-              <Correlations />
-              <GoldMacro />
-              <COTReport />
+              <ErrorBoundary><ScalperMode /></ErrorBoundary>
+              <ErrorBoundary><TradeScore /></ErrorBoundary>
+              <ErrorBoundary><MLPrediction /></ErrorBoundary>
+              <ErrorBoundary><OrderFlow /></ErrorBoundary>
+              <ErrorBoundary><MTFConfluence /></ErrorBoundary>
+              <ErrorBoundary><SmartMoney /></ErrorBoundary>
+              <ErrorBoundary><Correlations /></ErrorBoundary>
+              <ErrorBoundary><GoldMacro /></ErrorBoundary>
+              <ErrorBoundary><COTReport /></ErrorBoundary>
             </div>
           </div>
         </div>
