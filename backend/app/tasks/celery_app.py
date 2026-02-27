@@ -11,6 +11,10 @@ celery_app = Celery(
     "vision",
     broker=settings.celery_broker_url,
     backend=settings.celery_result_backend,
+    include=[
+        "backend.app.tasks.scalper_scan",
+        "backend.app.tasks.fetch_cot",
+    ],
 )
 
 celery_app.conf.update(
