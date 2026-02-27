@@ -195,7 +195,7 @@ export default function Correlations() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            {data.dxy.sparkline.length > 0 && (
+            {data.dxy.sparkline?.length > 0 && (
               <MiniSparkline
                 data={data.dxy.sparkline}
                 color={
@@ -237,7 +237,7 @@ export default function Correlations() {
             )}
           </div>
           <div className="flex items-center gap-2">
-            {data.treasury_10y.sparkline.length > 0 && (
+            {data.treasury_10y.sparkline?.length > 0 && (
               <MiniSparkline
                 data={data.treasury_10y.sparkline}
                 color={

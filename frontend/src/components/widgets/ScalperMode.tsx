@@ -216,7 +216,7 @@ export default function ScalperMode() {
             { duration: 8000 }
           );
         }
-        toast.info(`${data.timeframes_scanned.join(", ")} scanned — ${newSignals.length} signal(s)`, { duration: 4000 });
+        toast.info(`${(data.timeframes_scanned ?? []).join(", ")} scanned — ${newSignals.length} signal(s)`, { duration: 4000 });
       } else {
         toast.info("No signals across all timeframes", { duration: 3000 });
       }
@@ -621,7 +621,7 @@ function LearningTab({ data }: { data: LossData | null }) {
       </div>
 
       {/* Loss breakdown */}
-      {Object.keys(data.loss_breakdown).length > 0 && (
+      {data.loss_breakdown && Object.keys(data.loss_breakdown).length > 0 && (
         <div>
           <div className="text-[8px] text-[var(--color-text-muted)] uppercase font-semibold mb-1 flex items-center gap-1">
             <BarChart3 className="w-2.5 h-2.5" />
@@ -652,7 +652,7 @@ function LearningTab({ data }: { data: LossData | null }) {
       )}
 
       {/* Active patterns */}
-      {data.patterns.length > 0 && (
+      {data.patterns?.length > 0 && (
         <div>
           <div className="text-[8px] text-[var(--color-text-muted)] uppercase font-semibold mb-1 flex items-center gap-1">
             <AlertTriangle className="w-2.5 h-2.5 text-[var(--color-neon-amber)]" />

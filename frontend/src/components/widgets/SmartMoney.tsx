@@ -163,7 +163,7 @@ export default function SmartMoney() {
             </div>
 
             {/* Active zones */}
-            {smc.active_zones.length > 0 && (
+            {smc.active_zones?.length > 0 && (
               <div className="rounded-md bg-[var(--color-bg-secondary)] px-2.5 py-1.5 border border-[var(--color-border-primary)]">
                 <div className="text-[8px] text-[var(--color-text-muted)] uppercase mb-0.5">Active Zones Near Price</div>
                 {smc.active_zones.map((zone, i) => (

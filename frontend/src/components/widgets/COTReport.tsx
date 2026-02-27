@@ -179,7 +179,7 @@ export default function COTReport() {
             />
 
             {/* Signals */}
-            {data.signals.length > 0 && (
+            {data.signals?.length > 0 && (
               <div className="border-t border-[var(--color-border-primary)] pt-1.5">
                 {data.signals.map((sig, i) => (
                   <p key={i} className="text-[8px] leading-relaxed" style={{ color: signalColor }}>

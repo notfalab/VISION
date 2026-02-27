@@ -198,7 +198,7 @@ export default function OrderFlow() {
         </div>
 
         {/* Depth imbalance mini bars (top 5 levels) */}
-        {data.depth_imbalances.length > 0 && (
+        {data.depth_imbalances?.length > 0 && (
           <div className="rounded-md bg-[var(--color-bg-secondary)] px-2.5 py-1.5 border border-[var(--color-border-primary)]">
             <div className="text-[8px] text-[var(--color-text-muted)] uppercase mb-1">
               Depth Imbalance (Top 5)
@@ -245,7 +245,7 @@ export default function OrderFlow() {
         )}
 
         {/* Walls */}
-        {(data.buy_walls.length > 0 || data.sell_walls.length > 0) && (
+        {(data.buy_walls?.length > 0 || data.sell_walls?.length > 0) && (
           <div className="rounded-md bg-[var(--color-bg-secondary)] px-2.5 py-1.5 border border-[var(--color-border-primary)]">
             <div className="text-[8px] text-[var(--color-text-muted)] uppercase mb-1 flex items-center gap-1">
               <ShieldAlert className="w-2.5 h-2.5" />
@@ -273,7 +273,7 @@ export default function OrderFlow() {
         )}
 
         {/* Absorption alerts */}
-        {data.absorption.length > 0 && (
+        {data.absorption?.length > 0 && (
           <div className="space-y-0.5">
             {data.absorption.map((abs, i) => (
               <div
