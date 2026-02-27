@@ -59,14 +59,31 @@ async def ingest_ohlcv(
     Fetch OHLCV data for a symbol and store in DB.
     Uses upsert to avoid duplicates.
     Returns number of rows inserted/updated.
+
+    If intraday data is requested but only daily is available
+    (e.g. gold on free tier), also ingests the daily data so
+    other features (charts, ML) can use it.
     """
     df = await _fetch_with_fallback(symbol, timeframe, limit, since)
 
     if df.empty:
+        # If intraday was requested and failed, try daily as well
+        if timeframe != "1d":
+            logger.info("intraday_empty_trying_daily", symbol=symbol, timeframe=timeframe)
+            df = await _fetch_with_fallback(symbol, "1d", limit, since)
+            if not df.empty:
+                # Store as daily since that's what the data actually is
+                count = await _store_ohlcv(df, symbol, "1d")
+                logger.info("stored_daily_instead", symbol=symbol, requested=timeframe, rows=count)
+                return count
         logger.warning("no_data_fetched", symbol=symbol, timeframe=timeframe)
         return 0
 
-    # Resolve asset_id
+    return await _store_ohlcv(df, symbol, timeframe)
+
+
+async def _store_ohlcv(df: pd.DataFrame, symbol: str, timeframe: str) -> int:
+    """Store OHLCV DataFrame to DB with upsert."""
     async with async_session() as session:
         result = await session.execute(
             select(Asset).where(Asset.symbol == symbol.upper())

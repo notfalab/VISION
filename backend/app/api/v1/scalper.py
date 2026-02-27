@@ -12,8 +12,8 @@ from backend.app.models.ohlcv import OHLCVData, Timeframe
 
 router = APIRouter(prefix="/scalper", tags=["scalper"])
 
-# Valid scalper timeframes
-SCALPER_TIMEFRAMES = {"5m": Timeframe.M5, "15m": Timeframe.M15, "30m": Timeframe.M30}
+# Valid scalper timeframes (1d included for assets without intraday data, e.g. gold on free tier)
+SCALPER_TIMEFRAMES = {"5m": Timeframe.M5, "15m": Timeframe.M15, "30m": Timeframe.M30, "1d": Timeframe.D1}
 
 
 async def _fetch_ohlcv_df(db: AsyncSession, symbol: str, timeframe: str, limit: int = 500):
@@ -98,9 +98,10 @@ async def scan_signals(
     from backend.app.core.scalper.loss_learning import get_active_loss_filters
 
     if timeframe not in SCALPER_TIMEFRAMES:
-        raise HTTPException(status_code=400, detail=f"Invalid scalper timeframe: {timeframe}. Use 5m, 15m, or 30m")
+        raise HTTPException(status_code=400, detail=f"Invalid scalper timeframe: {timeframe}. Use 5m, 15m, 30m, or 1d")
 
     # Fetch OHLCV data
+    actual_timeframe = timeframe
     df = await _fetch_ohlcv_df(db, symbol, timeframe, limit=500)
     if df is None or len(df) < 50:
         # Try to fetch from data source
@@ -109,16 +110,28 @@ async def scan_signals(
             count = await ingest_ohlcv(symbol, timeframe, limit=500)
             if count > 0:
                 df = await _fetch_ohlcv_df(db, symbol, timeframe, limit=500)
-        except Exception as e:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Not enough data for {symbol} {timeframe}. Need 50+ candles. Try POST /prices/{symbol}/fetch?timeframe={timeframe} first. Error: {str(e)}"
-            )
+        except Exception:
+            pass
+
+    # If intraday has no data, fall back to daily
+    if (df is None or len(df) < 50) and timeframe != "1d":
+        df = await _fetch_ohlcv_df(db, symbol, "1d", limit=500)
+        if df is None or len(df) < 50:
+            try:
+                from backend.app.data.ingestion import ingest_ohlcv
+                count = await ingest_ohlcv(symbol, "1d", limit=500)
+                if count > 0:
+                    df = await _fetch_ohlcv_df(db, symbol, "1d", limit=500)
+            except Exception:
+                pass
+        if df is not None and len(df) >= 50:
+            actual_timeframe = "1d"
 
     if df is None or len(df) < 50:
         raise HTTPException(
             status_code=400,
-            detail=f"Not enough data for {symbol} {timeframe}. Need 50+ candles, got {len(df) if df is not None else 0}."
+            detail=f"Not enough data for {symbol} {timeframe}. Need 50+ candles, got {len(df) if df is not None else 0}. "
+                   f"Try: POST /api/v1/prices/{symbol}/fetch?timeframe=1d&limit=500"
         )
 
     # Get active loss patterns
@@ -126,16 +139,17 @@ async def scan_signals(
     loss_patterns = get_active_loss_filters(existing_signals)
 
     # Generate signals
-    signals = generate_signals(df, symbol, timeframe, loss_patterns)
+    signals = generate_signals(df, symbol, actual_timeframe, loss_patterns)
 
     return {
         "symbol": symbol.upper(),
-        "timeframe": timeframe,
+        "timeframe": actual_timeframe,
         "signals": signals,
         "total": len(signals),
         "loss_filters_active": len(loss_patterns),
         "candles_analyzed": len(df),
         "scanned_at": datetime.now(timezone.utc).isoformat(),
+        "note": f"Using {actual_timeframe} data (intraday requires premium API)" if actual_timeframe != timeframe else None,
     }
 
 
@@ -151,12 +165,24 @@ async def scan_and_save(
     from backend.app.core.scalper.signal_engine import scan_multi_timeframe
     from backend.app.core.scalper.loss_learning import get_active_loss_filters
 
-    # Fetch data for all timeframes
+    # Fetch data for all timeframes (include 1d as fallback)
     dataframes = {}
-    for tf in ["5m", "15m", "30m"]:
+    for tf in ["5m", "15m", "30m", "1d"]:
         df = await _fetch_ohlcv_df(db, symbol, tf, limit=500)
         if df is not None and len(df) >= 50:
             dataframes[tf] = df
+
+    if not dataframes:
+        # Try ingesting daily data first
+        try:
+            from backend.app.data.ingestion import ingest_ohlcv
+            count = await ingest_ohlcv(symbol, "1d", limit=500)
+            if count > 0:
+                df = await _fetch_ohlcv_df(db, symbol, "1d", limit=500)
+                if df is not None and len(df) >= 50:
+                    dataframes["1d"] = df
+        except Exception:
+            pass
 
     if not dataframes:
         raise HTTPException(

@@ -23,6 +23,13 @@ METAL_MAP = {
 SUPPORTED_SYMBOLS = set(METAL_MAP.keys())
 
 
+def _safe_float(val, fallback: float = 0.0) -> float:
+    """Convert to float safely, returning fallback if None."""
+    if val is None:
+        return fallback
+    return float(val)
+
+
 class GoldAPIAdapter(DataSourceAdapter):
     """GoldAPI.io adapter for gold and silver spot prices."""
 
@@ -94,8 +101,9 @@ class GoldAPIAdapter(DataSourceAdapter):
         """
         Fetch OHLCV data from GoldAPI.
 
-        For daily timeframe: fetches historical day-by-day prices.
-        For intraday: only returns today's candle (GoldAPI doesn't have intraday history).
+        GoldAPI is used only for current/today's price (1 API call).
+        Historical data should come from Alpha Vantage via the ingestion fallback.
+        This preserves GoldAPI quota (free tier = 100 req/month).
         """
         if not self._client:
             await self.connect()
@@ -106,108 +114,32 @@ class GoldAPIAdapter(DataSourceAdapter):
 
         metal, currency = METAL_MAP[symbol]
 
-        # For intraday timeframes, only return today's price
-        if timeframe != "1d":
-            data = await self._fetch_current(metal, currency)
-            if not data or "price" not in data:
-                return pd.DataFrame()
-
-            now = datetime.now(timezone.utc)
-            return pd.DataFrame([{
-                "timestamp": pd.Timestamp(now.replace(second=0, microsecond=0), tz="UTC"),
-                "open": float(data.get("open_price", data["price"])),
-                "high": float(data.get("high_price", data["price"])),
-                "low": float(data.get("low_price", data["price"])),
-                "close": float(data["price"]),
-                "volume": 0.0,
-            }])
-
-        # Daily: fetch today + historical dates
-        rows = []
-
-        # 1. Fetch today's candle (has full OHLC)
-        current = await self._fetch_current(metal, currency)
-        if current and "price" in current:
-            ts = datetime.fromtimestamp(current.get("open_time", current["timestamp"]), tz=timezone.utc)
-            rows.append({
-                "timestamp": pd.Timestamp(ts.date(), tz="UTC"),
-                "open": float(current.get("open_price", current["price"])),
-                "high": float(current.get("high_price", current["price"])),
-                "low": float(current.get("low_price", current["price"])),
-                "close": float(current["price"]),
-                "volume": 0.0,
-            })
-
-        # 2. Fetch historical dates (going back from yesterday)
-        # GoldAPI free tier = 300 req/month. Be conservative — fetch up to min(limit, 250) days
-        fetch_days = min(limit - 1, 250)
-        today = datetime.now(timezone.utc).date()
-
-        # Fetch in batches with small delays to avoid rate limiting
-        batch_size = 5
-        for batch_start in range(0, fetch_days, batch_size):
-            tasks = []
-            for i in range(batch_start, min(batch_start + batch_size, fetch_days)):
-                date = today - timedelta(days=i + 1)
-                # Skip weekends (gold markets closed Sat/Sun)
-                if date.weekday() >= 5:
-                    continue
-                date_str = date.strftime("%Y%m%d")
-                tasks.append(self._fetch_historical(metal, currency, date_str))
-
-            if not tasks:
-                continue
-
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-
-            for result in results:
-                if isinstance(result, Exception) or result is None:
-                    continue
-                if "price" not in result:
-                    continue
-
-                # Historical endpoint returns: price, prev_close_price, date
-                price = float(result["price"])
-                prev_close = float(result.get("prev_close_price", price))
-
-                # Build a candle: we only have close price, so approximate OHLC
-                # open ≈ prev_close, close = price, high/low estimated from change
-                change = abs(price - prev_close)
-                ts_str = result.get("date", "")
-                if ts_str:
-                    ts = pd.Timestamp(ts_str).tz_localize("UTC") if pd.Timestamp(ts_str).tzinfo is None else pd.Timestamp(ts_str)
-                else:
-                    continue
-
-                rows.append({
-                    "timestamp": pd.Timestamp(ts.date(), tz="UTC"),
-                    "open": prev_close,
-                    "high": max(price, prev_close) + change * 0.3,
-                    "low": min(price, prev_close) - change * 0.3,
-                    "close": price,
-                    "volume": 0.0,
-                })
-
-            # Small delay between batches to be polite
-            if batch_start + batch_size < fetch_days:
-                await asyncio.sleep(0.2)
-
-            # Stop if we have enough data
-            if len(rows) >= limit:
-                break
-
-        if not rows:
-            logger.warning("no_data", symbol=symbol)
+        data = await self._fetch_current(metal, currency)
+        if not data or "price" not in data:
             return pd.DataFrame()
 
-        df = (
-            pd.DataFrame(rows)
-            .drop_duplicates(subset="timestamp")
-            .sort_values("timestamp")
-            .tail(limit)
-            .reset_index(drop=True)
-        )
-        logger.info("fetched", symbol=symbol, rows=len(df))
+        # Build today's candle from current price data
+        price = _safe_float(data.get("price"), 0)
+        if price <= 0:
+            return pd.DataFrame()
+
+        if timeframe == "1d":
+            ts_val = data.get("open_time") or data.get("timestamp") or 0
+            ts = datetime.fromtimestamp(int(ts_val), tz=timezone.utc)
+            timestamp = pd.Timestamp(ts.date(), tz="UTC")
+        else:
+            now = datetime.now(timezone.utc)
+            timestamp = pd.Timestamp(now.replace(second=0, microsecond=0), tz="UTC")
+
+        df = pd.DataFrame([{
+            "timestamp": timestamp,
+            "open": _safe_float(data.get("open_price"), price),
+            "high": _safe_float(data.get("high_price"), price),
+            "low": _safe_float(data.get("low_price"), price),
+            "close": price,
+            "volume": 0.0,
+        }])
+        logger.info("fetched", symbol=symbol, rows=1, timeframe=timeframe)
         return df
 
     async def fetch_ticker(self, symbol: str) -> dict:
@@ -222,19 +154,20 @@ class GoldAPIAdapter(DataSourceAdapter):
         metal, currency = METAL_MAP[symbol]
         data = await self._fetch_current(metal, currency)
 
-        if data and "price" in data:
+        if data and data.get("price") is not None:
+            price = _safe_float(data["price"])
             return {
                 "symbol": symbol,
-                "price": float(data["price"]),
-                "bid": float(data.get("bid", data["price"])),
-                "ask": float(data.get("ask", data["price"])),
-                "spread": round(float(data.get("ask", 0)) - float(data.get("bid", 0)), 2),
-                "open": float(data.get("open_price", data["price"])),
-                "high": float(data.get("high_price", data["price"])),
-                "low": float(data.get("low_price", data["price"])),
-                "change": float(data.get("ch", 0)),
-                "change_pct": float(data.get("chp", 0)),
-                "timestamp": datetime.fromtimestamp(data["timestamp"], tz=timezone.utc).isoformat(),
+                "price": price,
+                "bid": _safe_float(data.get("bid"), price),
+                "ask": _safe_float(data.get("ask"), price),
+                "spread": round(_safe_float(data.get("ask"), price) - _safe_float(data.get("bid"), price), 2),
+                "open": _safe_float(data.get("open_price"), price),
+                "high": _safe_float(data.get("high_price"), price),
+                "low": _safe_float(data.get("low_price"), price),
+                "change": _safe_float(data.get("ch")),
+                "change_pct": _safe_float(data.get("chp")),
+                "timestamp": datetime.fromtimestamp(int(data.get("timestamp", 0)), tz=timezone.utc).isoformat(),
             }
 
         return {"symbol": symbol, "price": 0, "error": "Failed to fetch"}
@@ -254,17 +187,17 @@ class GoldAPIAdapter(DataSourceAdapter):
         while True:
             try:
                 data = await self._fetch_current(metal, currency)
-                if data and "price" in data:
-                    ts = datetime.fromtimestamp(data["timestamp"], tz=timezone.utc)
-                    mid = float(data["price"])
+                if data and data.get("price") is not None:
+                    ts = datetime.fromtimestamp(int(data.get("timestamp", 0)), tz=timezone.utc)
+                    mid = _safe_float(data["price"])
                     candle = Candle(
                         timestamp=ts,
-                        open=float(data.get("open_price", mid)),
-                        high=float(data.get("high_price", mid)),
-                        low=float(data.get("low_price", mid)),
+                        open=_safe_float(data.get("open_price"), mid),
+                        high=_safe_float(data.get("high_price"), mid),
+                        low=_safe_float(data.get("low_price"), mid),
                         close=mid,
                         volume=0,
-                        spread=round(float(data.get("ask", 0)) - float(data.get("bid", 0)), 2),
+                        spread=round(_safe_float(data.get("ask"), mid) - _safe_float(data.get("bid"), mid), 2),
                     )
                     await callback(candle)
             except Exception as e:

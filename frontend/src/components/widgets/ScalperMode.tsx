@@ -88,7 +88,7 @@ interface LossData {
   loss_breakdown: Record<string, { count: number; percentage: number }>;
 }
 
-const TF_OPTIONS = ["5m", "15m", "30m"] as const;
+const TF_OPTIONS = ["5m", "15m", "30m", "1d"] as const;
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
   pending: { bg: "rgba(100, 200, 255, 0.1)", text: "var(--color-neon-blue)", label: "PENDING" },

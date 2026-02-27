@@ -81,17 +81,15 @@ class AlphaVantageAdapter(DataSourceAdapter):
 
         # Determine which AV function to use
         if symbol in ("XAUUSD", "XAGUSD"):
-            # Gold/Silver: use FX_DAILY with physical currency codes
+            # Gold/Silver: FX_INTRADAY is premium-only on free tier,
+            # so ALWAYS use FX_DAILY regardless of requested timeframe.
             from_sym, to_sym = FOREX_SYMBOLS[symbol]
-            if timeframe in AV_INTERVALS:
-                df = await self._fetch_fx_intraday(from_sym, to_sym, AV_INTERVALS[timeframe])
-            else:
-                # Try FX_DAILY first, fall back to CURRENCY_EXCHANGE_RATE
-                try:
-                    df = await self._fetch_fx_daily(from_sym, to_sym)
-                except Exception:
-                    logger.debug("fx_daily_failed_for_metal", symbol=symbol)
-                    df = pd.DataFrame()
+            try:
+                df = await self._fetch_fx_daily(from_sym, to_sym)
+                logger.info("gold_daily_fetched", symbol=symbol, rows=len(df) if not df.empty else 0)
+            except Exception as e:
+                logger.warning("fx_daily_failed_for_metal", symbol=symbol, error=str(e))
+                df = pd.DataFrame()
         elif symbol in FOREX_SYMBOLS:
             from_sym, to_sym = FOREX_SYMBOLS[symbol]
             if timeframe in AV_INTERVALS:
