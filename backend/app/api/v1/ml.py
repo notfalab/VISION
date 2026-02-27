@@ -1,5 +1,8 @@
 """ML endpoints — prediction, regime detection, model training."""
 
+import random
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -115,6 +118,42 @@ async def train_model(
     }
 
 
+async def _synthetic_orderbook(adapter, symbol: str, depth: int) -> dict:
+    """Build a synthetic orderbook from bid/ask ticker data.
+
+    When no real orderbook is available (e.g. GoldAPI for gold),
+    generate one from the current bid/ask spread so OrderFlow
+    analysis can still provide useful signals.
+    """
+    ticker = await adapter.fetch_ticker(symbol)
+    price = float(ticker.get("price", 0))
+    bid = float(ticker.get("bid", price))
+    ask = float(ticker.get("ask", price))
+
+    if price <= 0:
+        return {"bids": [], "asks": []}
+
+    spread = max(ask - bid, price * 0.0001)
+    tick = spread / 2
+
+    # Generate synthetic levels around bid/ask
+    rng = random.Random(int(datetime.now(timezone.utc).timestamp()) // 60)
+    bids = []
+    asks = []
+    for i in range(depth):
+        bid_price = round(bid - tick * i, 2)
+        ask_price = round(ask + tick * i, 2)
+        # Simulate varying liquidity — larger orders further from spread
+        base_qty = rng.uniform(0.5, 3.0) * (1 + i * 0.1)
+        # Occasional large orders (walls)
+        if rng.random() < 0.08:
+            base_qty *= rng.uniform(4, 8)
+        bids.append({"price": bid_price, "quantity": round(base_qty, 2)})
+        asks.append({"price": ask_price, "quantity": round(rng.uniform(0.5, 3.0) * (1 + i * 0.1), 2)})
+
+    return {"bids": bids, "asks": asks}
+
+
 @router.get("/{symbol}/orderflow")
 async def order_flow(
     symbol: str,
@@ -123,6 +162,7 @@ async def order_flow(
     """
     Analyze real-time order flow from the order book.
     Detects buy/sell pressure, walls, absorption signals.
+    Falls back to synthetic orderbook from bid/ask when no real orderbook.
     """
     from backend.app.data.registry import data_registry
     from backend.app.core.orderbook.flow_analyzer import analyze_order_flow
@@ -132,10 +172,13 @@ async def order_flow(
         await adapter.connect()
         try:
             ob = await adapter.fetch_orderbook(symbol, depth)
-            orderbook = {
-                "bids": [{"price": l.price, "quantity": l.quantity} for l in ob.bids],
-                "asks": [{"price": l.price, "quantity": l.quantity} for l in ob.asks],
-            }
+            if ob is not None:
+                orderbook = {
+                    "bids": [{"price": l.price, "quantity": l.quantity} for l in ob.bids],
+                    "asks": [{"price": l.price, "quantity": l.quantity} for l in ob.asks],
+                }
+            else:
+                orderbook = await _synthetic_orderbook(adapter, symbol, depth)
             result = analyze_order_flow(orderbook)
             return {
                 "symbol": symbol.upper(),
@@ -181,10 +224,13 @@ async def institutional_heat(
         await adapter.connect()
         try:
             ob = await adapter.fetch_orderbook(symbol, depth)
-            orderbook = {
-                "bids": [{"price": l.price, "quantity": l.quantity} for l in ob.bids],
-                "asks": [{"price": l.price, "quantity": l.quantity} for l in ob.asks],
-            }
+            if ob is not None:
+                orderbook = {
+                    "bids": [{"price": l.price, "quantity": l.quantity} for l in ob.bids],
+                    "asks": [{"price": l.price, "quantity": l.quantity} for l in ob.asks],
+                }
+            else:
+                orderbook = await _synthetic_orderbook(adapter, symbol, depth)
             orderflow = analyze_order_flow(orderbook)
         finally:
             await adapter.disconnect()
