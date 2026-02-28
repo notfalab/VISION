@@ -47,10 +47,12 @@ def _ensure_adapters():
 
     data_registry.set_route("XAUUSD", "massive")
     data_registry.set_route("XAGUSD", "massive")
+    for pair in ["BTCUSD", "ETHUSD", "SOLUSD"]:
+        data_registry.set_route(pair, "massive")
     for pair in ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD",
                  "EURGBP", "EURJPY", "GBPJPY"]:
         data_registry.set_route(pair, "alpha_vantage")
-    for pair in ["BTCUSD", "ETHUSD", "ETHBTC", "SOLUSD", "XRPUSD"]:
+    for pair in ["ETHBTC", "XRPUSD"]:
         data_registry.set_route(pair, "binance")
 
     logger.info("adapters_registered_in_worker")

@@ -125,17 +125,20 @@ async def lifespan(app: FastAPI):
     data_registry.register(OandaAdapter())
     data_registry.register(MassiveAdapter())
 
-    # Route gold/silver to Massive.com (full historical + intraday data)
+    # Route gold/silver + crypto to Massive.com (full historical + intraday data)
+    # Binance REST API returns HTTP 451 from Railway's US servers, so use Massive for crypto too
     data_registry.set_route("XAUUSD", "massive")
     data_registry.set_route("XAGUSD", "massive")
+    for pair in ["BTCUSD", "ETHUSD", "SOLUSD"]:
+        data_registry.set_route(pair, "massive")
 
     # Route forex pairs to Alpha Vantage (fallback handles rate limits)
     for pair in ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD",
                  "EURGBP", "EURJPY", "GBPJPY"]:
         data_registry.set_route(pair, "alpha_vantage")
 
-    # Route crypto to Binance
-    for pair in ["BTCUSD", "ETHUSD", "ETHBTC", "SOLUSD", "XRPUSD"]:
+    # Binance as fallback for unsupported crypto pairs
+    for pair in ["ETHBTC", "XRPUSD"]:
         data_registry.set_route(pair, "binance")
 
     logger.info("adapters_registered", adapters=data_registry.list_adapters())
