@@ -1,14 +1,24 @@
 """VISION — FastAPI application entry point."""
+import sys
+print("VISION: main.py loading...", flush=True)
 
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from backend.app.api.v1 import router as v1_router
-from backend.app.api.websocket import router as ws_router
+print("VISION: importing routers...", flush=True)
+try:
+    from backend.app.api.v1 import router as v1_router
+    from backend.app.api.websocket import router as ws_router
+    print("VISION: routers imported OK", flush=True)
+except Exception as e:
+    print(f"VISION: ROUTER IMPORT FAILED: {e}", flush=True)
+    sys.exit(1)
+
 from backend.app.config import get_settings
 from backend.app.logging_config import setup_logging, get_logger
+print("VISION: all imports OK", flush=True)
 
 
 @asynccontextmanager
@@ -76,7 +86,9 @@ async def lifespan(app: FastAPI):
 
 
 def create_app() -> FastAPI:
+    print("VISION: create_app() called", flush=True)
     settings = get_settings()
+    print(f"VISION: settings loaded, env={settings.app_env}", flush=True)
 
     app = FastAPI(
         title="VISION Trading Analytics",
@@ -153,4 +165,6 @@ def create_app() -> FastAPI:
     return app
 
 
+print("VISION: calling create_app()...", flush=True)
 app = create_app()
+print("VISION: app created successfully!", flush=True)
