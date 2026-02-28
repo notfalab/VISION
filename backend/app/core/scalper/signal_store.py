@@ -23,10 +23,8 @@ _TTL = 60 * 60 * 24 * 30  # 30 days
 
 def _get_redis():
     settings = get_settings()
-    return redis.Redis(
-        host=settings.redis_host,
-        port=settings.redis_port,
-        db=0,
+    return redis.from_url(
+        settings.redis_url,
         decode_responses=True,
     )
 
