@@ -203,7 +203,9 @@ async def _fetch_with_fallback(symbol: str, timeframe: str, limit: int, since: d
             return best_df
 
     # Last resort: free data sources (no API key needed, daily only)
-    if timeframe in ("1d", "1w") or len(best_df) < min_rows:
+    # ONLY use free sources for daily/weekly — they return daily data which must NOT
+    # be mixed into intraday timeframes (creates corrupted charts)
+    if timeframe in ("1d", "1w"):
         for free_fetch, name in [(_fetch_stooq, "stooq"), (_fetch_yahoo, "yahoo")]:
             try:
                 free_df = await free_fetch(symbol, limit)

@@ -3,7 +3,7 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api.deps import get_db
@@ -55,9 +55,17 @@ async def fetch_prices(
 ):
     """Trigger data fetch from external source and store in DB."""
     from backend.app.data.ingestion import ingest_ohlcv
+
+    # Crypto symbols don't have reliable intraday data from Massive —
+    # redirect intraday requests to daily to avoid storing bad mixed data
+    CRYPTO_SYMBOLS = {"BTCUSD", "ETHUSD", "SOLUSD", "ETHBTC", "XRPUSD"}
+    actual_tf = timeframe
+    if symbol.upper() in CRYPTO_SYMBOLS and timeframe not in ("1d", "1w", "1M"):
+        actual_tf = "1d"
+
     try:
-        count = await ingest_ohlcv(symbol, timeframe, limit)
-        return {"symbol": symbol.upper(), "timeframe": timeframe, "rows_ingested": count}
+        count = await ingest_ohlcv(symbol, actual_tf, limit)
+        return {"symbol": symbol.upper(), "timeframe": actual_tf, "rows_ingested": count}
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Fetch failed: {str(e)}")
 
@@ -145,3 +153,29 @@ async def get_orderbook(
         raise
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Order book fetch failed: {str(e)}")
+
+
+@router.delete("/{symbol}/cleanup")
+async def cleanup_stale_data(
+    symbol: str,
+    timeframe: str = Query(..., description="Timeframe to clean: 5m,15m,30m,1h,4h"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete stale/corrupt OHLCV data for a specific symbol and timeframe."""
+    result = await db.execute(select(Asset).where(Asset.symbol == symbol.upper()))
+    asset = result.scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail=f"Asset {symbol} not found")
+
+    try:
+        tf = Timeframe(timeframe)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid timeframe: {timeframe}")
+
+    stmt = delete(OHLCVData).where(
+        OHLCVData.asset_id == asset.id,
+        OHLCVData.timeframe == tf,
+    )
+    result = await db.execute(stmt)
+    await db.commit()
+    return {"symbol": symbol.upper(), "timeframe": timeframe, "rows_deleted": result.rowcount}

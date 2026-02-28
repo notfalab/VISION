@@ -70,9 +70,14 @@ async def _async_scan(symbol: str = "XAUUSD"):
 
     logger.info("scalper_scan_start", symbol=symbol)
 
-    # 1. Ingest fresh data for all scalper timeframes (+ daily as fallback)
+    # Crypto symbols only get daily data from Massive (no reliable intraday)
+    CRYPTO_SYMBOLS = {"BTCUSD", "ETHUSD", "SOLUSD", "ETHBTC", "XRPUSD"}
+    is_crypto = symbol.upper() in CRYPTO_SYMBOLS
+    timeframes = ["1d"] if is_crypto else ["5m", "15m", "30m", "1d"]
+
+    # 1. Ingest fresh data for scan timeframes
     ingested = {}
-    for tf in ["5m", "15m", "30m", "1d"]:
+    for tf in timeframes:
         try:
             count = await ingest_ohlcv(symbol, tf, limit=500)
             ingested[tf] = count
