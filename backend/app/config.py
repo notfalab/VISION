@@ -96,7 +96,8 @@ class Settings(BaseSettings):
 
     # Telegram Bot
     telegram_bot_token: str = ""
-    telegram_chat_id: str = ""  # Your personal chat ID or group ID
+    telegram_chat_id: str = ""  # Your personal chat ID (admin notifications)
+    telegram_channel_id: str = ""  # Channel ID for public signal broadcasts
 
     # On-chain
     etherscan_api_key: str = ""

@@ -50,6 +50,10 @@ ta = [
     "TA-Lib>=0.4.28",
 ]
 
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["backend*"]
+
 [tool.pytest.ini_options]
 testpaths = ["backend/tests"]
 asyncio_mode = "auto"

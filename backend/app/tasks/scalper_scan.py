@@ -214,6 +214,15 @@ def auto_scan_xauusd():
     return _run_async(_async_scan("XAUUSD"))
 
 
+@celery_app.task(name="backend.app.tasks.scalper_scan.auto_scan_btcusd")
+def auto_scan_btcusd():
+    """
+    Celery Beat task: auto-scan BTCUSD every 5 minutes.
+    Fetches data, generates signals, checks outcomes, sends Telegram alerts.
+    """
+    return _run_async(_async_scan("BTCUSD"))
+
+
 @celery_app.task(name="backend.app.tasks.scalper_scan.daily_summary")
 def daily_summary():
     """

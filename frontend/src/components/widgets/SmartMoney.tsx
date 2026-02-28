@@ -99,12 +99,12 @@ export default function SmartMoney() {
     <div className="card-glass rounded-lg overflow-hidden">
       <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-2">
         <Brain className="w-3.5 h-3.5 text-[var(--color-neon-purple)]" />
-        <h3 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+        <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
           Smart Money & Levels
         </h3>
         {smc && (
           <span
-            className="text-[8px] font-mono px-1.5 py-0.5 rounded ml-auto uppercase font-bold"
+            className="text-[10px] font-mono px-1.5 py-0.5 rounded ml-auto uppercase font-bold"
             style={{ color: trendColor, backgroundColor: `color-mix(in srgb, ${trendColor} 12%, transparent)` }}
           >
             {smc.confidence}% conf
@@ -118,13 +118,13 @@ export default function SmartMoney() {
           <>
             <div className="rounded-md bg-[var(--color-bg-secondary)] px-2.5 py-1.5 border border-[var(--color-border-primary)]">
               <div className="flex items-center gap-1.5 mb-1">
-                <ArrowUpDown className="w-2.5 h-2.5" style={{ color: trendColor }} />
-                <span className="text-[9px] font-semibold text-[var(--color-text-primary)] uppercase">Structure</span>
-                <span className="text-[8px] font-mono ml-auto uppercase" style={{ color: trendColor }}>
+                <ArrowUpDown className="w-3 h-3" style={{ color: trendColor }} />
+                <span className="text-[11px] font-semibold text-[var(--color-text-primary)] uppercase">Structure</span>
+                <span className="text-[10px] font-mono ml-auto uppercase" style={{ color: trendColor }}>
                   {trend}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-1 text-[8px] font-mono">
+              <div className="grid grid-cols-2 gap-1 text-[10px] font-mono">
                 {smc.last_bos && (
                   <div className="flex items-center gap-1">
                     <span className="text-[var(--color-text-muted)]">BOS:</span>
@@ -147,15 +147,15 @@ export default function SmartMoney() {
             {/* Order Blocks & FVG counts */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
               <div className="rounded-md bg-[var(--color-bg-secondary)] px-2 py-1.5 border border-[var(--color-border-primary)]">
-                <div className="text-[8px] text-[var(--color-text-muted)] uppercase mb-0.5">Order Blocks</div>
-                <div className="flex gap-2 text-[9px] font-mono">
+                <div className="text-[10px] text-[var(--color-text-muted)] uppercase mb-0.5">Order Blocks</div>
+                <div className="flex gap-2 text-[11px] font-mono">
                   <span className="text-[var(--color-bull)]">{smc.bullish_ob_count} Bull</span>
                   <span className="text-[var(--color-bear)]">{smc.bearish_ob_count} Bear</span>
                 </div>
               </div>
               <div className="rounded-md bg-[var(--color-bg-secondary)] px-2 py-1.5 border border-[var(--color-border-primary)]">
-                <div className="text-[8px] text-[var(--color-text-muted)] uppercase mb-0.5">Fair Value Gaps</div>
-                <div className="flex gap-2 text-[9px] font-mono">
+                <div className="text-[10px] text-[var(--color-text-muted)] uppercase mb-0.5">Fair Value Gaps</div>
+                <div className="flex gap-2 text-[11px] font-mono">
                   <span className="text-[var(--color-bull)]">{smc.bullish_fvg_count} Bull</span>
                   <span className="text-[var(--color-bear)]">{smc.bearish_fvg_count} Bear</span>
                 </div>
@@ -165,9 +165,9 @@ export default function SmartMoney() {
             {/* Active zones */}
             {smc.active_zones?.length > 0 && (
               <div className="rounded-md bg-[var(--color-bg-secondary)] px-2.5 py-1.5 border border-[var(--color-border-primary)]">
-                <div className="text-[8px] text-[var(--color-text-muted)] uppercase mb-0.5">Active Zones Near Price</div>
+                <div className="text-[10px] text-[var(--color-text-muted)] uppercase mb-0.5">Active Zones Near Price</div>
                 {smc.active_zones.map((zone, i) => (
-                  <div key={i} className="text-[8px] font-mono text-[var(--color-neon-amber)]">{zone}</div>
+                  <div key={i} className="text-[10px] font-mono text-[var(--color-neon-amber)]">{zone}</div>
                 ))}
               </div>
             )}
@@ -180,13 +180,13 @@ export default function SmartMoney() {
             {/* Nearest S/R */}
             <div className="rounded-md bg-[var(--color-bg-secondary)] px-2.5 py-1.5 border border-[var(--color-border-primary)]">
               <div className="flex items-center gap-1.5 mb-1">
-                <Target className="w-2.5 h-2.5 text-[var(--color-neon-blue)]" />
-                <span className="text-[9px] font-semibold text-[var(--color-text-primary)] uppercase">Key Levels</span>
-                <span className="text-[8px] font-mono ml-auto text-[var(--color-text-muted)]">
+                <Target className="w-3 h-3 text-[var(--color-neon-blue)]" />
+                <span className="text-[11px] font-semibold text-[var(--color-text-primary)] uppercase">Key Levels</span>
+                <span className="text-[10px] font-mono ml-auto text-[var(--color-text-muted)]">
                   R/R: {typeof levels.risk_reward_ratio === "number" ? levels.risk_reward_ratio.toFixed(2) : levels.risk_reward_ratio}
                 </span>
               </div>
-              <div className="grid grid-cols-2 gap-1 text-[8px] font-mono">
+              <div className="grid grid-cols-2 gap-1 text-[10px] font-mono">
                 {levels.nearest_resistance && (
                   <div>
                     <span className="text-[var(--color-bear)]">R: {formatPrice(levels.nearest_resistance.price, activeSymbol)}</span>
@@ -204,8 +204,8 @@ export default function SmartMoney() {
 
             {/* Pivot Points compact */}
             <div className="rounded-md bg-[var(--color-bg-secondary)] px-2.5 py-1.5 border border-[var(--color-border-primary)]">
-              <div className="text-[8px] text-[var(--color-text-muted)] uppercase mb-0.5">Pivots</div>
-              <div className="flex items-center gap-1 text-[8px] font-mono flex-wrap">
+              <div className="text-[10px] text-[var(--color-text-muted)] uppercase mb-0.5">Pivots</div>
+              <div className="flex items-center gap-1 text-[10px] font-mono flex-wrap">
                 <span className="text-[var(--color-bear)]">R3:{formatPrice(levels.r3, activeSymbol)}</span>
                 <span className="text-[var(--color-bear)]">R2:{formatPrice(levels.r2, activeSymbol)}</span>
                 <span className="text-[var(--color-bear)]">R1:{formatPrice(levels.r1, activeSymbol)}</span>
@@ -219,8 +219,8 @@ export default function SmartMoney() {
             {/* Fibonacci levels */}
             {levels.fibonacci_levels && levels.fibonacci_levels.length > 0 && (
               <div className="rounded-md bg-[var(--color-bg-secondary)] px-2.5 py-1.5 border border-[var(--color-border-primary)]">
-                <div className="text-[8px] text-[var(--color-text-muted)] uppercase mb-0.5">Fibonacci</div>
-                <div className="flex items-center gap-1.5 text-[8px] font-mono flex-wrap">
+                <div className="text-[10px] text-[var(--color-text-muted)] uppercase mb-0.5">Fibonacci</div>
+                <div className="flex items-center gap-1.5 text-[10px] font-mono flex-wrap">
                   {levels.fibonacci_levels.map((fib, i) => (
                     <span key={i} className="text-[var(--color-neon-blue)]">
                       {fib.label.replace("Fib ", "")}:{formatPrice(fib.price, activeSymbol)}
@@ -236,12 +236,12 @@ export default function SmartMoney() {
         {heat && (
           <div className="rounded-md bg-[var(--color-bg-secondary)] px-2.5 py-1.5 border border-[var(--color-border-primary)]">
             <div className="flex items-center gap-1.5 mb-1">
-              <Flame className="w-2.5 h-2.5 text-[var(--color-neon-amber)]" />
-              <span className="text-[9px] font-semibold text-[var(--color-text-primary)] uppercase">
+              <Flame className="w-3 h-3 text-[var(--color-neon-amber)]" />
+              <span className="text-[11px] font-semibold text-[var(--color-text-primary)] uppercase">
                 Institutional Heat
               </span>
               <span
-                className="text-[9px] font-mono font-bold ml-auto"
+                className="text-[11px] font-mono font-bold ml-auto"
                 style={{
                   color:
                     heat.score >= 60
@@ -261,16 +261,16 @@ export default function SmartMoney() {
                 style={{ left: `calc(${heat.score}% - 2px)` }}
               />
             </div>
-            <p className="text-[7px] text-[var(--color-text-secondary)] mb-1">
+            <p className="text-[9px] text-[var(--color-text-secondary)] mb-1">
               {heat.description}
             </p>
             {/* Component breakdown */}
             <div className="grid grid-cols-3 gap-1 min-w-0">
               {heat.components && Object.entries(heat.components).map(([key, comp]) => (
                 <div key={key} className="text-center">
-                  <div className="text-[6px] text-[var(--color-text-muted)] uppercase">{key === "volume_profile" ? "Vol" : key.toUpperCase()}</div>
+                  <div className="text-[8px] text-[var(--color-text-muted)] uppercase">{key === "volume_profile" ? "Vol" : key.toUpperCase()}</div>
                   <div
-                    className="text-[8px] font-mono font-bold"
+                    className="text-[10px] font-mono font-bold"
                     style={{
                       color:
                         comp.score >= 60
@@ -289,7 +289,7 @@ export default function SmartMoney() {
         )}
 
         {!smc && !levels && !heat && (
-          <div className="text-[10px] text-[var(--color-text-muted)] text-center py-4">
+          <div className="text-[12px] text-[var(--color-text-muted)] text-center py-4">
             No data available. Fetch prices first.
           </div>
         )}

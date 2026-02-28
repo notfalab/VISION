@@ -30,6 +30,12 @@
   --color-bull: #10b981;
   --color-bear: #ef4444;
   --color-neutral: #6366f1;
+
+  /* Card/pattern colors (theme-switchable) */
+  --color-glass-from: rgba(21, 28, 44, 0.9);
+  --color-glass-to: rgba(17, 24, 39, 0.95);
+  --color-grid-line: rgba(59, 130, 246, 0.03);
+  --color-neon-orange: #f97316;
 }
 
 /* Base styles */
@@ -84,14 +90,14 @@ body {
 /* Grid background pattern */
 .grid-pattern {
   background-image:
-    linear-gradient(rgba(59, 130, 246, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(59, 130, 246, 0.03) 1px, transparent 1px);
+    linear-gradient(var(--color-grid-line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-grid-line) 1px, transparent 1px);
   background-size: 40px 40px;
 }
 
 /* Card glass effect */
 .card-glass {
-  background: linear-gradient(135deg, rgba(21, 28, 44, 0.9), rgba(17, 24, 39, 0.95));
+  background: linear-gradient(135deg, var(--color-glass-from), var(--color-glass-to));
   backdrop-filter: blur(10px);
   border: 1px solid var(--color-border-primary);
 }

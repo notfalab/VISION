@@ -68,22 +68,22 @@ export default function OrderBookWidget() {
   return (
     <div className="card-glass rounded-lg overflow-hidden flex flex-col h-full">
       <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+        <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
           Order Book
         </h3>
-        <span className="text-[10px] font-mono text-[var(--color-neon-amber)]">
+        <span className="text-[12px] font-mono text-[var(--color-neon-amber)]">
           Spread: {formatPrice(spread, activeSymbol)}
         </span>
       </div>
 
       {loading ? (
         <div className="flex-1 flex items-center justify-center">
-          <span className="text-xs text-[var(--color-text-muted)] animate-pulse">Loading...</span>
+          <span className="text-sm text-[var(--color-text-muted)] animate-pulse">Loading...</span>
         </div>
       ) : (
         <div className="flex-1 overflow-hidden flex flex-col">
           {/* Column headers */}
-          <div className="flex items-center px-2 py-1 text-[9px] font-mono text-[var(--color-text-muted)] border-b border-[var(--color-border-primary)]">
+          <div className="flex items-center px-2 py-1 text-[11px] font-mono text-[var(--color-text-muted)] border-b border-[var(--color-border-primary)]">
             <span className="flex-1">Price</span>
             <span className="w-16 text-right">Size</span>
             <span className="w-16 text-right">Total</span>
@@ -97,13 +97,13 @@ export default function OrderBookWidget() {
                   className="absolute inset-0 bg-[var(--color-bear)]/5"
                   style={{ width: `${(level.total / maxTotal) * 100}%`, right: 0, left: "auto" }}
                 />
-                <span className="flex-1 text-[10px] font-mono text-[var(--color-bear)] relative z-10">
+                <span className="flex-1 text-[12px] font-mono text-[var(--color-bear)] relative z-10">
                   {formatPrice(level.price, activeSymbol)}
                 </span>
-                <span className="w-16 text-right text-[10px] font-mono text-[var(--color-text-secondary)] relative z-10">
+                <span className="w-16 text-right text-[12px] font-mono text-[var(--color-text-secondary)] relative z-10">
                   {level.quantity.toFixed(4)}
                 </span>
-                <span className="w-16 text-right text-[10px] font-mono text-[var(--color-text-muted)] relative z-10">
+                <span className="w-16 text-right text-[12px] font-mono text-[var(--color-text-muted)] relative z-10">
                   {level.total.toFixed(4)}
                 </span>
               </div>
@@ -112,7 +112,7 @@ export default function OrderBookWidget() {
 
           {/* Spread divider */}
           <div className="px-2 py-1 text-center border-y border-[var(--color-border-primary)] bg-[var(--color-bg-secondary)]">
-            <span className="text-[10px] font-mono text-[var(--color-neon-cyan)]">
+            <span className="text-[12px] font-mono text-[var(--color-neon-cyan)]">
               {formatPrice(bids[0]?.price || 0, activeSymbol)}
             </span>
           </div>
@@ -125,13 +125,13 @@ export default function OrderBookWidget() {
                   className="absolute inset-0 bg-[var(--color-bull)]/5"
                   style={{ width: `${(level.total / maxTotal) * 100}%`, right: 0, left: "auto" }}
                 />
-                <span className="flex-1 text-[10px] font-mono text-[var(--color-bull)] relative z-10">
+                <span className="flex-1 text-[12px] font-mono text-[var(--color-bull)] relative z-10">
                   {formatPrice(level.price, activeSymbol)}
                 </span>
-                <span className="w-16 text-right text-[10px] font-mono text-[var(--color-text-secondary)] relative z-10">
+                <span className="w-16 text-right text-[12px] font-mono text-[var(--color-text-secondary)] relative z-10">
                   {level.quantity.toFixed(4)}
                 </span>
-                <span className="w-16 text-right text-[10px] font-mono text-[var(--color-text-muted)] relative z-10">
+                <span className="w-16 text-right text-[12px] font-mono text-[var(--color-text-muted)] relative z-10">
                   {level.total.toFixed(4)}
                 </span>
               </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Users, TrendingUp, TrendingDown, Loader2 } from "lucide-react";
+import { useMarketStore, getMarketType } from "@/stores/market";
 import { api } from "@/lib/api";
 import { formatVolume } from "@/lib/format";
 
@@ -39,6 +40,12 @@ interface COTData {
   gold_signal: string;
 }
 
+// COT symbol mapping — CFTC uses futures symbols
+const COT_SYMBOL_MAP: Record<string, string> = {
+  XAUUSD: "gold",
+  BTCUSD: "BTCUSD",
+};
+
 function PositionBar({ long, short, label }: { long: number; short: number; label: string }) {
   const total = long + short;
   const longPct = total > 0 ? (long / total) * 100 : 50;
@@ -47,9 +54,9 @@ function PositionBar({ long, short, label }: { long: number; short: number; labe
   return (
     <div className="space-y-0.5">
       <div className="flex items-center justify-between">
-        <span className="text-[9px] text-[var(--color-text-muted)]">{label}</span>
+        <span className="text-[11px] text-[var(--color-text-muted)]">{label}</span>
         <span
-          className="text-[9px] font-mono font-bold"
+          className="text-[11px] font-mono font-bold"
           style={{ color: net > 0 ? "var(--color-bull)" : net < 0 ? "var(--color-bear)" : "var(--color-text-muted)" }}
         >
           {net > 0 ? "+" : ""}{formatVolume(net)}
@@ -65,7 +72,7 @@ function PositionBar({ long, short, label }: { long: number; short: number; labe
           style={{ width: `${100 - longPct}%` }}
         />
       </div>
-      <div className="flex justify-between text-[7px] font-mono text-[var(--color-text-muted)]">
+      <div className="flex justify-between text-[9px] font-mono text-[var(--color-text-muted)]">
         <span className="text-[var(--color-bull)]">L: {formatVolume(long)}</span>
         <span className="text-[var(--color-bear)]">S: {formatVolume(short)}</span>
       </div>
@@ -74,14 +81,30 @@ function PositionBar({ long, short, label }: { long: number; short: number; labe
 }
 
 export default function COTReport() {
+  const { activeSymbol } = useMarketStore();
   const [data, setData] = useState<COTData | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const assetLabel = activeSymbol === "XAUUSD" ? "Gold" : activeSymbol.replace("USD", "");
+
   useEffect(() => {
     const load = async () => {
+      setLoading(true);
       try {
-        const result = await api.cotGold();
-        setData(result);
+        if (activeSymbol === "XAUUSD") {
+          const result = await api.cotGold();
+          setData(result);
+        } else {
+          // Institutional COT endpoint returns different format — set null if no data
+          const cotSymbol = COT_SYMBOL_MAP[activeSymbol] ?? activeSymbol;
+          const result = await api.cotReport(cotSymbol);
+          if (result?.count > 0) {
+            // TODO: transform institutional COT format to COTData when data exists
+            setData(null);
+          } else {
+            setData(null);
+          }
+        }
       } catch {
         setData(null);
       } finally {
@@ -89,7 +112,7 @@ export default function COTReport() {
       }
     };
     load();
-  }, []);
+  }, [activeSymbol]);
 
   const signalColor =
     data?.gold_signal === "bullish"
@@ -102,11 +125,11 @@ export default function COTReport() {
     <div className="card-glass rounded-lg overflow-hidden flex flex-col">
       <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-2">
         <Users className="w-3.5 h-3.5 text-[var(--color-neon-purple)]" />
-        <h3 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
-          COT Report — Gold
+        <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+          COT Report — {assetLabel}
         </h3>
         {data?.report_date && (
-          <span className="text-[8px] font-mono text-[var(--color-text-muted)] ml-auto">
+          <span className="text-[10px] font-mono text-[var(--color-text-muted)] ml-auto">
             {data.report_date}
           </span>
         )}
@@ -116,31 +139,31 @@ export default function COTReport() {
         {loading ? (
           <div className="flex items-center justify-center gap-2 py-6">
             <Loader2 className="w-4 h-4 text-[var(--color-text-muted)] animate-spin" />
-            <span className="text-[10px] text-[var(--color-text-muted)]">Fetching CFTC data...</span>
+            <span className="text-[12px] text-[var(--color-text-muted)]">Fetching CFTC data...</span>
           </div>
         ) : !data || data.open_interest === 0 ? (
-          <div className="text-[10px] text-[var(--color-text-muted)] text-center py-6">
-            COT data unavailable
+          <div className="text-[12px] text-[var(--color-text-muted)] text-center py-6">
+            COT data unavailable for {assetLabel}
           </div>
         ) : (
           <>
             {/* Open Interest */}
-            <div className="flex items-center justify-between text-[9px]">
+            <div className="flex items-center justify-between text-[11px]">
               <span className="text-[var(--color-text-muted)]">Open Interest</span>
               <span className="font-mono font-bold text-[var(--color-text-primary)]">
                 {data.open_interest.toLocaleString()} contracts
               </span>
             </div>
 
-            {/* Managed Money — THE most important */}
+            {/* Managed Money */}
             <div className="rounded-md bg-[var(--color-bg-secondary)] p-2 border border-[var(--color-border-primary)]">
               <div className="flex items-center gap-1.5 mb-1.5">
                 {data.managed_money.net > 0 ? (
-                  <TrendingUp className="w-3 h-3 text-[var(--color-bull)]" />
+                  <TrendingUp className="w-3.5 h-3.5 text-[var(--color-bull)]" />
                 ) : (
-                  <TrendingDown className="w-3 h-3 text-[var(--color-bear)]" />
+                  <TrendingDown className="w-3.5 h-3.5 text-[var(--color-bear)]" />
                 )}
-                <span className="text-[9px] font-semibold text-[var(--color-text-primary)] uppercase">
+                <span className="text-[11px] font-semibold text-[var(--color-text-primary)] uppercase">
                   Managed Money (Hedge Funds)
                 </span>
               </div>
@@ -150,7 +173,7 @@ export default function COTReport() {
                 label="Net Position"
               />
               {(data.managed_money.change_long !== 0 || data.managed_money.change_short !== 0) && (
-                <div className="mt-1 flex gap-3 text-[8px] font-mono">
+                <div className="mt-1 flex gap-3 text-[10px] font-mono">
                   <span style={{ color: data.managed_money.change_long > 0 ? "var(--color-bull)" : "var(--color-bear)" }}>
                     Longs: {data.managed_money.change_long > 0 ? "+" : ""}{data.managed_money.change_long.toLocaleString()}
                   </span>
@@ -182,7 +205,7 @@ export default function COTReport() {
             {data.signals?.length > 0 && (
               <div className="border-t border-[var(--color-border-primary)] pt-1.5">
                 {data.signals.map((sig, i) => (
-                  <p key={i} className="text-[8px] leading-relaxed" style={{ color: signalColor }}>
+                  <p key={i} className="text-[10px] leading-relaxed" style={{ color: signalColor }}>
                     {sig}
                   </p>
                 ))}

@@ -40,6 +40,25 @@ async def get_whale_transfers(
         await adapter.disconnect()
 
 
+@router.get("/btc-whales")
+async def get_btc_whale_transfers(
+    min_value_btc: float = Query(100.0, description="Minimum BTC value"),
+    limit: int = Query(20, ge=1, le=100),
+):
+    """Fetch recent large BTC transactions from the Bitcoin blockchain."""
+    from backend.app.data.btc_onchain_adapter import get_recent_btc_whale_txs
+    try:
+        transfers = await get_recent_btc_whale_txs(min_value_btc, limit)
+        return {
+            "chain": "bitcoin",
+            "min_value_btc": min_value_btc,
+            "count": len(transfers),
+            "transfers": transfers,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Bitcoin on-chain fetch failed: {str(e)}")
+
+
 @router.get("/cot/{symbol}")
 async def get_cot_reports(
     symbol: str,

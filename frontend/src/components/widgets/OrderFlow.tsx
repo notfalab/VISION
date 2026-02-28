@@ -107,12 +107,12 @@ export default function OrderFlow() {
       <div className="card-glass rounded-lg overflow-hidden">
         <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-2">
           <ArrowDownUp className="w-3.5 h-3.5 text-[var(--color-neon-blue)]" />
-          <h3 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+          <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
             Order Flow
           </h3>
         </div>
         <div className="p-3 text-center">
-          <p className="text-[10px] text-[var(--color-text-muted)]">
+          <p className="text-[12px] text-[var(--color-text-muted)]">
             Order book data unavailable.
           </p>
         </div>
@@ -132,11 +132,11 @@ export default function OrderFlow() {
       {/* Header */}
       <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-2">
         <ArrowDownUp className="w-3.5 h-3.5 text-[var(--color-neon-blue)]" />
-        <h3 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+        <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
           Order Flow
         </h3>
         <span
-          className="text-[7px] font-mono px-1.5 py-0.5 rounded uppercase font-bold ml-auto"
+          className="text-[9px] font-mono px-1.5 py-0.5 rounded uppercase font-bold ml-auto"
           style={{
             color: sig.color,
             backgroundColor: `color-mix(in srgb, ${sig.color} 12%, transparent)`,
@@ -150,7 +150,7 @@ export default function OrderFlow() {
           title="Refresh"
         >
           <RefreshCw
-            className={`w-3 h-3 text-[var(--color-text-muted)] ${loading ? "animate-spin" : ""}`}
+            className={`w-3.5 h-3.5 text-[var(--color-text-muted)] ${loading ? "animate-spin" : ""}`}
           />
         </button>
       </div>
@@ -159,11 +159,11 @@ export default function OrderFlow() {
         {/* Delta bar */}
         <div className="rounded-md bg-[var(--color-bg-secondary)] px-2.5 py-1.5 border border-[var(--color-border-primary)]">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[8px] font-semibold text-[var(--color-text-muted)] uppercase">
+            <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase">
               Volume Delta
             </span>
             <span
-              className="text-[10px] font-mono font-bold"
+              className="text-[12px] font-mono font-bold"
               style={{ color: data.delta >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}
             >
               {data.delta >= 0 ? "+" : ""}
@@ -188,10 +188,10 @@ export default function OrderFlow() {
             />
           </div>
           <div className="flex justify-between mt-0.5">
-            <span className="text-[7px] font-mono text-[var(--color-bull)]">
+            <span className="text-[9px] font-mono text-[var(--color-bull)]">
               BID {bidPct.toFixed(0)}%
             </span>
-            <span className="text-[7px] font-mono text-[var(--color-bear)]">
+            <span className="text-[9px] font-mono text-[var(--color-bear)]">
               ASK {(100 - bidPct).toFixed(0)}%
             </span>
           </div>
@@ -200,7 +200,7 @@ export default function OrderFlow() {
         {/* Depth imbalance mini bars (top 5 levels) */}
         {data.depth_imbalances?.length > 0 && (
           <div className="rounded-md bg-[var(--color-bg-secondary)] px-2.5 py-1.5 border border-[var(--color-border-primary)]">
-            <div className="text-[8px] text-[var(--color-text-muted)] uppercase mb-1">
+            <div className="text-[10px] text-[var(--color-text-muted)] uppercase mb-1">
               Depth Imbalance (Top 5)
             </div>
             <div className="space-y-0.5">
@@ -209,7 +209,7 @@ export default function OrderFlow() {
                 const bidW = total > 0 ? (level.bid_qty / total) * 100 : 50;
                 return (
                   <div key={level.level} className="flex items-center gap-1">
-                    <span className="text-[7px] font-mono w-3 text-[var(--color-text-muted)]">
+                    <span className="text-[9px] font-mono w-3 text-[var(--color-text-muted)]">
                       {level.level}
                     </span>
                     <div className="flex-1 flex h-1 rounded-full overflow-hidden">
@@ -229,7 +229,7 @@ export default function OrderFlow() {
                       />
                     </div>
                     <span
-                      className="text-[6px] font-mono w-8 text-right"
+                      className="text-[8px] font-mono w-8 text-right"
                       style={{
                         color: level.delta >= 0 ? "var(--color-bull)" : "var(--color-bear)",
                       }}
@@ -247,15 +247,15 @@ export default function OrderFlow() {
         {/* Walls */}
         {(data.buy_walls?.length > 0 || data.sell_walls?.length > 0) && (
           <div className="rounded-md bg-[var(--color-bg-secondary)] px-2.5 py-1.5 border border-[var(--color-border-primary)]">
-            <div className="text-[8px] text-[var(--color-text-muted)] uppercase mb-1 flex items-center gap-1">
-              <ShieldAlert className="w-2.5 h-2.5" />
+            <div className="text-[10px] text-[var(--color-text-muted)] uppercase mb-1 flex items-center gap-1">
+              <ShieldAlert className="w-3 h-3" />
               Walls Detected
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
               {data.buy_walls.slice(0, 3).map((w, i) => (
                 <div
                   key={`b${i}`}
-                  className="text-[7px] font-mono text-[var(--color-bull)]"
+                  className="text-[9px] font-mono text-[var(--color-bull)]"
                 >
                   BUY ${w.price.toFixed(2)} ({w.strength}x)
                 </div>
@@ -263,7 +263,7 @@ export default function OrderFlow() {
               {data.sell_walls.slice(0, 3).map((w, i) => (
                 <div
                   key={`s${i}`}
-                  className="text-[7px] font-mono text-[var(--color-bear)]"
+                  className="text-[9px] font-mono text-[var(--color-bear)]"
                 >
                   SELL ${w.price.toFixed(2)} ({w.strength}x)
                 </div>
@@ -278,7 +278,7 @@ export default function OrderFlow() {
             {data.absorption.map((abs, i) => (
               <div
                 key={i}
-                className="rounded-md px-2 py-1 border text-[7px] font-mono"
+                className="rounded-md px-2 py-1 border text-[9px] font-mono"
                 style={{
                   borderColor:
                     abs.type === "bid_absorption"
@@ -301,7 +301,7 @@ export default function OrderFlow() {
         )}
 
         {/* Stats footer */}
-        <div className="flex items-center gap-2 text-[7px] font-mono text-[var(--color-text-muted)]">
+        <div className="flex items-center gap-2 text-[9px] font-mono text-[var(--color-text-muted)]">
           <span>
             Imb: {(data.imbalance_ratio ?? 0).toFixed(2)}
           </span>

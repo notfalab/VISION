@@ -101,6 +101,16 @@ export const api = {
   goldCorrelations: () =>
     fetchAPI<any>(`/api/v1/macro/correlations/gold`),
 
+  // ── Institutional / On-chain ──
+  btcWhales: (minBtc = 100, limit = 20) =>
+    fetchAPI<any>(`/api/v1/institutional/btc-whales?min_value_btc=${minBtc}&limit=${limit}`),
+
+  ethWhales: (minEth = 100, limit = 20) =>
+    fetchAPI<any>(`/api/v1/institutional/whale-transfers?min_value_eth=${minEth}&limit=${limit}`),
+
+  cotReport: (symbol: string, limit = 52) =>
+    fetchAPI<any>(`/api/v1/institutional/cot/${symbol}?limit=${limit}`),
+
   // ── Scalper Mode ──
   scalperScan: (symbol: string, timeframe = "15m") =>
     fetchAPI<any>(`/api/v1/scalper/${symbol}/scan?timeframe=${timeframe}`),

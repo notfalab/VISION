@@ -380,6 +380,64 @@ async def telegram_test():
     }
 
 
+@router.get("/telegram/channel-id")
+async def telegram_channel_id():
+    """
+    Discover the channel ID after adding the bot as admin.
+    Steps:
+      1. Create a Telegram channel
+      2. Add the bot as admin (with 'Post Messages' permission)
+      3. Send any message in the channel
+      4. Call this endpoint to get the channel's numeric ID
+      5. Set TELEGRAM_CHANNEL_ID in .env
+    """
+    from backend.app.notifications.telegram import get_channel_id
+
+    channels = await get_channel_id()
+    if not channels:
+        return {
+            "status": "waiting",
+            "message": (
+                "No channels found. Make sure:\n"
+                "1. Bot is added as admin to your channel\n"
+                "2. At least one message was posted in the channel after adding the bot\n"
+                "Then call this endpoint again."
+            ),
+        }
+
+    return {
+        "status": "ok",
+        "channels": channels,
+        "instruction": f"Add TELEGRAM_CHANNEL_ID={channels[0]['id']} to your .env file",
+    }
+
+
+@router.post("/telegram/channel/test")
+async def telegram_channel_test():
+    """Send a test message to the configured Telegram channel."""
+    from backend.app.notifications.telegram import send_to_channel
+
+    test_msg = """
+📡 <b>VISION Signals Channel — Active</b>
+━━━━━━━━━━━━━━━━━━━━
+
+🤖 Bot connected to this channel.
+📊 Scalper signals will be posted here automatically.
+
+Assets: XAUUSD, BTCUSD
+Scan interval: Every 5 minutes
+Daily summary: 22:00 UTC
+
+✅ Channel notifications working!
+"""
+    sent = await send_to_channel(test_msg.strip())
+
+    return {
+        "status": "sent" if sent else "failed",
+        "message": "Check the channel!" if sent else "Failed. Verify TELEGRAM_CHANNEL_ID in .env and that the bot is a channel admin.",
+    }
+
+
 def _check_active_signals(symbol: str, dataframes: dict):
     """Check active/pending signals against current prices."""
     from backend.app.core.scalper.outcome_tracker import check_signal_outcome

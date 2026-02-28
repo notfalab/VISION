@@ -27,9 +27,13 @@ celery_app.conf.update(
     task_acks_late=True,
     worker_prefetch_multiplier=1,
     beat_schedule={
-        # ── Scalper: auto-scan every 5 minutes (Mon-Fri market hours) ──
-        "scalper-auto-scan": {
+        # ── Scalper: auto-scan every 5 minutes ──
+        "scalper-auto-scan-xauusd": {
             "task": "backend.app.tasks.scalper_scan.auto_scan_xauusd",
+            "schedule": 300.0,  # 5 minutes
+        },
+        "scalper-auto-scan-btcusd": {
+            "task": "backend.app.tasks.scalper_scan.auto_scan_btcusd",
             "schedule": 300.0,  # 5 minutes
         },
         # ── Scalper: daily performance summary at 22:00 UTC ──

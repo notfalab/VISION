@@ -292,6 +292,26 @@ async def _store_ohlcv(df: pd.DataFrame, symbol: str, timeframe: str) -> int:
 
         await session.commit()
         logger.info("ingested", symbol=symbol, timeframe=timeframe, rows=count)
+
+        # Cache latest price in Redis for real-time lookups
+        if count > 0:
+            try:
+                from backend.app.data.redis_pubsub import cache_latest_price
+                from backend.app.data.base import Candle
+                last_row = df.iloc[-1]
+                ts = last_row["timestamp"]
+                candle = Candle(
+                    timestamp=ts.to_pydatetime() if hasattr(ts, "to_pydatetime") else ts,
+                    open=float(last_row["open"]),
+                    high=float(last_row["high"]),
+                    low=float(last_row["low"]),
+                    close=float(last_row["close"]),
+                    volume=float(last_row["volume"]),
+                )
+                await cache_latest_price(symbol.upper(), candle)
+            except Exception as e:
+                logger.warning("cache_latest_failed", symbol=symbol, error=str(e))
+
         return count
 
 

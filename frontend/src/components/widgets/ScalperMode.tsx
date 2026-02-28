@@ -234,10 +234,10 @@ export default function ScalperMode() {
       {/* Header */}
       <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-2">
         <Crosshair className="w-3.5 h-3.5 text-[var(--color-neon-cyan)]" />
-        <h3 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+        <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
           Scalper Mode
         </h3>
-        <span className="text-[7px] font-mono px-1.5 py-0.5 rounded uppercase font-bold text-[var(--color-neon-cyan)]"
+        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded uppercase font-bold text-[var(--color-neon-cyan)]"
           style={{
             backgroundColor: "rgba(0, 200, 255, 0.1)",
             border: "1px solid rgba(0, 200, 255, 0.2)",
@@ -248,11 +248,11 @@ export default function ScalperMode() {
           <button
             onClick={handleScanAll}
             disabled={scanning}
-            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase hover:bg-[var(--color-bg-hover)] transition-colors"
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase hover:bg-[var(--color-bg-hover)] transition-colors"
             style={{ color: "var(--color-neon-green)" }}
             title="Scan all timeframes"
           >
-            <Zap className={`w-2.5 h-2.5 ${scanning ? "animate-pulse" : ""}`} />
+            <Zap className={`w-3 h-3 ${scanning ? "animate-pulse" : ""}`} />
             Scan All
           </button>
         </div>
@@ -268,13 +268,13 @@ export default function ScalperMode() {
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
-            className={`flex-1 flex items-center justify-center gap-1 py-1.5 min-h-[36px] lg:min-h-0 text-[8px] font-semibold uppercase tracking-wider transition-colors ${
+            className={`flex-1 flex items-center justify-center gap-1 py-1.5 min-h-[36px] lg:min-h-0 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
               tab === t.key
                 ? "text-[var(--color-neon-cyan)] border-b border-[var(--color-neon-cyan)]"
                 : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
             }`}
           >
-            <t.icon className="w-2.5 h-2.5" />
+            <t.icon className="w-3 h-3" />
             {t.label}
           </button>
         ))}
@@ -323,7 +323,7 @@ function SignalsTab({
           <button
             key={tf}
             onClick={() => setSelectedTf(tf)}
-            className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase transition-colors ${
+            className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase transition-colors ${
               selectedTf === tf
                 ? "bg-[var(--color-neon-cyan)] text-black"
                 : "text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] bg-[var(--color-bg-hover)]"
@@ -335,10 +335,10 @@ function SignalsTab({
         <button
           onClick={onScan}
           disabled={scanning}
-          className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded text-[8px] font-bold uppercase bg-[var(--color-bg-hover)] hover:bg-[var(--color-neon-cyan)] hover:text-black transition-all"
+          className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-[var(--color-bg-hover)] hover:bg-[var(--color-neon-cyan)] hover:text-black transition-all"
           style={{ color: scanning ? "var(--color-text-muted)" : "var(--color-neon-green)" }}
         >
-          <RefreshCw className={`w-2.5 h-2.5 ${scanning ? "animate-spin" : ""}`} />
+          <RefreshCw className={`w-3 h-3 ${scanning ? "animate-spin" : ""}`} />
           {scanning ? "Scanning..." : "Scan"}
         </button>
       </div>
@@ -346,8 +346,8 @@ function SignalsTab({
       {/* Signal cards */}
       {signals.length === 0 ? (
         <div className="text-center py-4">
-          <Target className="w-6 h-6 mx-auto mb-1.5 text-[var(--color-text-muted)] opacity-40" />
-          <p className="text-[9px] text-[var(--color-text-muted)]">
+          <Target className="w-7 h-7 mx-auto mb-1.5 text-[var(--color-text-muted)] opacity-40" />
+          <p className="text-[11px] text-[var(--color-text-muted)]">
             No signals yet. Click Scan to analyze.
           </p>
         </div>
@@ -379,11 +379,11 @@ function SignalCard({ signal }: { signal: Signal }) {
     >
       {/* Direction + Status + Confidence */}
       <div className="flex items-center gap-1.5 mb-1">
-        <DirIcon className="w-3 h-3" style={{ color: dirColor }} />
-        <span className="text-[10px] font-bold uppercase" style={{ color: dirColor }}>
+        <DirIcon className="w-3.5 h-3.5" style={{ color: dirColor }} />
+        <span className="text-[12px] font-bold uppercase" style={{ color: dirColor }}>
           {isLong ? "BUY" : "SELL"}
         </span>
-        <span className="text-[7px] font-mono px-1 py-0.5 rounded uppercase"
+        <span className="text-[9px] font-mono px-1 py-0.5 rounded uppercase"
           style={{
             color: status.text,
             backgroundColor: status.bg,
@@ -392,7 +392,7 @@ function SignalCard({ signal }: { signal: Signal }) {
         </span>
 
         {signal.mtf_confluence && (
-          <span className="text-[6px] font-mono px-1 py-0.5 rounded uppercase font-bold"
+          <span className="text-[8px] font-mono px-1 py-0.5 rounded uppercase font-bold"
             style={{
               color: "var(--color-neon-green)",
               backgroundColor: "rgba(0, 200, 100, 0.1)",
@@ -402,11 +402,11 @@ function SignalCard({ signal }: { signal: Signal }) {
           </span>
         )}
 
-        <span className="text-[7px] font-mono px-1 py-0.5 rounded bg-[var(--color-bg-hover)] text-[var(--color-text-muted)]">
+        <span className="text-[9px] font-mono px-1 py-0.5 rounded bg-[var(--color-bg-hover)] text-[var(--color-text-muted)]">
           {signal.timeframe}
         </span>
 
-        <span className="ml-auto text-[11px] font-bold font-mono" style={{ color: dirColor }}>
+        <span className="ml-auto text-[13px] font-bold font-mono" style={{ color: dirColor }}>
           {(signal.confidence * 100).toFixed(0)}%
         </span>
       </div>
@@ -414,31 +414,31 @@ function SignalCard({ signal }: { signal: Signal }) {
       {/* Entry / SL / TP */}
       <div className="grid grid-cols-3 gap-1 mb-1">
         <div className="text-center">
-          <div className="text-[6px] text-[var(--color-text-muted)] uppercase">Entry</div>
-          <div className="text-[9px] font-mono font-bold text-[var(--color-text-primary)]">
+          <div className="text-[8px] text-[var(--color-text-muted)] uppercase">Entry</div>
+          <div className="text-[11px] font-mono font-bold text-[var(--color-text-primary)]">
             {signal.entry_price.toLocaleString()}
           </div>
         </div>
         <div className="text-center">
-          <div className="text-[6px] text-[var(--color-bear)] uppercase flex items-center justify-center gap-0.5">
+          <div className="text-[8px] text-[var(--color-bear)] uppercase flex items-center justify-center gap-0.5">
             <Shield className="w-2 h-2" /> SL
           </div>
-          <div className="text-[9px] font-mono font-bold text-[var(--color-bear)]">
+          <div className="text-[11px] font-mono font-bold text-[var(--color-bear)]">
             {signal.stop_loss.toLocaleString()}
           </div>
         </div>
         <div className="text-center">
-          <div className="text-[6px] text-[var(--color-bull)] uppercase flex items-center justify-center gap-0.5">
+          <div className="text-[8px] text-[var(--color-bull)] uppercase flex items-center justify-center gap-0.5">
             <Target className="w-2 h-2" /> TP
           </div>
-          <div className="text-[9px] font-mono font-bold text-[var(--color-bull)]">
+          <div className="text-[11px] font-mono font-bold text-[var(--color-bull)]">
             {signal.take_profit.toLocaleString()}
           </div>
         </div>
       </div>
 
       {/* Risk/Reward + Reasons */}
-      <div className="flex items-center gap-1 text-[7px] text-[var(--color-text-muted)]">
+      <div className="flex items-center gap-1 text-[9px] text-[var(--color-text-muted)]">
         <span>R:R {signal.risk_reward_ratio}</span>
         <span>•</span>
         <span>Score {signal.composite_score}</span>
@@ -460,14 +460,14 @@ function SignalCard({ signal }: { signal: Signal }) {
       {signal.outcome_pnl != null && (
         <div className="mt-1 pt-1 border-t border-[var(--color-border-primary)] flex items-center gap-1">
           <span
-            className="text-[9px] font-mono font-bold"
+            className="text-[11px] font-mono font-bold"
             style={{ color: signal.outcome_pnl >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}
           >
             {signal.outcome_pnl >= 0 ? "+" : ""}{signal.outcome_pnl.toFixed(2)}
             ({signal.outcome_pnl_pct?.toFixed(3)}%)
           </span>
           {signal.loss_category && (
-            <span className="ml-auto text-[7px] text-[var(--color-neon-amber)]">
+            <span className="ml-auto text-[9px] text-[var(--color-neon-amber)]">
               {LOSS_CATEGORY_ICONS[signal.loss_category] || "❓"} {signal.loss_category.replace(/_/g, " ")}
             </span>
           )}
@@ -482,8 +482,8 @@ function JournalTab({ journal, analytics }: { journal: JournalData | null; analy
   if (!journal && !analytics) {
     return (
       <div className="text-center py-4">
-        <BookOpen className="w-6 h-6 mx-auto mb-1.5 text-[var(--color-text-muted)] opacity-40" />
-        <p className="text-[9px] text-[var(--color-text-muted)]">
+        <BookOpen className="w-7 h-7 mx-auto mb-1.5 text-[var(--color-text-muted)] opacity-40" />
+        <p className="text-[11px] text-[var(--color-text-muted)]">
           No completed signals yet. Scan to generate signals.
         </p>
       </div>
@@ -502,8 +502,8 @@ function JournalTab({ journal, analytics }: { journal: JournalData | null; analy
             { label: "Profit F.", value: analytics.profit_factor === Infinity ? "∞" : analytics.profit_factor?.toFixed(1) || "—", color: "var(--color-neon-cyan)" },
           ].map(s => (
             <div key={s.label} className="text-center rounded-md bg-[var(--color-bg-secondary)] p-1.5 border border-[var(--color-border-primary)]">
-              <div className="text-[6px] text-[var(--color-text-muted)] uppercase">{s.label}</div>
-              <div className="text-[11px] font-bold font-mono" style={{ color: s.color }}>
+              <div className="text-[8px] text-[var(--color-text-muted)] uppercase">{s.label}</div>
+              <div className="text-[13px] font-bold font-mono" style={{ color: s.color }}>
                 {s.value}
               </div>
             </div>
@@ -516,8 +516,8 @@ function JournalTab({ journal, analytics }: { journal: JournalData | null; analy
         <div className="flex gap-1">
           {Object.entries(analytics.by_timeframe).map(([tf, stats]: [string, any]) => (
             <div key={tf} className="flex-1 rounded-md bg-[var(--color-bg-hover)] p-1.5 text-center">
-              <div className="text-[7px] font-bold text-[var(--color-text-muted)] uppercase">{tf}</div>
-              <div className="text-[9px] font-mono" style={{ color: stats.win_rate > 50 ? "var(--color-bull)" : "var(--color-bear)" }}>
+              <div className="text-[9px] font-bold text-[var(--color-text-muted)] uppercase">{tf}</div>
+              <div className="text-[11px] font-mono" style={{ color: stats.win_rate > 50 ? "var(--color-bull)" : "var(--color-bear)" }}>
                 {stats.win_rate}% ({stats.wins}W/{stats.losses}L)
               </div>
             </div>
@@ -536,25 +536,25 @@ function JournalTab({ journal, analytics }: { journal: JournalData | null; analy
 
             return (
               <div key={i} className="flex items-center gap-1.5 px-1.5 py-1 rounded-md bg-[var(--color-bg-secondary)] border border-[var(--color-border-primary)]">
-                <StatusIcon className="w-3 h-3 shrink-0" style={{ color: statusColor }} />
-                <span className="text-[8px] font-bold uppercase" style={{ color: entry.direction === "long" ? "var(--color-bull)" : "var(--color-bear)" }}>
+                <StatusIcon className="w-3.5 h-3.5 shrink-0" style={{ color: statusColor }} />
+                <span className="text-[10px] font-bold uppercase" style={{ color: entry.direction === "long" ? "var(--color-bull)" : "var(--color-bear)" }}>
                   {entry.direction === "long" ? "BUY" : "SELL"}
                 </span>
-                <span className="text-[7px] font-mono text-[var(--color-text-muted)]">{entry.timeframe}</span>
-                <span className="text-[8px] font-mono text-[var(--color-text-secondary)]">
+                <span className="text-[9px] font-mono text-[var(--color-text-muted)]">{entry.timeframe}</span>
+                <span className="text-[10px] font-mono text-[var(--color-text-secondary)]">
                   @{entry.entry_price.toLocaleString()}
                 </span>
                 <ChevronRight className="w-2 h-2 text-[var(--color-text-muted)]" />
-                <span className="text-[8px] font-mono" style={{ color: statusColor }}>
+                <span className="text-[10px] font-mono" style={{ color: statusColor }}>
                   {entry.exit_price ? `@${entry.exit_price.toLocaleString()}` : entry.status}
                 </span>
                 {entry.outcome_pnl != null && (
-                  <span className="ml-auto text-[8px] font-mono font-bold" style={{ color: statusColor }}>
+                  <span className="ml-auto text-[10px] font-mono font-bold" style={{ color: statusColor }}>
                     {entry.outcome_pnl >= 0 ? "+" : ""}{entry.outcome_pnl.toFixed(1)}
                   </span>
                 )}
                 {entry.loss_category && (
-                  <span className="text-[6px]">
+                  <span className="text-[8px]">
                     {LOSS_CATEGORY_ICONS[entry.loss_category]}
                   </span>
                 )}
@@ -572,11 +572,11 @@ function LearningTab({ data }: { data: LossData | null }) {
   if (!data || data.total_analyzed === 0) {
     return (
       <div className="text-center py-4">
-        <Brain className="w-6 h-6 mx-auto mb-1.5 text-[var(--color-text-muted)] opacity-40" />
-        <p className="text-[9px] text-[var(--color-text-muted)]">
+        <Brain className="w-7 h-7 mx-auto mb-1.5 text-[var(--color-text-muted)] opacity-40" />
+        <p className="text-[11px] text-[var(--color-text-muted)]">
           Loss learning activates after enough completed signals.
         </p>
-        <p className="text-[8px] text-[var(--color-text-muted)] mt-1">
+        <p className="text-[10px] text-[var(--color-text-muted)] mt-1">
           The engine will analyze losses and build adaptive filters.
         </p>
       </div>
@@ -588,31 +588,31 @@ function LearningTab({ data }: { data: LossData | null }) {
       {/* Win rate comparison */}
       <div className="rounded-md bg-[var(--color-bg-secondary)] p-2 border border-[var(--color-border-primary)]">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-[8px] text-[var(--color-text-muted)] uppercase font-semibold">Win Rate Impact</span>
-          <span className="text-[7px] font-mono text-[var(--color-neon-green)]">
+          <span className="text-[10px] text-[var(--color-text-muted)] uppercase font-semibold">Win Rate Impact</span>
+          <span className="text-[9px] font-mono text-[var(--color-neon-green)]">
             {data.active_filters} filter{data.active_filters !== 1 ? "s" : ""} active
           </span>
         </div>
         <div className="flex items-center gap-2">
           <div className="text-center flex-1">
-            <div className="text-[6px] text-[var(--color-text-muted)] uppercase">Current</div>
+            <div className="text-[8px] text-[var(--color-text-muted)] uppercase">Current</div>
             <div className="text-[13px] font-bold font-mono" style={{
               color: data.win_rate > 50 ? "var(--color-bull)" : "var(--color-bear)",
             }}>
               {data.win_rate}%
             </div>
           </div>
-          <ChevronRight className="w-3 h-3 text-[var(--color-neon-green)]" />
+          <ChevronRight className="w-3.5 h-3.5 text-[var(--color-neon-green)]" />
           <div className="text-center flex-1">
-            <div className="text-[6px] text-[var(--color-text-muted)] uppercase">With Filters</div>
+            <div className="text-[8px] text-[var(--color-text-muted)] uppercase">With Filters</div>
             <div className="text-[13px] font-bold font-mono text-[var(--color-neon-green)]">
               {data.adjusted_win_rate}%
             </div>
           </div>
           {data.improvement > 0 && (
             <div className="text-center">
-              <div className="text-[6px] text-[var(--color-text-muted)] uppercase">Improvement</div>
-              <div className="text-[11px] font-bold font-mono text-[var(--color-neon-green)]">
+              <div className="text-[8px] text-[var(--color-text-muted)] uppercase">Improvement</div>
+              <div className="text-[13px] font-bold font-mono text-[var(--color-neon-green)]">
                 +{data.improvement}%
               </div>
             </div>
@@ -623,8 +623,8 @@ function LearningTab({ data }: { data: LossData | null }) {
       {/* Loss breakdown */}
       {data.loss_breakdown && Object.keys(data.loss_breakdown).length > 0 && (
         <div>
-          <div className="text-[8px] text-[var(--color-text-muted)] uppercase font-semibold mb-1 flex items-center gap-1">
-            <BarChart3 className="w-2.5 h-2.5" />
+          <div className="text-[10px] text-[var(--color-text-muted)] uppercase font-semibold mb-1 flex items-center gap-1">
+            <BarChart3 className="w-3 h-3" />
             Loss Breakdown
           </div>
           <div className="space-y-0.5">
@@ -632,8 +632,8 @@ function LearningTab({ data }: { data: LossData | null }) {
               .sort(([, a]: any, [, b]: any) => b.count - a.count)
               .map(([cat, stats]: [string, any]) => (
                 <div key={cat} className="flex items-center gap-1">
-                  <span className="text-[8px] w-3 text-center">{LOSS_CATEGORY_ICONS[cat]}</span>
-                  <span className="text-[7px] font-mono w-20 truncate text-[var(--color-text-muted)]">
+                  <span className="text-[10px] w-3 text-center">{LOSS_CATEGORY_ICONS[cat]}</span>
+                  <span className="text-[9px] font-mono w-20 truncate text-[var(--color-text-muted)]">
                     {cat.replace(/_/g, " ")}
                   </span>
                   <div className="flex-1 h-1.5 bg-[var(--color-bg-hover)] rounded-full overflow-hidden">
@@ -642,7 +642,7 @@ function LearningTab({ data }: { data: LossData | null }) {
                       style={{ width: `${stats.percentage}%`, opacity: 0.7 }}
                     />
                   </div>
-                  <span className="text-[7px] font-mono w-6 text-right text-[var(--color-bear)]">
+                  <span className="text-[9px] font-mono w-6 text-right text-[var(--color-bear)]">
                     {stats.count}
                   </span>
                 </div>
@@ -654,8 +654,8 @@ function LearningTab({ data }: { data: LossData | null }) {
       {/* Active patterns */}
       {data.patterns?.length > 0 && (
         <div>
-          <div className="text-[8px] text-[var(--color-text-muted)] uppercase font-semibold mb-1 flex items-center gap-1">
-            <AlertTriangle className="w-2.5 h-2.5 text-[var(--color-neon-amber)]" />
+          <div className="text-[10px] text-[var(--color-text-muted)] uppercase font-semibold mb-1 flex items-center gap-1">
+            <AlertTriangle className="w-3 h-3 text-[var(--color-neon-amber)]" />
             Active Loss Patterns
           </div>
           <div className="space-y-1">
@@ -669,15 +669,15 @@ function LearningTab({ data }: { data: LossData | null }) {
                 }}
               >
                 <div className="flex items-center gap-1 mb-0.5">
-                  <span className="text-[8px]">{LOSS_CATEGORY_ICONS[p.category]}</span>
-                  <span className="text-[8px] font-bold uppercase text-[var(--color-neon-amber)]">
+                  <span className="text-[10px]">{LOSS_CATEGORY_ICONS[p.category]}</span>
+                  <span className="text-[10px] font-bold uppercase text-[var(--color-neon-amber)]">
                     {p.category.replace(/_/g, " ")}
                   </span>
-                  <span className="ml-auto text-[7px] font-mono text-[var(--color-bear)]">
+                  <span className="ml-auto text-[9px] font-mono text-[var(--color-bear)]">
                     {p.frequency}x in last {data.total_analyzed}
                   </span>
                 </div>
-                <p className="text-[7px] text-[var(--color-text-secondary)] leading-relaxed">
+                <p className="text-[9px] text-[var(--color-text-secondary)] leading-relaxed">
                   {p.recommendation}
                 </p>
               </div>
@@ -687,8 +687,8 @@ function LearningTab({ data }: { data: LossData | null }) {
       )}
 
       {/* Stats footer */}
-      <div className="flex items-center gap-1 text-[7px] text-[var(--color-text-muted)]">
-        <Brain className="w-2.5 h-2.5" />
+      <div className="flex items-center gap-1 text-[9px] text-[var(--color-text-muted)]">
+        <Brain className="w-3 h-3" />
         <span>Analyzed {data.total_analyzed} signals • {data.total_losses} losses studied</span>
       </div>
     </div>

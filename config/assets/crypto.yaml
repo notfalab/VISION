@@ -6,8 +6,16 @@ pairs:
     base_currency: BTC
     quote_currency: USD
     exchange: binance
+    tick_size: "0.01"
     on_chain: true
     chain: bitcoin
+    description: >
+      Bitcoin is the first and largest cryptocurrency by market cap.
+      Trades 24/7 on global exchanges. Key institutional asset with
+      ETF exposure (IBIT, GBTC). Highly correlated with risk sentiment.
+    halving_cycle: 4y
+    max_supply: 21000000
+    whale_threshold_btc: 100
 
   - symbol: ETHUSD
     name: Ethereum / US Dollar

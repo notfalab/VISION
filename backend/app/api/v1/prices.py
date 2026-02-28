@@ -77,12 +77,46 @@ async def fetch_batch(
 
 @router.get("/{symbol}/latest")
 async def get_latest_price(symbol: str):
-    """Get cached latest price from Redis (real-time)."""
-    from backend.app.data.redis_pubsub import get_latest_price as get_cached
+    """Get latest price — tries Redis cache first, then live fetch from adapter."""
+    from backend.app.data.redis_pubsub import get_latest_price as get_cached, cache_latest_price
     price = await get_cached(symbol)
-    if not price:
-        raise HTTPException(status_code=404, detail="No cached price. Fetch data first.")
-    return price
+    if price:
+        return price
+
+    # Fallback: fetch live from adapter and cache it
+    from backend.app.data.registry import data_registry
+    try:
+        adapter = data_registry.route_symbol(symbol)
+        await adapter.connect()
+        try:
+            df = await adapter.fetch_ohlcv(symbol, "1h", 1)
+            if not df.empty:
+                from backend.app.data.base import Candle
+                row = df.iloc[-1]
+                ts = row["timestamp"]
+                candle = Candle(
+                    timestamp=ts.to_pydatetime() if hasattr(ts, "to_pydatetime") else ts,
+                    open=float(row["open"]),
+                    high=float(row["high"]),
+                    low=float(row["low"]),
+                    close=float(row["close"]),
+                    volume=float(row["volume"]),
+                )
+                await cache_latest_price(symbol.upper(), candle)
+                return {
+                    "symbol": symbol.upper(),
+                    "price": float(row["close"]),
+                    "high": float(row["high"]),
+                    "low": float(row["low"]),
+                    "volume": float(row["volume"]),
+                    "timestamp": ts.isoformat() if hasattr(ts, "isoformat") else str(ts),
+                }
+        finally:
+            await adapter.disconnect()
+    except Exception:
+        pass
+
+    raise HTTPException(status_code=404, detail="No price data available. Try fetching first.")
 
 
 @router.get("/{symbol}/orderbook")

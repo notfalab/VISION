@@ -95,10 +95,10 @@ def build_feature_matrix(df: pd.DataFrame) -> pd.DataFrame:
         features[f"rsi_lag{lag}"] = features["rsi"].shift(lag)
         features[f"volume_ratio_lag{lag}"] = features["volume_ratio"].shift(lag)
 
-    # === Target: next candle direction ===
+    # === Target: next candle direction (0=down, 1=neutral, 2=up) ===
     features["target"] = np.where(
-        df["close"].shift(-1) > df["close"] * 1.001, 1,     # up > 0.1%
-        np.where(df["close"].shift(-1) < df["close"] * 0.999, -1, 0)  # down > 0.1%
+        df["close"].shift(-1) > df["close"] * 1.001, 2,     # up > 0.1%
+        np.where(df["close"].shift(-1) < df["close"] * 0.999, 0, 1)  # down > 0.1%
     )
 
     return features
@@ -148,8 +148,8 @@ def train_model(df: pd.DataFrame, symbol: str, timeframe: str) -> dict:
     y_pred = model.predict(X_test)
     accuracy = accuracy_score(y_test, y_pred)
 
-    # Feature importance
-    importance = dict(zip(X.columns, model.feature_importances_))
+    # Feature importance (convert numpy types to native Python)
+    importance = {k: float(v) for k, v in zip(X.columns, model.feature_importances_)}
     top_features = sorted(importance.items(), key=lambda x: x[1], reverse=True)[:10]
 
     # Save model
@@ -217,8 +217,8 @@ def predict(df: pd.DataFrame, symbol: str, timeframe: str) -> dict:
     probabilities = model.predict_proba(latest)[0]
     classes = model.classes_
 
-    # Map prediction to direction
-    direction_map = {-1: "bearish", 0: "neutral", 1: "bullish"}
+    # Map prediction to direction (0=down, 1=neutral, 2=up)
+    direction_map = {0: "bearish", 1: "neutral", 2: "bullish"}
     direction = direction_map.get(int(prediction), "neutral")
 
     # Confidence = max probability
@@ -229,8 +229,8 @@ def predict(df: pd.DataFrame, symbol: str, timeframe: str) -> dict:
     for cls, prob in zip(classes, probabilities):
         class_probs[direction_map.get(int(cls), str(cls))] = round(float(prob), 3)
 
-    # Feature importance from model
-    importance = dict(zip(feature_names, model.feature_importances_))
+    # Feature importance from model (convert numpy types to native Python)
+    importance = {k: float(v) for k, v in zip(feature_names, model.feature_importances_)}
     top_features = sorted(importance.items(), key=lambda x: x[1], reverse=True)[:7]
 
     # Model info

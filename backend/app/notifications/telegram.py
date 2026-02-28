@@ -3,11 +3,15 @@ Telegram Bot Notifier — sends scalper signals and alerts to Telegram.
 
 Uses the Telegram Bot API directly via httpx (no extra deps needed).
 
+Supports two targets:
+  - Personal chat (TELEGRAM_CHAT_ID) — admin/test messages
+  - Channel (TELEGRAM_CHANNEL_ID) — public signal broadcasts
+
 Setup:
   1. Create bot with @BotFather → get token
-  2. Send any message to your bot
-  3. Run GET https://api.telegram.org/bot<TOKEN>/getUpdates to get your chat_id
-  4. Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env
+  2. Create channel, add bot as admin with "Post Messages" permission
+  3. Send a message in the channel, then call GET /api/v1/scalper/telegram/channel-id
+  4. Set TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_CHANNEL_ID in .env
 """
 
 import httpx
@@ -21,18 +25,22 @@ logger = get_logger("telegram")
 TG_API = "https://api.telegram.org/bot{token}/{method}"
 
 
-async def send_message(text: str, parse_mode: str = "HTML", disable_preview: bool = True) -> bool:
+async def send_message(
+    text: str,
+    chat_id: str | None = None,
+    parse_mode: str = "HTML",
+    disable_preview: bool = True,
+) -> bool:
     """
-    Send a message to the configured Telegram chat.
-
-    Returns True if successful, False otherwise.
+    Send a message to a specific chat.
+    Falls back to TELEGRAM_CHAT_ID if no chat_id is provided.
     """
     settings = get_settings()
     token = settings.telegram_bot_token
-    chat_id = settings.telegram_chat_id
+    target = chat_id or settings.telegram_chat_id
 
-    if not token or not chat_id:
-        logger.warning("telegram_not_configured", hint="Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in .env")
+    if not token or not target:
+        logger.warning("telegram_not_configured", hint="Set TELEGRAM_BOT_TOKEN and target chat ID in .env")
         return False
 
     url = TG_API.format(token=token, method="sendMessage")
@@ -40,7 +48,7 @@ async def send_message(text: str, parse_mode: str = "HTML", disable_preview: boo
     try:
         async with httpx.AsyncClient(timeout=15) as client:
             resp = await client.post(url, json={
-                "chat_id": chat_id,
+                "chat_id": target,
                 "text": text,
                 "parse_mode": parse_mode,
                 "disable_web_page_preview": disable_preview,
@@ -49,7 +57,7 @@ async def send_message(text: str, parse_mode: str = "HTML", disable_preview: boo
             if resp.status_code == 200:
                 data = resp.json()
                 if data.get("ok"):
-                    logger.info("telegram_sent", chat_id=chat_id)
+                    logger.info("telegram_sent", chat_id=target)
                     return True
                 else:
                     logger.warning("telegram_api_error", error=data.get("description"))
@@ -61,6 +69,18 @@ async def send_message(text: str, parse_mode: str = "HTML", disable_preview: boo
     except Exception as e:
         logger.error("telegram_send_failed", error=str(e))
         return False
+
+
+async def send_to_channel(text: str, parse_mode: str = "HTML", disable_preview: bool = True) -> bool:
+    """Send a message to the configured Telegram channel."""
+    settings = get_settings()
+    channel_id = settings.telegram_channel_id
+
+    if not channel_id:
+        logger.warning("telegram_channel_not_configured", hint="Set TELEGRAM_CHANNEL_ID in .env")
+        return False
+
+    return await send_message(text, chat_id=channel_id, parse_mode=parse_mode, disable_preview=disable_preview)
 
 
 async def get_chat_id() -> str | None:
@@ -88,6 +108,57 @@ async def get_chat_id() -> str | None:
                         return str(chat["id"])
     except Exception as e:
         logger.error("get_chat_id_failed", error=str(e))
+
+    return None
+
+
+async def get_channel_id() -> dict | None:
+    """
+    Helper: get the channel chat_id from recent updates.
+    The bot must be an admin in the channel, and at least one message
+    must have been posted in the channel after adding the bot.
+    """
+    settings = get_settings()
+    token = settings.telegram_bot_token
+    if not token:
+        return None
+
+    url = TG_API.format(token=token, method="getUpdates")
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            resp = await client.get(url)
+            data = resp.json()
+            if data.get("ok") and data.get("result"):
+                channels = []
+                for update in data["result"]:
+                    # Channel posts appear as "channel_post" or "my_chat_member"
+                    channel_post = update.get("channel_post", {})
+                    chat = channel_post.get("chat", {})
+
+                    if not chat:
+                        # Check for bot added to channel event
+                        member = update.get("my_chat_member", {})
+                        chat = member.get("chat", {})
+
+                    if chat.get("type") == "channel":
+                        channels.append({
+                            "id": str(chat["id"]),
+                            "title": chat.get("title", ""),
+                            "username": chat.get("username", ""),
+                        })
+
+                # Deduplicate by id
+                seen = set()
+                unique = []
+                for ch in channels:
+                    if ch["id"] not in seen:
+                        seen.add(ch["id"])
+                        unique.append(ch)
+
+                return unique if unique else None
+    except Exception as e:
+        logger.error("get_channel_id_failed", error=str(e))
 
     return None
 
@@ -232,18 +303,26 @@ def format_daily_summary(analytics: dict) -> str:
 
 
 async def notify_signal(signal: dict) -> bool:
-    """Send a new signal notification to Telegram."""
+    """Send a new signal notification to both personal chat and channel."""
     msg = format_signal_message(signal)
-    return await send_message(msg)
+    # Send to channel (public broadcast)
+    channel_ok = await send_to_channel(msg)
+    # Also send to personal chat (admin)
+    personal_ok = await send_message(msg)
+    return channel_ok or personal_ok
 
 
 async def notify_outcome(signal: dict) -> bool:
-    """Send a signal outcome notification to Telegram."""
+    """Send a signal outcome notification to both personal chat and channel."""
     msg = format_outcome_message(signal)
-    return await send_message(msg)
+    channel_ok = await send_to_channel(msg)
+    personal_ok = await send_message(msg)
+    return channel_ok or personal_ok
 
 
 async def notify_summary(analytics: dict) -> bool:
-    """Send a daily summary to Telegram."""
+    """Send a daily summary to both personal chat and channel."""
     msg = format_daily_summary(analytics)
-    return await send_message(msg)
+    channel_ok = await send_to_channel(msg)
+    personal_ok = await send_message(msg)
+    return channel_ok or personal_ok

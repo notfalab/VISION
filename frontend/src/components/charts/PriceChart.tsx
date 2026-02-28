@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useMarketStore } from "@/stores/market";
+import { useThemeStore, THEME_CANVAS } from "@/stores/theme";
 import { api } from "@/lib/api";
 import { formatPrice, formatVolume } from "@/lib/format";
 import { binanceKlineWS, isBinanceSymbol } from "@/lib/binance-ws";
@@ -157,6 +158,7 @@ export default function PriceChart() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const { activeSymbol, activeTimeframe, setActiveTimeframe, setCandles, candles, livePrices } = useMarketStore();
+  const theme = useThemeStore((s) => s.theme);
   const [data, setData] = useState<OHLCV[]>([]);
   const [loading, setLoading] = useState(false);
   const [hoveredCandle, setHoveredCandle] = useState<OHLCV | null>(null);
@@ -411,6 +413,8 @@ export default function PriceChart() {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    const tc = THEME_CANVAS[theme];
+
     // Compute visible slice based on pan offset
     // panOffset > 0 = viewing older data, panOffset < 0 = empty space on right
     const VIEW_SLOTS = getViewSlots();
@@ -551,7 +555,7 @@ export default function PriceChart() {
     }
 
     // Grid lines
-    ctx.strokeStyle = "rgba(30, 41, 59, 0.5)";
+    ctx.strokeStyle = tc.grid;
     ctx.lineWidth = 0.5;
     for (let i = 0; i < 5; i++) {
       const y = PADDING.top + (priceAreaH / 4) * i;
@@ -561,7 +565,7 @@ export default function PriceChart() {
       ctx.stroke();
 
       const price = priceMax - ((priceMax - priceMin) / 4) * i;
-      ctx.fillStyle = "#64748b";
+      ctx.fillStyle = tc.textMuted;
       ctx.font = "10px JetBrains Mono, monospace";
       ctx.textAlign = "left";
       ctx.fillText(formatPrice(price, activeSymbol), W - PADDING.right + 5, y + 3);
@@ -581,16 +585,14 @@ export default function PriceChart() {
       if (drawYTop > PADDING.top + priceAreaH || drawYTop + zoneH < PADDING.top) continue;
 
       const alpha = 0.08 + zone.strength * 0.15;
-      ctx.fillStyle = zone.type === "buy"
-        ? `rgba(16, 185, 129, ${alpha})`
-        : `rgba(239, 68, 68, ${alpha})`;
+      const zRgb = zone.type === "buy" ? tc.zonesBuy : tc.zonesSell;
+      ctx.fillStyle = `rgba(${zRgb[0]}, ${zRgb[1]}, ${zRgb[2]}, ${alpha})`;
 
       ctx.fillRect(PADDING.left, drawYTop, chartW, zoneH);
 
       // Zone edge line
-      ctx.strokeStyle = zone.type === "buy"
-        ? `rgba(16, 185, 129, ${0.2 + zone.strength * 0.3})`
-        : `rgba(239, 68, 68, ${0.2 + zone.strength * 0.3})`;
+      const edgeAlpha = 0.2 + zone.strength * 0.3;
+      ctx.strokeStyle = `rgba(${zRgb[0]}, ${zRgb[1]}, ${zRgb[2]}, ${edgeAlpha})`;
       ctx.lineWidth = 0.5;
       ctx.setLineDash([3, 3]);
       ctx.beginPath();
@@ -603,9 +605,8 @@ export default function PriceChart() {
       if (zone.strength > 0.4) {
         const label = zone.type === "buy" ? "BUY WALL" : "SELL WALL";
         ctx.font = "bold 8px JetBrains Mono, monospace";
-        ctx.fillStyle = zone.type === "buy"
-          ? `rgba(16, 185, 129, ${0.5 + zone.strength * 0.4})`
-          : `rgba(239, 68, 68, ${0.5 + zone.strength * 0.4})`;
+        const labelAlpha = 0.5 + zone.strength * 0.4;
+        ctx.fillStyle = `rgba(${zRgb[0]}, ${zRgb[1]}, ${zRgb[2]}, ${labelAlpha})`;
         ctx.textAlign = "left";
         // Position label slightly away from center to avoid overlap with price line
         const labelY = zone.type === "buy" ? yCenter + 10 : yCenter - 4;
@@ -626,15 +627,16 @@ export default function PriceChart() {
 
       let marker = "";
       let color = "";
+      const sn = tc.shiftNew, sg = tc.shiftGrowing, ss = tc.shiftShrinking, sgo = tc.shiftGone;
       if (shift.direction === "new") {
-        marker = "NEW"; color = `rgba(250, 204, 21, ${fade})`;
+        marker = "NEW"; color = `rgba(${sn[0]}, ${sn[1]}, ${sn[2]}, ${fade})`;
       } else if (shift.direction === "growing") {
         marker = shift.zone.type === "buy" ? "++BUY" : "++SELL";
-        color = `rgba(16, 185, 129, ${fade})`;
+        color = `rgba(${sg[0]}, ${sg[1]}, ${sg[2]}, ${fade})`;
       } else if (shift.direction === "shrinking") {
-        marker = "WEAK"; color = `rgba(239, 68, 68, ${fade})`;
+        marker = "WEAK"; color = `rgba(${ss[0]}, ${ss[1]}, ${ss[2]}, ${fade})`;
       } else if (shift.direction === "gone") {
-        marker = "GONE"; color = `rgba(148, 163, 184, ${fade * 0.7})`;
+        marker = "GONE"; color = `rgba(${sgo[0]}, ${sgo[1]}, ${sgo[2]}, ${fade * 0.7})`;
       }
 
       if (marker) {
@@ -653,7 +655,7 @@ export default function PriceChart() {
     visibleData.forEach((candle, i) => {
       const x = PADDING.left + candleW * i + candleW / 2;
       const isBull = candle.close >= candle.open;
-      const color = isBull ? "#10b981" : "#ef4444";
+      const color = isBull ? tc.bull : tc.bear;
 
       // Wick
       ctx.strokeStyle = color;
@@ -679,7 +681,7 @@ export default function PriceChart() {
 
       // Volume bar
       const vH = volToH(candle.volume);
-      ctx.fillStyle = isBull ? "rgba(16, 185, 129, 0.3)" : "rgba(239, 68, 68, 0.3)";
+      ctx.fillStyle = isBull ? tc.bullAlpha : tc.bearAlpha;
       ctx.fillRect(x - bodyW / 2, volumeTop + volumeAreaH - vH, bodyW, vH);
     });
 
@@ -696,7 +698,7 @@ export default function PriceChart() {
         if (match.bias === "bullish") {
           // Green triangle below the candle low
           const y = priceToY(candle.low) + 6;
-          ctx.fillStyle = "#00e676";
+          ctx.fillStyle = tc.patternBull;
           ctx.beginPath();
           ctx.moveTo(x, y + markerSize);
           ctx.lineTo(x - markerSize / 2, y + markerSize * 2);
@@ -704,14 +706,14 @@ export default function PriceChart() {
           ctx.closePath();
           ctx.fill();
           // Pattern label
-          ctx.fillStyle = "#00e676";
+          ctx.fillStyle = tc.patternBull;
           ctx.font = `bold ${Math.max(7, Math.min(9, candleW * 0.3))}px JetBrains Mono, monospace`;
           ctx.textAlign = "center";
           ctx.fillText(match.pattern.replace(/_/g, " ").toUpperCase(), x, y + markerSize * 2 + 10);
         } else if (match.bias === "bearish") {
-          // Red triangle above the candle high
+          // Bear triangle above the candle high
           const y = priceToY(candle.high) - 6;
-          ctx.fillStyle = "#ff1744";
+          ctx.fillStyle = tc.patternBear;
           ctx.beginPath();
           ctx.moveTo(x, y - markerSize);
           ctx.lineTo(x - markerSize / 2, y - markerSize * 2);
@@ -719,14 +721,14 @@ export default function PriceChart() {
           ctx.closePath();
           ctx.fill();
           // Pattern label
-          ctx.fillStyle = "#ff1744";
+          ctx.fillStyle = tc.patternBear;
           ctx.font = `bold ${Math.max(7, Math.min(9, candleW * 0.3))}px JetBrains Mono, monospace`;
           ctx.textAlign = "center";
           ctx.fillText(match.pattern.replace(/_/g, " ").toUpperCase(), x, y - markerSize * 2 - 4);
         } else {
           // Amber diamond for neutral (doji)
           const y = priceToY(candle.high) - 10;
-          ctx.fillStyle = "#ffab00";
+          ctx.fillStyle = tc.patternNeutral;
           ctx.beginPath();
           ctx.moveTo(x, y - markerSize);
           ctx.lineTo(x + markerSize / 2, y);
@@ -740,7 +742,7 @@ export default function PriceChart() {
 
     // Date labels
     const labelInterval = Math.max(1, Math.floor(visibleData.length / 6));
-    ctx.fillStyle = "#64748b";
+    ctx.fillStyle = tc.textMuted;
     ctx.font = "10px JetBrains Mono, monospace";
     ctx.textAlign = "center";
     visibleData.forEach((candle, i) => {
@@ -763,7 +765,7 @@ export default function PriceChart() {
       const isBull = lastPrice >= lastCandle.open;
 
       ctx.setLineDash([4, 4]);
-      ctx.strokeStyle = isBull ? "#10b981" : "#ef4444";
+      ctx.strokeStyle = isBull ? tc.bull : tc.bear;
       ctx.lineWidth = 0.8;
       ctx.beginPath();
       ctx.moveTo(PADDING.left, y);
@@ -771,14 +773,14 @@ export default function PriceChart() {
       ctx.stroke();
       ctx.setLineDash([]);
 
-      ctx.fillStyle = isBull ? "#10b981" : "#ef4444";
+      ctx.fillStyle = isBull ? tc.bull : tc.bear;
       ctx.fillRect(W - PADDING.right, y - 10, PADDING.right - 2, 20);
       ctx.fillStyle = "#fff";
       ctx.font = "bold 10px JetBrains Mono, monospace";
       ctx.textAlign = "left";
       ctx.fillText(formatPrice(lastPrice, activeSymbol), W - PADDING.right + 4, y + 4);
     }
-  }, [data, dimensions, activeSymbol, activeTimeframe, livePrice, zones, zoneShifts, showSessions, isIntraday, panOffset, getViewSlots, patternMarkers]);
+  }, [data, dimensions, activeSymbol, activeTimeframe, livePrice, zones, zoneShifts, showSessions, isIntraday, panOffset, getViewSlots, patternMarkers, theme]);
 
   useEffect(() => {
     draw();
@@ -1029,23 +1031,23 @@ export default function PriceChart() {
           >
             <div className="rounded-lg border shadow-xl backdrop-blur-md px-3 py-2 min-w-[160px]"
               style={{
-                backgroundColor: "rgba(15, 23, 42, 0.92)",
-                borderColor: hoveredZone.type === "buy" ? "rgba(16, 185, 129, 0.3)" : "rgba(239, 68, 68, 0.3)",
+                backgroundColor: "color-mix(in srgb, var(--color-bg-card) 92%, transparent)",
+                borderColor: hoveredZone.type === "buy"
+                  ? "color-mix(in srgb, var(--color-bull) 30%, transparent)"
+                  : "color-mix(in srgb, var(--color-bear) 30%, transparent)",
               }}
             >
               {/* Header */}
-              <div className="flex items-center gap-1.5 mb-1.5 pb-1 border-b"
-                style={{ borderColor: "rgba(100, 116, 139, 0.2)" }}
-              >
+              <div className="flex items-center gap-1.5 mb-1.5 pb-1 border-b border-[var(--color-border-primary)]">
                 <div className="w-2 h-2 rounded-full"
-                  style={{ backgroundColor: hoveredZone.type === "buy" ? "#10b981" : "#ef4444" }}
+                  style={{ backgroundColor: hoveredZone.type === "buy" ? "var(--color-bull)" : "var(--color-bear)" }}
                 />
                 <span className="text-[10px] font-mono font-bold"
-                  style={{ color: hoveredZone.type === "buy" ? "#10b981" : "#ef4444" }}
+                  style={{ color: hoveredZone.type === "buy" ? "var(--color-bull)" : "var(--color-bear)" }}
                 >
                   {hoveredZone.type === "buy" ? "BUY ZONE" : "SELL ZONE"}
                 </span>
-                <span className="text-[8px] font-mono text-[#94a3b8] ml-auto">
+                <span className="text-[8px] font-mono text-[var(--color-text-secondary)] ml-auto">
                   {(hoveredZone.strength * 100).toFixed(0)}% str
                 </span>
               </div>
@@ -1053,19 +1055,19 @@ export default function PriceChart() {
               {/* Price range */}
               <div className="space-y-0.5">
                 <div className="flex justify-between text-[9px] font-mono">
-                  <span className="text-[#94a3b8]">Range</span>
-                  <span className="text-[#e2e8f0]">
+                  <span className="text-[var(--color-text-secondary)]">Range</span>
+                  <span className="text-[var(--color-text-primary)]">
                     {formatPrice(hoveredZone.priceMin, activeSymbol)} – {formatPrice(hoveredZone.priceMax, activeSymbol)}
                   </span>
                 </div>
 
                 {/* Accumulated volume */}
                 <div className="flex justify-between text-[9px] font-mono">
-                  <span className="text-[#94a3b8]">
+                  <span className="text-[var(--color-text-secondary)]">
                     {hoveredZone.type === "buy" ? "Acc. Buy Vol" : "Acc. Sell Vol"}
                   </span>
                   <span className="font-bold"
-                    style={{ color: hoveredZone.type === "buy" ? "#10b981" : "#ef4444" }}
+                    style={{ color: hoveredZone.type === "buy" ? "var(--color-bull)" : "var(--color-bear)" }}
                   >
                     {formatVolume(hoveredZone.volume)}
                   </span>
@@ -1077,7 +1079,7 @@ export default function PriceChart() {
                     <div className="h-full rounded-full transition-all"
                       style={{
                         width: `${hoveredZone.strength * 100}%`,
-                        backgroundColor: hoveredZone.type === "buy" ? "#10b981" : "#ef4444",
+                        backgroundColor: hoveredZone.type === "buy" ? "var(--color-bull)" : "var(--color-bear)",
                       }}
                     />
                   </div>

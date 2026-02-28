@@ -92,10 +92,10 @@ function MiniSparkline({
 
 function TrendIcon({ trend }: { trend: string }) {
   if (trend === "rising")
-    return <TrendingUp className="w-2.5 h-2.5 text-[var(--color-bull)]" />;
+    return <TrendingUp className="w-3 h-3 text-[var(--color-bull)]" />;
   if (trend === "falling")
-    return <TrendingDown className="w-2.5 h-2.5 text-[var(--color-bear)]" />;
-  return <Minus className="w-2.5 h-2.5 text-[var(--color-text-muted)]" />;
+    return <TrendingDown className="w-3 h-3 text-[var(--color-bear)]" />;
+  return <Minus className="w-3 h-3 text-[var(--color-text-muted)]" />;
 }
 
 function signalColor(signal: string) {
@@ -138,12 +138,12 @@ export default function Correlations() {
       <div className="card-glass rounded-lg overflow-hidden">
         <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-2">
           <GitCompareArrows className="w-3.5 h-3.5 text-[var(--color-neon-amber)]" />
-          <h3 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+          <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
             Correlations
           </h3>
         </div>
         <div className="p-3 text-center">
-          <p className="text-[10px] text-[var(--color-text-muted)]">
+          <p className="text-[12px] text-[var(--color-text-muted)]">
             Correlation data unavailable.
           </p>
         </div>
@@ -158,11 +158,11 @@ export default function Correlations() {
       {/* Header */}
       <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-2">
         <GitCompareArrows className="w-3.5 h-3.5 text-[var(--color-neon-amber)]" />
-        <h3 className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+        <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
           Gold Correlations
         </h3>
         <span
-          className="text-[7px] font-mono px-1.5 py-0.5 rounded uppercase font-bold ml-auto"
+          className="text-[9px] font-mono px-1.5 py-0.5 rounded uppercase font-bold ml-auto"
           style={{
             color: macroColor,
             backgroundColor: `color-mix(in srgb, ${macroColor} 12%, transparent)`,
@@ -175,7 +175,7 @@ export default function Correlations() {
           className="p-0.5 rounded hover:bg-[var(--color-bg-hover)] transition-colors"
         >
           <RefreshCw
-            className={`w-3 h-3 text-[var(--color-text-muted)] ${loading ? "animate-spin" : ""}`}
+            className={`w-3.5 h-3.5 text-[var(--color-text-muted)] ${loading ? "animate-spin" : ""}`}
           />
         </button>
       </div>
@@ -184,12 +184,12 @@ export default function Correlations() {
         {/* DXY */}
         <div className="rounded-md bg-[var(--color-bg-secondary)] px-2.5 py-1.5 border border-[var(--color-border-primary)]">
           <div className="flex items-center gap-1.5 mb-1">
-            <span className="text-[9px] font-semibold text-[var(--color-text-primary)] uppercase">
+            <span className="text-[11px] font-semibold text-[var(--color-text-primary)] uppercase">
               DXY (Dollar Index)
             </span>
             <TrendIcon trend={data.dxy.trend} />
             {data.dxy.current && (
-              <span className="text-[9px] font-mono text-[var(--color-text-primary)] ml-auto">
+              <span className="text-[11px] font-mono text-[var(--color-text-primary)] ml-auto">
                 {data.dxy.current.toFixed(2)}
               </span>
             )}
@@ -209,13 +209,13 @@ export default function Correlations() {
             )}
             <div className="flex-1 text-right">
               <div
-                className="text-[7px] font-mono uppercase"
+                className="text-[9px] font-mono uppercase"
                 style={{ color: signalColor(data.dxy.gold_signal) }}
               >
                 {data.dxy.gold_signal} for gold
               </div>
               {data.correlations.gold_dxy !== undefined && (
-                <div className="text-[7px] font-mono text-[var(--color-text-muted)]">
+                <div className="text-[9px] font-mono text-[var(--color-text-muted)]">
                   Corr: {data.correlations.gold_dxy.toFixed(3)}
                 </div>
               )}
@@ -226,12 +226,12 @@ export default function Correlations() {
         {/* 10Y Treasury */}
         <div className="rounded-md bg-[var(--color-bg-secondary)] px-2.5 py-1.5 border border-[var(--color-border-primary)]">
           <div className="flex items-center gap-1.5 mb-1">
-            <span className="text-[9px] font-semibold text-[var(--color-text-primary)] uppercase">
+            <span className="text-[11px] font-semibold text-[var(--color-text-primary)] uppercase">
               10Y Treasury Yield
             </span>
             <TrendIcon trend={data.treasury_10y.trend} />
             {data.treasury_10y.current && (
-              <span className="text-[9px] font-mono text-[var(--color-text-primary)] ml-auto">
+              <span className="text-[11px] font-mono text-[var(--color-text-primary)] ml-auto">
                 {data.treasury_10y.current.toFixed(2)}%
               </span>
             )}
@@ -251,13 +251,13 @@ export default function Correlations() {
             )}
             <div className="flex-1 text-right">
               <div
-                className="text-[7px] font-mono uppercase"
+                className="text-[9px] font-mono uppercase"
                 style={{ color: signalColor(data.treasury_10y.gold_signal) }}
               >
                 {data.treasury_10y.gold_signal} for gold
               </div>
               {data.correlations.gold_10y !== undefined && (
-                <div className="text-[7px] font-mono text-[var(--color-text-muted)]">
+                <div className="text-[9px] font-mono text-[var(--color-text-muted)]">
                   Corr: {data.correlations.gold_10y.toFixed(3)}
                 </div>
               )}
