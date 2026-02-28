@@ -15,6 +15,11 @@ const ASSET_OPTIONS = [
   { symbol: "BTCUSD", label: "BTC/USD", color: "var(--color-neon-orange, #F97316)" },
 ];
 
+const SIGNAL_CHANNELS = [
+  { label: "VISION GOLD", emoji: "🥇", href: "https://t.me/+_pMYNBlFj0I0YzMx", color: "#F59E0B" },
+  { label: "VISION BITCOIN", emoji: "₿", href: "https://t.me/+9qAF1vBDdTkwYWVh", color: "#F97316" },
+];
+
 export default function Header() {
   const { activeSymbol, setActiveSymbol, watchlist, livePrices, updateLivePrice } =
     useMarketStore();
@@ -24,8 +29,11 @@ export default function Header() {
   const [clock, setClock] = useState<Date | null>(null);
   const [selectorOpen, setSelectorOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [signalsOpen, setSignalsOpen] = useState(false);
   const selectorRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const signalsMobileRef = useRef<HTMLDivElement>(null);
+  const signalsDesktopRef = useRef<HTMLDivElement>(null);
   const wsConnected = useRef(false);
 
   // Connect Binance WebSocket for real-time prices
@@ -53,7 +61,7 @@ export default function Header() {
 
   // Close dropdowns on click outside
   useEffect(() => {
-    if (!selectorOpen && !userMenuOpen) return;
+    if (!selectorOpen && !userMenuOpen && !signalsOpen) return;
     const handler = (e: MouseEvent) => {
       if (selectorOpen && selectorRef.current && !selectorRef.current.contains(e.target as Node)) {
         setSelectorOpen(false);
@@ -61,10 +69,15 @@ export default function Header() {
       if (userMenuOpen && userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setUserMenuOpen(false);
       }
+      if (signalsOpen) {
+        const inMobile = signalsMobileRef.current?.contains(e.target as Node);
+        const inDesktop = signalsDesktopRef.current?.contains(e.target as Node);
+        if (!inMobile && !inDesktop) setSignalsOpen(false);
+      }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [selectorOpen, userMenuOpen]);
+  }, [selectorOpen, userMenuOpen, signalsOpen]);
 
   const activeOption = ASSET_OPTIONS.find((a) => a.symbol === activeSymbol) ?? ASSET_OPTIONS[0];
   const live = livePrices[activeSymbol];
@@ -85,15 +98,36 @@ export default function Header() {
           </div>
 
           <div className="flex items-center gap-3 shrink-0 ml-auto">
-            <a
-              href="https://t.me/+adjj2WPdVZViNTQx"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center w-9 h-9 rounded-lg transition-colors hover:bg-[var(--color-bg-hover)] text-[#29B6F6]"
-              title="Telegram Signals"
-            >
-              <Send className="w-[18px] h-[18px]" />
-            </a>
+            <div className="relative" ref={signalsMobileRef}>
+              <button
+                onClick={() => setSignalsOpen(!signalsOpen)}
+                className="flex items-center justify-center w-9 h-9 rounded-lg transition-colors hover:bg-[var(--color-bg-hover)] text-[#29B6F6]"
+                title="Telegram Signals"
+              >
+                <Send className="w-[18px] h-[18px]" />
+              </button>
+              {signalsOpen && (
+                <div className="absolute top-full right-0 mt-1 z-50 min-w-[200px] rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-bg-secondary)] shadow-lg overflow-hidden">
+                  <div className="px-3 py-2 border-b border-[var(--color-border-primary)]">
+                    <p className="text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Telegram Channels</p>
+                  </div>
+                  {SIGNAL_CHANNELS.map((ch) => (
+                    <a
+                      key={ch.label}
+                      href={ch.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => setSignalsOpen(false)}
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-mono transition-colors hover:bg-[var(--color-bg-hover)]"
+                    >
+                      <span className="text-base">{ch.emoji}</span>
+                      <span className="font-semibold" style={{ color: ch.color }}>{ch.label}</span>
+                      <Send className="w-3.5 h-3.5 text-[#29B6F6] ml-auto" />
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
             <a
               href="https://discord.gg/YOUR_INVITE_CODE"
               target="_blank"
@@ -267,16 +301,38 @@ export default function Header() {
 
         {/* Right — community + status + user */}
         <div className="flex items-center gap-3 shrink-0 ml-auto">
-          <a
-            href="https://t.me/+adjj2WPdVZViNTQx"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-semibold uppercase tracking-wider transition-colors hover:bg-[var(--color-bg-hover)] text-[#29B6F6]"
-            title="Join Telegram for signals"
-          >
-            <Send className="w-3.5 h-3.5" />
-            <span>Signals</span>
-          </a>
+          <div className="relative" ref={signalsDesktopRef}>
+            <button
+              onClick={() => setSignalsOpen(!signalsOpen)}
+              className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-semibold uppercase tracking-wider transition-colors hover:bg-[var(--color-bg-hover)] text-[#29B6F6] border border-transparent hover:border-[var(--color-border-primary)]"
+              title="Telegram Signal Channels"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>Signals</span>
+              <ChevronDown className="w-3 h-3 opacity-60" />
+            </button>
+            {signalsOpen && (
+              <div className="absolute top-full right-0 mt-1 z-50 min-w-[200px] rounded-md border border-[var(--color-border-primary)] bg-[var(--color-bg-secondary)] shadow-lg overflow-hidden">
+                <div className="px-3 py-1.5 border-b border-[var(--color-border-primary)]">
+                  <p className="text-[9px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Telegram Channels</p>
+                </div>
+                {SIGNAL_CHANNELS.map((ch) => (
+                  <a
+                    key={ch.label}
+                    href={ch.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setSignalsOpen(false)}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-mono transition-colors hover:bg-[var(--color-bg-hover)]"
+                  >
+                    <span className="text-sm">{ch.emoji}</span>
+                    <span className="font-semibold" style={{ color: ch.color }}>{ch.label}</span>
+                    <Send className="w-3 h-3 text-[#29B6F6] ml-auto" />
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
           <a
             href="https://discord.gg/YOUR_INVITE_CODE"
             target="_blank"
