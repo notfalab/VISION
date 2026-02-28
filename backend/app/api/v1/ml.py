@@ -102,7 +102,13 @@ async def train_model(
     timeframe: str = Query("1d"),
     db: AsyncSession = Depends(get_db),
 ):
-    """Force retrain the XGBoost model for a symbol/timeframe."""
+    """
+    Force retrain the ensemble ML model for a symbol/timeframe.
+
+    Returns accuracy (walk-forward avg), directional_accuracy,
+    model_type, n_folds, fold_accuracies, features_selected,
+    per_class_metrics, and top_features.
+    """
     from backend.app.core.ml.predictor import train_model as _train
 
     df = await _get_ohlcv_df(db, symbol, timeframe, limit=2000)

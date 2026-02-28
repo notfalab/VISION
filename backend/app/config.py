@@ -86,6 +86,7 @@ class Settings(BaseSettings):
     oanda_account_id: str = ""
     goldapi_api_key: str = ""
     massive_api_key: str = ""
+    cryptocompare_api_key: str = ""
 
     # Alerts
     sendgrid_api_key: str = ""

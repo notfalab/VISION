@@ -38,17 +38,19 @@ def _ensure_adapters():
     from backend.app.data.alpha_vantage import AlphaVantageAdapter
     from backend.app.data.oanda_adapter import OandaAdapter
     from backend.app.data.massive_adapter import MassiveAdapter
+    from backend.app.data.cryptocompare_adapter import CryptoCompareAdapter
 
     data_registry.register(BinanceAdapter())
     data_registry.register(GoldAPIAdapter())
     data_registry.register(AlphaVantageAdapter())
     data_registry.register(OandaAdapter())
     data_registry.register(MassiveAdapter())
+    data_registry.register(CryptoCompareAdapter())
 
     data_registry.set_route("XAUUSD", "massive")
     data_registry.set_route("XAGUSD", "massive")
     for pair in ["BTCUSD", "ETHUSD", "SOLUSD"]:
-        data_registry.set_route(pair, "massive")
+        data_registry.set_route(pair, "binance")
     for pair in ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD",
                  "EURGBP", "EURJPY", "GBPJPY"]:
         data_registry.set_route(pair, "alpha_vantage")
@@ -70,10 +72,10 @@ async def _async_scan(symbol: str = "XAUUSD"):
 
     logger.info("scalper_scan_start", symbol=symbol)
 
-    # Crypto symbols only get daily data from Massive (no reliable intraday)
+    # Crypto uses 15m/1h/1d (via Binance or CryptoCompare fallback)
     CRYPTO_SYMBOLS = {"BTCUSD", "ETHUSD", "SOLUSD", "ETHBTC", "XRPUSD"}
     is_crypto = symbol.upper() in CRYPTO_SYMBOLS
-    timeframes = ["1d"] if is_crypto else ["5m", "15m", "30m", "1d"]
+    timeframes = ["15m", "1h", "1d"] if is_crypto else ["5m", "15m", "30m", "1d"]
 
     # 1. Ingest fresh data for scan timeframes
     ingested = {}

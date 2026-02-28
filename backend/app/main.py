@@ -118,19 +118,24 @@ async def lifespan(app: FastAPI):
     from backend.app.data.alpha_vantage import AlphaVantageAdapter
     from backend.app.data.oanda_adapter import OandaAdapter
     from backend.app.data.massive_adapter import MassiveAdapter
+    from backend.app.data.cryptocompare_adapter import CryptoCompareAdapter
 
     data_registry.register(BinanceAdapter())
     data_registry.register(GoldAPIAdapter())
     data_registry.register(AlphaVantageAdapter())
     data_registry.register(OandaAdapter())
     data_registry.register(MassiveAdapter())
+    data_registry.register(CryptoCompareAdapter())
 
-    # Route gold/silver + crypto to Massive.com (full historical + intraday data)
-    # Binance REST API returns HTTP 451 from Railway's US servers, so use Massive for crypto too
+    # Route gold/silver to Massive (full historical + intraday data)
     data_registry.set_route("XAUUSD", "massive")
     data_registry.set_route("XAGUSD", "massive")
+
+    # Route crypto to Binance as primary (works locally).
+    # On Railway (US), Binance fails with HTTP 451 and the fallback chain
+    # tries: cryptocompare -> massive -> oanda -> alpha_vantage -> goldapi
     for pair in ["BTCUSD", "ETHUSD", "SOLUSD"]:
-        data_registry.set_route(pair, "massive")
+        data_registry.set_route(pair, "binance")
 
     # Route forex pairs to Alpha Vantage (fallback handles rate limits)
     for pair in ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD",

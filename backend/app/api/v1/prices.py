@@ -56,12 +56,7 @@ async def fetch_prices(
     """Trigger data fetch from external source and store in DB."""
     from backend.app.data.ingestion import ingest_ohlcv
 
-    # Crypto symbols don't have reliable intraday data from Massive —
-    # redirect intraday requests to daily to avoid storing bad mixed data
-    CRYPTO_SYMBOLS = {"BTCUSD", "ETHUSD", "SOLUSD", "ETHBTC", "XRPUSD"}
     actual_tf = timeframe
-    if symbol.upper() in CRYPTO_SYMBOLS and timeframe not in ("1d", "1w", "1M"):
-        actual_tf = "1d"
 
     try:
         count = await ingest_ohlcv(symbol, actual_tf, limit)

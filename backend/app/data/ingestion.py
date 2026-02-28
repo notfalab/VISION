@@ -179,7 +179,7 @@ async def _fetch_with_fallback(symbol: str, timeframe: str, limit: int, since: d
                 rows=len(primary_df) if not primary_df.empty else 0, need=min_rows)
 
     # Fallback chain: try adapters that weren't the primary
-    fallback_adapters = ["massive", "oanda", "alpha_vantage", "goldapi"]
+    fallback_adapters = ["binance", "cryptocompare", "massive", "oanda", "alpha_vantage", "goldapi"]
     best_df = primary_df
 
     for fb_name in fallback_adapters:

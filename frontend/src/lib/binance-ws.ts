@@ -27,6 +27,8 @@ type KlineCallback = (symbol: string, candle: LiveCandle) => void;
 const SYMBOL_MAP: Record<string, string> = {
   XAUUSD: "paxgusdt",
   BTCUSD: "btcusdt",
+  ETHUSD: "ethusdt",
+  SOLUSD: "solusdt",
 };
 
 const REVERSE_MAP: Record<string, string> = Object.fromEntries(
