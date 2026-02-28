@@ -251,6 +251,11 @@ export default function PriceChart() {
   }, [activeSymbol, activeTimeframe, cacheKey]);
 
   // Real-time kline WebSocket subscription
+  const gapRefetchDone = useRef(false);
+  useEffect(() => {
+    gapRefetchDone.current = false;
+  }, [activeSymbol, activeTimeframe]);
+
   useEffect(() => {
     if (!canStream || data.length === 0) {
       setIsLive(false);
@@ -258,6 +263,7 @@ export default function PriceChart() {
     }
 
     setIsLive(true);
+    const intervalMs = getIntervalMs(activeTimeframe);
 
     binanceKlineWS.subscribe(activeSymbol, activeTimeframe, (_symbol: string, candle: LiveCandle) => {
       setData((prev) => {
@@ -266,8 +272,10 @@ export default function PriceChart() {
         const lastCandle = prev[prev.length - 1];
         const lastTs = new Date(lastCandle.timestamp).getTime();
         const candleTs = candle.timestamp;
+        const gap = candleTs - lastTs;
 
-        if (Math.abs(candleTs - lastTs) < getIntervalMs(activeTimeframe) * 0.5) {
+        // Same candle — update in place
+        if (Math.abs(gap) < intervalMs * 0.9) {
           const updated = [...prev];
           updated[updated.length - 1] = {
             ...lastCandle,
@@ -279,13 +287,29 @@ export default function PriceChart() {
           return updated;
         }
 
-        if (candle.isFinal || candleTs > lastTs) {
+        // Gap detected — re-fetch historical data to fill it (once)
+        if (gap > intervalMs * 2 && !gapRefetchDone.current) {
+          gapRefetchDone.current = true;
+          // Async re-fetch in background to fill the gap
+          (async () => {
+            try {
+              await api.fetchPrices(activeSymbol, activeTimeframe, 200);
+              const prices = await api.prices(activeSymbol, activeTimeframe, 200);
+              const sorted = [...prices].reverse();
+              setData(sorted);
+            } catch { /* ignore */ }
+          })();
+          // Still append live candle for now
+        }
+
+        // Next candle — append
+        if (candleTs > lastTs) {
           const newCandle: OHLCV = {
             timestamp: new Date(candleTs).toISOString(),
             open: candle.open, high: candle.high, low: candle.low,
             close: candle.close, volume: candle.volume,
           };
-          return [...prev.slice(-199), newCandle];
+          return [...prev.slice(-499), newCandle];
         }
 
         return prev;

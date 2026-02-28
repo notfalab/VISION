@@ -40,7 +40,7 @@ function DashboardContent() {
 
             {/* Bottom row: Volume Profile + Indicators (desktop only) */}
             <div className="hidden lg:flex gap-2 flex-1 min-h-0">
-              <div className="w-40 shrink-0 h-full">
+              <div className="w-52 shrink-0 h-full">
                 <ErrorBoundary>
                   <VolumeProfile />
                 </ErrorBoundary>
