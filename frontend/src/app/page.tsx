@@ -38,6 +38,13 @@ function DashboardContent() {
               </ErrorBoundary>
             </div>
 
+            {/* Volume Profile — mobile (horizontal scroll) */}
+            <div className="lg:hidden h-[200px] shrink-0">
+              <ErrorBoundary>
+                <VolumeProfile />
+              </ErrorBoundary>
+            </div>
+
             {/* Bottom row: Volume Profile + Indicators (desktop only) */}
             <div className="hidden lg:flex gap-2 flex-1 min-h-0">
               <div className="w-52 shrink-0 h-full">
