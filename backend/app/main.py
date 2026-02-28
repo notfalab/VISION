@@ -1,5 +1,6 @@
 """VISION — FastAPI application entry point."""
 
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -11,13 +12,81 @@ from backend.app.config import get_settings
 from backend.app.logging_config import setup_logging, get_logger
 
 
+SCAN_INTERVAL = 300  # 5 minutes
+DAILY_SUMMARY_HOUR = 22  # 22:00 UTC
+
+
+async def _background_scanner(logger):
+    """
+    In-process background scheduler.
+    Scans XAUUSD + BTCUSD every 5 minutes and sends Telegram signals.
+    Sends daily summary at 22:00 UTC.
+    Replaces Celery beat + worker so no extra Railway services are needed.
+    """
+    from datetime import datetime, timezone
+
+    last_summary_date = None
+
+    # Wait 30s after startup to let everything initialize
+    await asyncio.sleep(30)
+    logger.info("scanner_loop_starting")
+
+    while True:
+        try:
+            # Import here to avoid circular imports
+            from backend.app.tasks.scalper_scan import _async_scan
+
+            # Scan each symbol
+            for symbol in ("XAUUSD", "BTCUSD"):
+                try:
+                    result = await _async_scan(symbol)
+                    signals = result.get("signals_generated", 0)
+                    outcomes = result.get("outcomes_resolved", 0)
+                    logger.info(
+                        "auto_scan_done",
+                        symbol=symbol,
+                        signals=signals,
+                        outcomes=outcomes,
+                    )
+                except Exception as e:
+                    logger.error("auto_scan_error", symbol=symbol, error=str(e))
+
+            # Daily summary at 22:00 UTC
+            now = datetime.now(timezone.utc)
+            today = now.date()
+            if now.hour == DAILY_SUMMARY_HOUR and last_summary_date != today:
+                try:
+                    from backend.app.core.scalper.signal_store import get_signals
+                    from backend.app.core.scalper.outcome_tracker import compute_analytics
+                    from backend.app.notifications.telegram import notify_summary
+
+                    for symbol in ("XAUUSD", "BTCUSD"):
+                        signals = get_signals(symbol=symbol)
+                        if signals:
+                            analytics = compute_analytics(signals)
+                            await notify_summary(analytics, symbol=symbol)
+
+                    last_summary_date = today
+                    logger.info("daily_summary_sent")
+                except Exception as e:
+                    logger.error("daily_summary_error", error=str(e))
+
+        except asyncio.CancelledError:
+            logger.info("scanner_loop_cancelled")
+            return
+        except Exception as e:
+            logger.error("scanner_loop_error", error=str(e))
+
+        # Wait for next scan interval
+        await asyncio.sleep(SCAN_INTERVAL)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    import asyncio
-
+    settings = get_settings()
     setup_logging()
     logger = get_logger("app")
-    logger.info("vision_starting", env=get_settings().app_env)
+    logger.info("vision_starting", env=settings.app_env)
 
     # 1. Auto-create database tables if they don't exist
     try:
@@ -71,7 +140,21 @@ async def lifespan(app: FastAPI):
 
     logger.info("adapters_registered", adapters=data_registry.list_adapters())
 
+    # 4. Start background scanner (replaces Celery beat + worker)
+    scanner_task = None
+    if settings.app_env != "development":
+        scanner_task = asyncio.create_task(_background_scanner(logger))
+        logger.info("background_scanner_started")
+
     yield
+
+    # Stop scanner on shutdown
+    if scanner_task and not scanner_task.done():
+        scanner_task.cancel()
+        try:
+            await scanner_task
+        except asyncio.CancelledError:
+            pass
     logger.info("vision_shutting_down")
 
 
