@@ -107,7 +107,7 @@ export default function MLPrediction() {
     return (
       <div className="card-glass rounded-lg p-3 animate-pulse">
         <div className="h-3 bg-[var(--color-bg-hover)] rounded w-28 mb-2" />
-        <div className="space-y-1.5">
+        <div className="space-y-2">
           <div className="h-12 bg-[var(--color-bg-hover)] rounded" />
           <div className="h-8 bg-[var(--color-bg-hover)] rounded" />
         </div>
@@ -118,14 +118,14 @@ export default function MLPrediction() {
   if (error && !prediction && !regime) {
     return (
       <div className="card-glass rounded-lg overflow-hidden">
-        <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-2">
-          <Brain className="w-3.5 h-3.5 text-[var(--color-neon-purple)]" />
+        <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-3">
+          <Brain className="w-4 h-4 text-[var(--color-neon-purple)]" />
           <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
             ML Prediction
           </h3>
         </div>
         <div className="p-3 text-center">
-          <p className="text-[12px] text-[var(--color-text-muted)]">
+          <p className="text-sm text-[var(--color-text-muted)]">
             ML engine warming up. Ensure price data is fetched.
           </p>
         </div>
@@ -147,14 +147,14 @@ export default function MLPrediction() {
   return (
     <div className="card-glass rounded-lg overflow-hidden">
       {/* Header */}
-      <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-2">
-        <Brain className="w-3.5 h-3.5 text-[var(--color-neon-purple)]" />
+      <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-3">
+        <Brain className="w-4 h-4 text-[var(--color-neon-purple)]" />
         <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
           ML Prediction
         </h3>
         {regime && (
           <span
-            className="text-[9px] font-mono px-1.5 py-0.5 rounded uppercase font-bold"
+            className="text-[11px] font-mono px-1.5 py-0.5 rounded uppercase font-bold"
             style={{
               color: regime.color,
               backgroundColor: `color-mix(in srgb, ${regime.color} 15%, transparent)`,
@@ -169,11 +169,11 @@ export default function MLPrediction() {
           className="ml-auto p-0.5 rounded hover:bg-[var(--color-bg-hover)] transition-colors"
           title="Refresh prediction"
         >
-          <RefreshCw className="w-3.5 h-3.5 text-[var(--color-text-muted)]" />
+          <RefreshCw className="w-4 h-4 text-[var(--color-text-muted)]" />
         </button>
       </div>
 
-      <div className="p-2.5 space-y-2">
+      <div className="p-3.5 space-y-2">
         {/* Prediction direction + confidence */}
         {prediction && (
           <div className="flex items-center gap-3">
@@ -214,13 +214,13 @@ export default function MLPrediction() {
               </div>
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 mb-0.5">
+              <div className="flex items-center gap-2 mb-0.5">
                 <DirIcon
-                  className="w-3.5 h-3.5"
+                  className="w-4 h-4"
                   style={{ color: dir.color }}
                 />
                 <span
-                  className="text-[13px] font-bold uppercase tracking-wide"
+                  className="text-[15px] font-bold uppercase tracking-wide"
                   style={{ color: dir.color }}
                 >
                   Next candle: {dir.label}
@@ -242,7 +242,7 @@ export default function MLPrediction() {
                         key={direction}
                         className="flex items-center gap-1"
                       >
-                        <span className="text-[9px] font-mono w-10 uppercase text-[var(--color-text-muted)]">
+                        <span className="text-[11px] font-mono w-10 uppercase text-[var(--color-text-muted)]">
                           {direction.slice(0, 4)}
                         </span>
                         <div className="flex-1 h-1 bg-[var(--color-bg-hover)] rounded-full overflow-hidden">
@@ -255,7 +255,7 @@ export default function MLPrediction() {
                           />
                         </div>
                         <span
-                          className="text-[9px] font-mono w-8 text-right"
+                          className="text-[11px] font-mono w-8 text-right"
                           style={{ color: c }}
                         >
                           {(prob * 100).toFixed(0)}%
@@ -272,8 +272,8 @@ export default function MLPrediction() {
         {/* Feature importance */}
         {prediction?.top_features && prediction.top_features.length > 0 && (
           <div className="border-t border-[var(--color-border-primary)] pt-1.5">
-            <div className="text-[10px] text-[var(--color-text-muted)] uppercase mb-1 flex items-center gap-1">
-              <Activity className="w-3 h-3" />
+            <div className="text-[12px] text-[var(--color-text-muted)] uppercase mb-1 flex items-center gap-1">
+              <Activity className="w-3.5 h-3.5" />
               Top Features
             </div>
             <div className="space-y-0.5">
@@ -282,7 +282,7 @@ export default function MLPrediction() {
                 const pct = (feat.importance / maxImp) * 100;
                 return (
                   <div key={i} className="flex items-center gap-1">
-                    <span className="text-[9px] font-mono w-16 truncate text-[var(--color-text-muted)]">
+                    <span className="text-[11px] font-mono w-16 truncate text-[var(--color-text-muted)]">
                       {FEATURE_LABELS[feat.name] || feat.name}
                     </span>
                     <div className="flex-1 h-1 bg-[var(--color-bg-hover)] rounded-full overflow-hidden">
@@ -291,7 +291,7 @@ export default function MLPrediction() {
                         style={{ width: `${pct}%` }}
                       />
                     </div>
-                    <span className="text-[9px] font-mono w-8 text-right text-[var(--color-text-muted)]">
+                    <span className="text-[11px] font-mono w-8 text-right text-[var(--color-text-muted)]">
                       {(feat.importance * 100).toFixed(0)}%
                     </span>
                   </div>
@@ -304,21 +304,21 @@ export default function MLPrediction() {
         {/* Regime details */}
         {regime && regime.regime !== "unknown" && (
           <div className="border-t border-[var(--color-border-primary)] pt-1.5">
-            <div className="rounded-md bg-[var(--color-bg-secondary)] px-2 py-1.5 border border-[var(--color-border-primary)]">
-              <div className="flex items-center gap-1.5 mb-0.5">
+            <div className="rounded-md bg-[var(--color-bg-secondary)] px-2 py-2 border border-[var(--color-border-primary)]">
+              <div className="flex items-center gap-2 mb-0.5">
                 <div
                   className="w-2 h-2 rounded-full"
                   style={{ backgroundColor: regime.color }}
                 />
-                <span className="text-[10px] font-semibold text-[var(--color-text-primary)] uppercase">
+                <span className="text-[12px] font-semibold text-[var(--color-text-primary)] uppercase">
                   Regime: {regime.regime.replace(/_/g, " ")}
                 </span>
-                <span className="text-[9px] font-mono ml-auto text-[var(--color-text-muted)]">
+                <span className="text-[11px] font-mono ml-auto text-[var(--color-text-muted)]">
                   {((regime.confidence ?? 0) * 100).toFixed(0)}% •
                   Stability {((regime.stability ?? 0) * 100).toFixed(0)}%
                 </span>
               </div>
-              <p className="text-[9px] text-[var(--color-text-secondary)]">
+              <p className="text-[11px] text-[var(--color-text-secondary)]">
                 {regime.description}
               </p>
             </div>
@@ -327,8 +327,8 @@ export default function MLPrediction() {
 
         {/* Model age footer */}
         {prediction && (
-          <div className="flex items-center gap-1 text-[9px] text-[var(--color-text-muted)]">
-            <Clock className="w-3 h-3" />
+          <div className="flex items-center gap-1 text-[11px] text-[var(--color-text-muted)]">
+            <Clock className="w-3.5 h-3.5" />
             <span>
               Model age: {prediction.model_age_hours < 1
                 ? "< 1h"

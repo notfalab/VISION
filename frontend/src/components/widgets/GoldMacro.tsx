@@ -90,14 +90,14 @@ export default function GoldMacro() {
 
   return (
     <div className="card-glass rounded-lg overflow-hidden flex flex-col">
-      <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-2">
-        <Globe className="w-3.5 h-3.5 text-[var(--color-neon-blue)]" />
+      <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-3">
+        <Globe className="w-4 h-4 text-[var(--color-neon-blue)]" />
         <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
           Gold Macro Analysis
         </h3>
         {score && (
           <span
-            className="text-[11px] font-mono px-1.5 py-0.5 rounded ml-auto uppercase"
+            className="text-[13px] font-mono px-1.5 py-0.5 rounded ml-auto uppercase"
             style={{
               color: scoreColor,
               backgroundColor: `color-mix(in srgb, ${scoreColor} 10%, transparent)`,
@@ -108,24 +108,24 @@ export default function GoldMacro() {
         )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2">
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-6">
+          <div className="flex items-center justify-center gap-3 py-6">
             <Loader2 className="w-4 h-4 text-[var(--color-text-muted)] animate-spin" />
-            <span className="text-[12px] text-[var(--color-text-muted)]">
+            <span className="text-sm text-[var(--color-text-muted)]">
               Fetching macro data... (rate-limited, ~1 min)
             </span>
           </div>
         ) : !data || indicators.length === 0 ? (
-          <div className="text-[12px] text-[var(--color-text-muted)] text-center py-6">
+          <div className="text-sm text-[var(--color-text-muted)] text-center py-6">
             Macro data loading... refresh in a moment.
           </div>
         ) : (
           <>
             {/* Score bar */}
             {score && (
-              <div className="rounded-md bg-[var(--color-bg-secondary)] p-2 border border-[var(--color-border-primary)] mb-1">
-                <div className="flex items-center gap-2 text-[11px] font-mono">
+              <div className="rounded-md bg-[var(--color-bg-secondary)] p-3 border border-[var(--color-border-primary)] mb-1">
+                <div className="flex items-center gap-3 text-[13px] font-mono">
                   <span style={{ color: scoreColor }} className="font-bold uppercase">
                     Macro: {score.direction}
                   </span>
@@ -155,20 +155,20 @@ export default function GoldMacro() {
               return (
                 <div
                   key={key}
-                  className="rounded-md bg-[var(--color-bg-secondary)] px-2.5 py-1.5 border border-[var(--color-border-primary)]"
+                  className="rounded-md bg-[var(--color-bg-secondary)] px-3 py-2 border border-[var(--color-border-primary)]"
                 >
-                  <div className="flex items-center gap-1.5 mb-0.5">
+                  <div className="flex items-center gap-2 mb-0.5">
                     <SignalDot signal={signal} />
-                    <span className="text-[11px] font-semibold text-[var(--color-text-primary)] uppercase tracking-wide">
+                    <span className="text-[13px] font-semibold text-[var(--color-text-primary)] uppercase tracking-wide">
                       {INDICATOR_LABELS[key]}
                     </span>
-                    <span className="text-[12px] font-mono font-bold ml-auto" style={{
+                    <span className="text-sm font-mono font-bold ml-auto" style={{
                       color: signal === "bullish" ? "var(--color-bull)" : signal === "bearish" ? "var(--color-bear)" : "var(--color-text-secondary)"
                     }}>
                       {formatMacroValue(key, indicator)}
                     </span>
                   </div>
-                  <p className="text-[10px] text-[var(--color-text-muted)] leading-relaxed">
+                  <p className="text-[12px] text-[var(--color-text-muted)] leading-relaxed">
                     {indicator.explanation}
                   </p>
                 </div>

@@ -120,8 +120,8 @@ export default function TradeScore() {
   if (loading) {
     return (
       <div className="card-glass rounded-lg p-3">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="w-3.5 h-3.5 rounded-full bg-[var(--color-bg-hover)] animate-pulse" />
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-4 h-4 rounded-full bg-[var(--color-bg-hover)] animate-pulse" />
           <div className="h-3 bg-[var(--color-bg-hover)] rounded w-24 animate-pulse" />
         </div>
         <div className="flex items-center gap-3">
@@ -138,15 +138,15 @@ export default function TradeScore() {
   if (error || !result) {
     return (
       <div className="card-glass rounded-lg overflow-hidden">
-        <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-2">
-          <Zap className="w-3.5 h-3.5 text-[var(--color-text-muted)]" />
+        <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-3">
+          <Zap className="w-4 h-4 text-[var(--color-text-muted)]" />
           <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
             Composite Score
           </h3>
         </div>
         <div className="p-3 text-center">
           <HelpCircle className="w-6 h-6 text-[var(--color-text-muted)] mx-auto mb-1" />
-          <p className="text-[12px] text-[var(--color-text-muted)]">
+          <p className="text-sm text-[var(--color-text-muted)]">
             No data for {activeSymbol}. Fetch prices first.
           </p>
         </div>
@@ -171,14 +171,14 @@ export default function TradeScore() {
   return (
     <div className="card-glass rounded-lg overflow-hidden">
       {/* Header */}
-      <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-2">
-        <Zap className="w-3.5 h-3.5" style={{ color: scoreColor }} />
+      <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-3">
+        <Zap className="w-4 h-4" style={{ color: scoreColor }} />
         <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
           Composite Score
         </h3>
         {regime && regime.regime !== "unknown" && (
           <span
-            className="text-[9px] font-mono px-1.5 py-0.5 rounded uppercase font-bold"
+            className="text-[11px] font-mono px-1.5 py-0.5 rounded uppercase font-bold"
             style={{
               color: regime.color,
               backgroundColor: `color-mix(in srgb, ${regime.color} 15%, transparent)`,
@@ -189,7 +189,7 @@ export default function TradeScore() {
           </span>
         )}
         <span
-          className="text-[10px] font-mono px-1.5 py-0.5 rounded ml-auto uppercase font-bold"
+          className="text-[12px] font-mono px-1.5 py-0.5 rounded ml-auto uppercase font-bold"
           style={{
             color: scoreColor,
             backgroundColor: `color-mix(in srgb, ${scoreColor} 12%, transparent)`,
@@ -220,13 +220,13 @@ export default function TradeScore() {
             </div>
           </div>
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <ScoreIcon className="w-3.5 h-3.5" style={{ color: scoreColor }} />
-              <span className="text-[13px] font-bold uppercase tracking-wide" style={{ color: scoreColor }}>
+            <div className="flex items-center gap-2 mb-0.5">
+              <ScoreIcon className="w-4 h-4" style={{ color: scoreColor }} />
+              <span className="text-[15px] font-bold uppercase tracking-wide" style={{ color: scoreColor }}>
                 {config.label}
               </span>
             </div>
-            <p className="text-[11px] text-[var(--color-text-secondary)] leading-relaxed">
+            <p className="text-[13px] text-[var(--color-text-secondary)] leading-relaxed">
               {result.composite_score >= 65
                 ? `Strong institutional alignment on ${activeSymbol}. ${tech?.bullish_count || 0}/${indicators.length} indicators bullish.`
                 : result.composite_score <= 35
@@ -271,7 +271,7 @@ export default function TradeScore() {
                             : "var(--color-text-muted)",
                     }}
                   />
-                  <span className="text-[9px] font-mono text-[var(--color-text-muted)] truncate">
+                  <span className="text-[11px] font-mono text-[var(--color-text-muted)] truncate">
                     {INDICATOR_LABELS[ind.name] || ind.name}
                   </span>
                 </div>
@@ -291,13 +291,13 @@ function FactorBar({
 }) {
   const color = value >= 60 ? "var(--color-bull)" : value <= 40 ? "var(--color-bear)" : "var(--color-neon-amber)";
   return (
-    <div className="flex items-center gap-1.5">
-      <Icon className="w-3 h-3 shrink-0" style={{ color }} />
-      <span className="text-[10px] font-semibold text-[var(--color-text-muted)] w-12 shrink-0 uppercase">{label}</span>
+    <div className="flex items-center gap-2">
+      <Icon className="w-3.5 h-3.5 shrink-0" style={{ color }} />
+      <span className="text-[12px] font-semibold text-[var(--color-text-muted)] w-12 shrink-0 uppercase">{label}</span>
       <div className="flex-1 h-1.5 bg-[var(--color-bg-hover)] rounded-full overflow-hidden">
         <div className="h-full rounded-full transition-all duration-500" style={{ width: `${value}%`, backgroundColor: color }} />
       </div>
-      <span className="text-[9px] font-mono w-24 text-right shrink-0 truncate" style={{ color }}>{detail}</span>
+      <span className="text-[11px] font-mono w-24 text-right shrink-0 truncate" style={{ color }}>{detail}</span>
     </div>
   );
 }

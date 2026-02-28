@@ -59,9 +59,9 @@ function normalizeTransfers(
 }
 
 function directionIcon(dir: string) {
-  if (dir.includes("inflow")) return <ArrowDownRight className="w-3.5 h-3.5 text-[var(--color-bear)]" />;
-  if (dir.includes("outflow")) return <ArrowUpRight className="w-3.5 h-3.5 text-[var(--color-bull)]" />;
-  return <ArrowRightLeft className="w-3.5 h-3.5 text-[var(--color-text-muted)]" />;
+  if (dir.includes("inflow")) return <ArrowDownRight className="w-4 h-4 text-[var(--color-bear)]" />;
+  if (dir.includes("outflow")) return <ArrowUpRight className="w-4 h-4 text-[var(--color-bull)]" />;
+  return <ArrowRightLeft className="w-4 h-4 text-[var(--color-text-muted)]" />;
 }
 
 function directionColor(dir: string) {
@@ -113,13 +113,13 @@ export default function WhaleTracker() {
 
   return (
     <div className="card-glass rounded-lg overflow-hidden">
-      <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-2">
-        <Wallet className="w-3.5 h-3.5 text-[var(--color-neon-orange, var(--color-neon-amber))]" />
+      <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-3">
+        <Wallet className="w-4 h-4 text-[var(--color-neon-orange, var(--color-neon-amber))]" />
         <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
           {chainLabel} Whale Tracker
         </h3>
         {!loading && transfers.length > 0 && (
-          <span className="text-[10px] font-mono text-[var(--color-text-muted)] ml-auto">
+          <span className="text-[12px] font-mono text-[var(--color-text-muted)] ml-auto">
             {transfers.length} txs
           </span>
         )}
@@ -127,9 +127,9 @@ export default function WhaleTracker() {
 
       <div className="divide-y divide-[var(--color-border-primary)]">
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-6">
+          <div className="flex items-center justify-center gap-3 py-6">
             <Loader2 className="w-4 h-4 text-[var(--color-text-muted)] animate-spin" />
-            <span className="text-[12px] text-[var(--color-text-muted)]">
+            <span className="text-sm text-[var(--color-text-muted)]">
               Scanning {chainLabel.toLowerCase()} chain...
             </span>
           </div>
@@ -144,18 +144,18 @@ export default function WhaleTracker() {
                 {directionIcon(tx.direction)}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-[12px] font-mono font-medium text-[var(--color-text-primary)]">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-mono font-medium text-[var(--color-text-primary)]">
                     {formatVolume(tx.value)} {tx.unit}
                   </span>
                   <span
-                    className="text-[11px] font-mono uppercase"
+                    className="text-[13px] font-mono uppercase"
                     style={{ color: directionColor(tx.direction) }}
                   >
                     {tx.direction.replace("_", " ")}
                   </span>
                 </div>
-                <span className="text-[11px] text-[var(--color-text-muted)]">
+                <span className="text-[13px] text-[var(--color-text-muted)]">
                   {tx.exchange ?? "Unknown"} &middot; {tx.tx_hash.slice(0, 10)}...
                 </span>
               </div>

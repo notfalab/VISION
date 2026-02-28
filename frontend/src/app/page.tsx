@@ -27,8 +27,8 @@ function DashboardContent() {
   return (
     <div className="h-screen flex flex-col bg-[var(--color-bg-primary)] grid-pattern overflow-hidden lg:overflow-hidden">
       <Header />
-      <div className="flex-1 min-h-0 p-2 overflow-y-auto lg:overflow-hidden">
-        <div className="flex flex-col lg:flex-row gap-2 lg:h-full">
+      <div className="flex-1 min-h-0 p-2 md:p-3 overflow-y-auto lg:overflow-hidden">
+        <div className="flex flex-col lg:flex-row gap-2 md:gap-3 lg:h-full">
           {/* Left: Chart + Bottom row */}
           <div className="lg:flex-1 flex flex-col gap-2 min-w-0 lg:min-h-0">
             {/* Chart — capped height so widgets get more space */}
@@ -61,8 +61,8 @@ function DashboardContent() {
           </div>
 
           {/* Right panel — scrollable on desktop, inline on mobile */}
-          <div className="w-full lg:w-[400px] lg:shrink-0 lg:overflow-y-auto lg:min-h-0">
-            <div className="space-y-2">
+          <div className="w-full lg:w-[440px] lg:shrink-0 lg:overflow-y-auto lg:min-h-0">
+            <div className="space-y-3">
               <ErrorBoundary><ScalperMode /></ErrorBoundary>
               <ErrorBoundary><TradeScore /></ErrorBoundary>
               <ErrorBoundary><MLPrediction /></ErrorBoundary>

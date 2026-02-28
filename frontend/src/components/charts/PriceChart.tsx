@@ -190,6 +190,13 @@ export default function PriceChart() {
   const dragStartX = useRef(0);
   const dragStartOffset = useRef(0);
 
+  // Touch state
+  const touchStartX = useRef(0);
+  const touchStartOffset = useRef(0);
+  const pinchStartDist = useRef(0);
+  const pinchStartZoom = useRef(1);
+  const isTouching = useRef(false);
+
   const ZOOM_MIN = 0.5;
   const ZOOM_MAX = 4;
   const BASE_SLOTS = 200;
@@ -948,25 +955,72 @@ export default function PriceChart() {
     setPanOffset((prev) => Math.max(MIN_OFFSET, Math.min(prev + shift, maxOffset)));
   };
 
+  // Touch handlers for mobile pinch-zoom and pan
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      // Single finger — pan
+      isTouching.current = true;
+      touchStartX.current = e.touches[0].clientX;
+      touchStartOffset.current = panOffset;
+    } else if (e.touches.length === 2) {
+      // Two fingers — pinch zoom
+      isTouching.current = false;
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      pinchStartDist.current = Math.hypot(dx, dy);
+      pinchStartZoom.current = zoomLevel;
+    }
+  }, [panOffset, zoomLevel]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    e.preventDefault();
+    if (e.touches.length === 1 && isTouching.current) {
+      // Pan
+      const dx = e.touches[0].clientX - touchStartX.current;
+      const geom = chartGeomRef.current;
+      const chartW = dimensions.width - geom.paddingLeft - geom.paddingRight;
+      const VIEW_SLOTS = getViewSlots();
+      const candleW = chartW / VIEW_SLOTS;
+      const candleShift = Math.round(dx / candleW);
+      const MIN_OFFSET = -Math.round(VIEW_SLOTS * 0.3);
+      const maxOffset = Math.max(0, data.length - VIEW_SLOTS);
+      const newOffset = Math.max(MIN_OFFSET, Math.min(touchStartOffset.current + candleShift, maxOffset));
+      setPanOffset(newOffset);
+    } else if (e.touches.length === 2 && pinchStartDist.current > 0) {
+      // Pinch zoom
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      const scale = dist / pinchStartDist.current;
+      const newZoom = Math.round(pinchStartZoom.current * scale * 100) / 100;
+      setZoomLevel(Math.max(ZOOM_MIN, Math.min(newZoom, ZOOM_MAX)));
+    }
+  }, [dimensions.width, getViewSlots, data.length, ZOOM_MIN, ZOOM_MAX]);
+
+  const handleTouchEnd = useCallback(() => {
+    isTouching.current = false;
+    pinchStartDist.current = 0;
+  }, []);
+
   const buyZoneCount = zones.filter((z) => z.type === "buy").length;
   const sellZoneCount = zones.filter((z) => z.type === "sell").length;
 
   return (
     <div className="card-glass rounded-lg flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--color-border-primary)]">
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-mono font-bold text-[var(--color-text-primary)]">
+      <div className="flex items-center justify-between px-3 md:px-4 py-2 border-b border-[var(--color-border-primary)]">
+        <div className="flex items-center gap-2 md:gap-3">
+          <span className="text-sm md:text-base font-mono font-bold text-[var(--color-text-primary)]">
             {activeSymbol}
           </span>
           {isLive && (
             <span className="flex items-center gap-1">
               <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-bull)] animate-pulse" />
-              <span className="text-[8px] font-mono text-[var(--color-bull)] uppercase">Live</span>
+              <span className="text-[10px] font-mono text-[var(--color-bull)] uppercase">Live</span>
             </span>
           )}
           {zones.length > 0 && (
-            <span className="text-[8px] font-mono text-[var(--color-text-muted)]">
+            <span className="text-[10px] font-mono text-[var(--color-text-muted)]">
               <span className="text-[var(--color-bull)]">{buyZoneCount}B</span>
               {" / "}
               <span className="text-[var(--color-bear)]">{sellZoneCount}S</span>
@@ -974,7 +1028,7 @@ export default function PriceChart() {
             </span>
           )}
           {hoveredCandle && (
-            <div className="flex items-center gap-3 text-[10px] font-mono">
+            <div className="hidden md:flex items-center gap-3 text-[12px] font-mono">
               <span className="text-[var(--color-text-muted)]">
                 O <span className="text-[var(--color-text-primary)]">{formatPrice(hoveredCandle.open, activeSymbol)}</span>
               </span>
@@ -1000,7 +1054,7 @@ export default function PriceChart() {
             <button
               onClick={() => setShowSessions(!showSessions)}
               className={`
-                px-1.5 py-0.5 text-[9px] font-mono rounded transition-all border
+                px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[32px]
                 ${showSessions
                   ? "border-[var(--color-neon-purple)]/30 text-[var(--color-neon-purple)] bg-[var(--color-neon-purple)]/10"
                   : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
@@ -1014,30 +1068,31 @@ export default function PriceChart() {
           <div className="flex items-center gap-0.5 mr-1">
             <button
               onClick={() => setZoomLevel((prev) => Math.max(ZOOM_MIN, Math.round((prev - 0.25) * 100) / 100))}
-              className="px-1.5 py-0.5 text-xs font-mono rounded transition-all text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]"
+              className="px-2 py-1 text-sm font-mono rounded transition-all text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] min-w-[32px] min-h-[32px] flex items-center justify-center"
               title="Zoom out"
             >
               −
             </button>
-            <span className="text-[9px] font-mono text-[var(--color-text-muted)] min-w-[28px] text-center tabular-nums">
+            <span className="text-[11px] font-mono text-[var(--color-text-muted)] min-w-[32px] text-center tabular-nums">
               {zoomLevel.toFixed(1)}x
             </span>
             <button
               onClick={() => setZoomLevel((prev) => Math.min(ZOOM_MAX, Math.round((prev + 0.25) * 100) / 100))}
-              className="px-1.5 py-0.5 text-xs font-mono rounded transition-all text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]"
+              className="px-2 py-1 text-sm font-mono rounded transition-all text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] min-w-[32px] min-h-[32px] flex items-center justify-center"
               title="Zoom in"
             >
               +
             </button>
           </div>
           {/* Timeframe selector */}
-          <div className="flex items-center gap-0.5">
+          <div className="flex items-center gap-0.5 md:gap-1">
             {TIMEFRAMES.map((tf) => (
               <button
                 key={tf.value}
                 onClick={() => setActiveTimeframe(tf.value)}
                 className={`
-                  px-2 py-0.5 text-xs font-mono rounded transition-all
+                  px-2 py-1 text-xs md:text-sm font-mono rounded transition-all min-w-[32px] min-h-[32px] flex items-center justify-center
+                  ${tf.value === "1m" ? "hidden sm:flex" : ""}
                   ${
                     activeTimeframe === tf.value
                       ? "bg-[var(--color-neon-blue)]/15 text-[var(--color-neon-blue)]"
@@ -1055,13 +1110,16 @@ export default function PriceChart() {
       {/* Chart area */}
       <div
         ref={containerRef}
-        className="flex-1 relative min-h-0"
+        className="flex-1 relative min-h-0 touch-none"
         style={{ cursor: "crosshair" }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
         onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         {loading ? (
           <div className="absolute inset-0 flex items-center justify-center">

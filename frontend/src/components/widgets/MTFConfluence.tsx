@@ -69,14 +69,14 @@ export default function MTFConfluence() {
 
   return (
     <div className="card-glass rounded-lg overflow-hidden">
-      <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-2">
-        <Layers className="w-3.5 h-3.5 text-[var(--color-neon-blue)]" />
+      <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-3">
+        <Layers className="w-4 h-4 text-[var(--color-neon-blue)]" />
         <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
           MTF Confluence
         </h3>
         {overall && (
           <span
-            className="text-[10px] font-mono px-1.5 py-0.5 rounded ml-auto uppercase font-bold"
+            className="text-[12px] font-mono px-1.5 py-0.5 rounded ml-auto uppercase font-bold"
             style={{ color: overallColor, backgroundColor: `color-mix(in srgb, ${overallColor} 12%, transparent)` }}
           >
             {overall.direction.replace(/_/g, " ")}
@@ -84,14 +84,14 @@ export default function MTFConfluence() {
         )}
       </div>
 
-      <div className="p-2">
+      <div className="p-3">
         {loading ? (
-          <div className="flex items-center justify-center gap-2 py-4">
+          <div className="flex items-center justify-center gap-3 py-4">
             <Loader2 className="w-4 h-4 text-[var(--color-text-muted)] animate-spin" />
-            <span className="text-[12px] text-[var(--color-text-muted)]">Analyzing timeframes...</span>
+            <span className="text-sm text-[var(--color-text-muted)]">Analyzing timeframes...</span>
           </div>
         ) : !data ? (
-          <div className="text-[12px] text-[var(--color-text-muted)] text-center py-4">
+          <div className="text-sm text-[var(--color-text-muted)] text-center py-4">
             No MTF data available
           </div>
         ) : (
@@ -100,9 +100,9 @@ export default function MTFConfluence() {
             <div className="rounded-md bg-[var(--color-bg-secondary)] border border-[var(--color-border-primary)] overflow-hidden">
               {/* Header row */}
               <div className="grid grid-cols-[1fr_36px_36px_36px] md:grid-cols-[1fr_40px_40px_40px] gap-0 px-2 py-1 border-b border-[var(--color-border-primary)]">
-                <span className="text-[10px] text-[var(--color-text-muted)] uppercase">Indicator</span>
+                <span className="text-[12px] text-[var(--color-text-muted)] uppercase">Indicator</span>
                 {["1h", "4h", "1d"].map(tf => (
-                  <span key={tf} className="text-[10px] text-[var(--color-text-muted)] uppercase text-center">
+                  <span key={tf} className="text-[12px] text-[var(--color-text-muted)] uppercase text-center">
                     {TF_LABELS[tf]}
                   </span>
                 ))}
@@ -111,11 +111,11 @@ export default function MTFConfluence() {
               {/* Data rows */}
               {Object.keys(IND_LABELS).map(ind => (
                 <div key={ind} className="grid grid-cols-[1fr_36px_36px_36px] md:grid-cols-[1fr_40px_40px_40px] gap-0 px-2 py-1 border-b border-[var(--color-border-primary)] last:border-b-0">
-                  <span className="text-[10px] font-mono text-[var(--color-text-secondary)]">{IND_LABELS[ind]}</span>
+                  <span className="text-[12px] font-mono text-[var(--color-text-secondary)]">{IND_LABELS[ind]}</span>
                   {["1h", "4h", "1d"].map(tf => {
                     const tfData = data.timeframes[tf];
                     if (!tfData?.available || !tfData.indicators[ind]) {
-                      return <span key={tf} className="text-center text-[10px] text-[var(--color-text-muted)]">—</span>;
+                      return <span key={tf} className="text-center text-[12px] text-[var(--color-text-muted)]">—</span>;
                     }
                     const signal = tfData.indicators[ind].signal;
                     return (
@@ -135,14 +135,14 @@ export default function MTFConfluence() {
                   const color = conf.alignment.includes("bullish") ? "var(--color-bull)"
                     : conf.alignment.includes("bearish") ? "var(--color-bear)" : "var(--color-text-muted)";
                   return (
-                    <div key={ind} className="flex items-center gap-1.5">
-                      <span className="text-[9px] font-mono text-[var(--color-text-muted)] w-14 shrink-0">
+                    <div key={ind} className="flex items-center gap-2">
+                      <span className="text-[11px] font-mono text-[var(--color-text-muted)] w-14 shrink-0">
                         {IND_LABELS[ind] || ind}
                       </span>
                       <div className="flex-1 h-1 bg-[var(--color-bg-hover)] rounded-full overflow-hidden">
                         <div className="h-full rounded-full" style={{ width: `${conf.score}%`, backgroundColor: color }} />
                       </div>
-                      <span className="text-[9px] font-mono w-6 text-right" style={{ color }}>
+                      <span className="text-[11px] font-mono w-6 text-right" style={{ color }}>
                         {conf.score}%
                       </span>
                     </div>
@@ -158,7 +158,7 @@ export default function MTFConfluence() {
 }
 
 function SignalDot({ signal }: { signal: string }) {
-  if (signal === "bullish") return <TrendingUp className="w-3.5 h-3.5 text-[var(--color-bull)]" />;
-  if (signal === "bearish") return <TrendingDown className="w-3.5 h-3.5 text-[var(--color-bear)]" />;
-  return <Minus className="w-3.5 h-3.5 text-[var(--color-text-muted)]" />;
+  if (signal === "bullish") return <TrendingUp className="w-4 h-4 text-[var(--color-bull)]" />;
+  if (signal === "bearish") return <TrendingDown className="w-4 h-4 text-[var(--color-bear)]" />;
+  return <Minus className="w-4 h-4 text-[var(--color-text-muted)]" />;
 }
