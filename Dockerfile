@@ -19,7 +19,8 @@ RUN pip install --no-cache-dir ".[ml]"
 COPY backend/ backend/
 COPY alembic.ini ./
 COPY config/ config/
+COPY start.sh ./
 
 EXPOSE 8000
 
-CMD uvicorn backend.app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+CMD ["bash", "start.sh"]
