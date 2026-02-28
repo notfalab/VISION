@@ -93,8 +93,10 @@ def create_app() -> FastAPI:
         allow_origins=["*"] if settings.debug else [
             "http://localhost",
             "http://localhost:3000",
+            "https://visionmarkets.app",
+            "https://www.visionmarkets.app",
         ],
-        allow_origin_regex=r"https://.*\.(vercel\.app|up\.railway\.app)",
+        allow_origin_regex=r"https://.*\.(vercel\.app|up\.railway\.app|visionmarkets\.app)",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
