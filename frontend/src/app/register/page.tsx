@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Activity, UserPlus, Loader2, Eye, EyeOff } from "lucide-react";
+import { UserPlus, Loader2, Eye, EyeOff } from "lucide-react";
+import Image from "next/image";
 import { useAuthStore } from "@/stores/auth";
 
 export default function RegisterPage() {
@@ -75,11 +76,8 @@ export default function RegisterPage() {
     <div className="h-screen flex items-center justify-center bg-[var(--color-bg-primary)] grid-pattern p-4">
       <div className="w-full max-w-sm">
         {/* Logo */}
-        <div className="flex items-center justify-center gap-2 mb-8">
-          <Activity className="w-6 h-6 text-[var(--color-neon-blue)]" />
-          <span className="text-lg font-bold tracking-widest text-[var(--color-text-primary)]">
-            VISION
-          </span>
+        <div className="flex items-center justify-center mb-8">
+          <Image src="/logo-vision.png" alt="VISION" width={200} height={34} priority />
         </div>
 
         {/* Card */}

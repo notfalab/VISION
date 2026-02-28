@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Activity, Send, MessageCircle, ChevronDown, LogOut, User, Palette } from "lucide-react";
+import { Send, MessageCircle, ChevronDown, LogOut, User, Palette } from "lucide-react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useMarketStore } from "@/stores/market";
 import { useAuthStore } from "@/stores/auth";
@@ -76,11 +77,8 @@ export default function Header() {
   return (
     <header className="flex items-center h-11 px-3 border-b border-[var(--color-border-primary)] bg-[var(--color-bg-secondary)]">
       {/* Logo */}
-      <div className="flex items-center gap-2 shrink-0">
-        <Activity className="w-4 h-4 text-[var(--color-neon-blue)]" />
-        <span className="text-xs font-bold tracking-widest text-[var(--color-text-primary)]">
-          VISION
-        </span>
+      <div className="flex items-center shrink-0">
+        <Image src="/logo-vision.png" alt="VISION" width={120} height={20} priority />
       </div>
 
       <div className="hidden md:block h-4 w-px bg-[var(--color-border-primary)] mx-3 shrink-0" />
