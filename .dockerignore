@@ -1,0 +1,31 @@
+# Environment files (Railway injects its own env vars)
+.env
+.env.*
+!.env.template
+
+# Frontend (deployed on Vercel, not needed in backend image)
+frontend/
+node_modules/
+
+# Git
+.git/
+.gitignore
+
+# Docker
+docker-compose*.yml
+Dockerfile
+
+# IDE / OS
+.vscode/
+.idea/
+__pycache__/
+*.pyc
+.DS_Store
+
+# Railway configs (not needed inside container)
+railway*.toml
+
+# Docs / CI
+*.md
+.github/
+.claude/
