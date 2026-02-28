@@ -13,26 +13,34 @@ from backend.app.logging_config import setup_logging, get_logger
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    import asyncio
+
     setup_logging()
     logger = get_logger("app")
     logger.info("vision_starting", env=get_settings().app_env)
 
     # 1. Auto-create database tables if they don't exist
-    from backend.app.database import engine, Base
-    from backend.app.models import (  # noqa: F401
-        Asset, OHLCVData, IndicatorValue, COTReport,
-        Alert, AlertHistory, User, Trade, OnchainEvent, ScalperSignal,
-    )
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    logger.info("database_tables_ready")
-
-    # 2. Auto-seed assets if the assets table is empty
-    from backend.app.seed import seed_assets
     try:
-        await seed_assets()
+        from backend.app.database import engine, Base
+        from backend.app.models import (  # noqa: F401
+            Asset, OHLCVData, IndicatorValue, COTReport,
+            Alert, AlertHistory, User, Trade, OnchainEvent, ScalperSignal,
+        )
+        async with asyncio.timeout(30):
+            async with engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+        logger.info("database_tables_ready")
+
+        # 2. Auto-seed assets if the assets table is empty
+        from backend.app.seed import seed_assets
+        try:
+            async with asyncio.timeout(30):
+                await seed_assets()
+        except Exception as e:
+            logger.warning("seed_failed", error=str(e))
     except Exception as e:
-        logger.warning("seed_failed", error=str(e))
+        logger.error("database_init_failed", error=str(e))
+        logger.warning("app_starting_without_database")
 
     # 3. Register data source adapters
     from backend.app.data.registry import data_registry
