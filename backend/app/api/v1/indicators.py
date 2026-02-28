@@ -181,6 +181,71 @@ async def calculate_indicators(
     }
 
 
+@router.get("/{symbol}/patterns")
+async def get_pattern_history(
+    symbol: str,
+    timeframe: str = Query("1d"),
+    limit: int = Query(500, ge=50, le=2000),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return all detected candle patterns with timestamps for chart overlay."""
+    import pandas as pd
+    from backend.app.core.indicators.candle_patterns import CandlePatternIndicator
+
+    result = await db.execute(select(Asset).where(Asset.symbol == symbol.upper()))
+    asset = result.scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail=f"Asset {symbol} not found")
+
+    from backend.app.models.ohlcv import Timeframe as TF
+    try:
+        tf = TF(timeframe)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid timeframe: {timeframe}")
+
+    query = (
+        select(OHLCVData)
+        .where(OHLCVData.asset_id == asset.id, OHLCVData.timeframe == tf)
+        .order_by(OHLCVData.timestamp.desc())
+        .limit(limit)
+    )
+    rows = await db.execute(query)
+    ohlcv_list = rows.scalars().all()
+
+    if len(ohlcv_list) < 5:
+        return {"symbol": symbol.upper(), "timeframe": timeframe, "patterns": []}
+
+    df = pd.DataFrame([{
+        "timestamp": r.timestamp,
+        "open": float(r.open),
+        "high": float(r.high),
+        "low": float(r.low),
+        "close": float(r.close),
+        "volume": float(r.volume),
+    } for r in reversed(ohlcv_list)])
+
+    indicator = CandlePatternIndicator()
+    results = indicator.calculate(df)
+
+    patterns = []
+    for r in results:
+        if r.metadata and r.metadata.get("pattern") != "none":
+            patterns.append({
+                "timestamp": r.timestamp.isoformat() if hasattr(r.timestamp, "isoformat") else str(r.timestamp),
+                "pattern": r.metadata["pattern"],
+                "bias": r.metadata.get("classification", "neutral"),
+                "strength": r.metadata.get("strength", 0),
+                "type": r.metadata.get("pattern_type", "reversal"),
+                "all_patterns": r.metadata.get("all_patterns", []),
+            })
+
+    return {
+        "symbol": symbol.upper(),
+        "timeframe": timeframe,
+        "patterns": patterns,
+    }
+
+
 async def _fetch_ohlcv_df(db: AsyncSession, asset_id: int, timeframe: str, limit: int = 200):
     """Helper to fetch OHLCV data and return a DataFrame."""
     import pandas as pd

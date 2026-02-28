@@ -298,7 +298,7 @@ export default function PriceChart() {
     };
   }, [canStream, activeSymbol, activeTimeframe, data.length > 0]);
 
-  // Fetch candle pattern markers from indicator API
+  // Fetch all candle pattern markers from dedicated patterns endpoint
   useEffect(() => {
     if (data.length < 30) {
       setPatternMarkers([]);
@@ -306,40 +306,18 @@ export default function PriceChart() {
     }
     const fetchPatterns = async () => {
       try {
-        const result = await api.indicators(activeSymbol, activeTimeframe, Math.min(data.length, 500));
-        const patternsInd = result?.indicators?.find((i: any) => i.name === "candle_patterns");
-        if (patternsInd?.metadata?.pattern && patternsInd.metadata.pattern !== "none") {
-          // The calculate endpoint returns the latest candle's pattern
-          // But patterns are per-candle — for chart markers we need full history
-          // We use the bulk indicator data to find all candles with patterns
-          const allIndicators = result?.indicators || [];
-          const cpInd = allIndicators.find((i: any) => i.name === "candle_patterns");
-          if (cpInd && cpInd.metadata?.all_patterns) {
-            // Single latest pattern marker
-            const markers: PatternMarker[] = [];
-            if (data.length > 0) {
-              markers.push({
-                timestamp: data[data.length - 1].timestamp,
-                pattern: cpInd.metadata.pattern,
-                bias: cpInd.metadata.classification || "neutral",
-                strength: cpInd.metadata.strength || 0,
-                type: cpInd.metadata.pattern_type || "reversal",
-              });
-            }
-            setPatternMarkers(markers);
-          } else if (cpInd) {
-            const markers: PatternMarker[] = [];
-            if (cpInd.metadata?.pattern !== "none" && data.length > 0) {
-              markers.push({
-                timestamp: data[data.length - 1].timestamp,
-                pattern: cpInd.metadata.pattern,
-                bias: cpInd.metadata.classification || "neutral",
-                strength: cpInd.metadata.strength || 0,
-                type: cpInd.metadata.pattern_type || "reversal",
-              });
-            }
-            setPatternMarkers(markers);
-          }
+        const result = await api.patternHistory(activeSymbol, activeTimeframe, Math.min(data.length, 500));
+        if (result?.patterns?.length > 0) {
+          const markers: PatternMarker[] = result.patterns
+            .filter((p: any) => p.strength >= 0.6)
+            .map((p: any) => ({
+              timestamp: p.timestamp,
+              pattern: p.pattern,
+              bias: p.bias,
+              strength: p.strength,
+              type: p.type,
+            }));
+          setPatternMarkers(markers);
         } else {
           setPatternMarkers([]);
         }
@@ -685,58 +663,109 @@ export default function PriceChart() {
       ctx.fillRect(x - bodyW / 2, volumeTop + volumeAreaH - vH, bodyW, vH);
     });
 
-    // ── Candle Pattern Markers (small triangles above/below candles) ──
+    // ── Candle Pattern Markers (enhanced with pill labels + strength glow) ──
     if (patternMarkers.length > 0) {
+      // Build timestamp lookup for fast matching
+      const patternMap = new Map<number, PatternMarker>();
+      patternMarkers.forEach((m) => patternMap.set(new Date(m.timestamp).getTime(), m));
+
       visibleData.forEach((candle, i) => {
-        const match = patternMarkers.find(
-          (m) => new Date(m.timestamp).getTime() === new Date(candle.timestamp).getTime()
-        );
+        const match = patternMap.get(new Date(candle.timestamp).getTime());
         if (!match) return;
         const x = PADDING.left + candleW * i + candleW / 2;
-        const markerSize = Math.max(4, Math.min(8, candleW * 0.4));
+        const markerSize = Math.max(5, Math.min(10, candleW * 0.5));
+        const alpha = 0.6 + match.strength * 0.4; // stronger = more opaque
+        const isReversal = match.type === "reversal";
+        const fontSize = Math.max(7, Math.min(9, candleW * 0.35));
 
         if (match.bias === "bullish") {
-          // Green triangle below the candle low
-          const y = priceToY(candle.low) + 6;
+          const y = priceToY(candle.low) + 8;
+          // Arrow up triangle
+          ctx.globalAlpha = alpha;
           ctx.fillStyle = tc.patternBull;
           ctx.beginPath();
-          ctx.moveTo(x, y + markerSize);
-          ctx.lineTo(x - markerSize / 2, y + markerSize * 2);
-          ctx.lineTo(x + markerSize / 2, y + markerSize * 2);
+          ctx.moveTo(x, y);
+          ctx.lineTo(x - markerSize * 0.6, y + markerSize * 1.2);
+          ctx.lineTo(x + markerSize * 0.6, y + markerSize * 1.2);
           ctx.closePath();
           ctx.fill();
-          // Pattern label
-          ctx.fillStyle = tc.patternBull;
-          ctx.font = `bold ${Math.max(7, Math.min(9, candleW * 0.3))}px JetBrains Mono, monospace`;
+          // Reversal patterns get a glow ring
+          if (isReversal && match.strength >= 0.8) {
+            ctx.strokeStyle = tc.patternBull;
+            ctx.lineWidth = 1.5;
+            ctx.globalAlpha = 0.3;
+            ctx.beginPath();
+            ctx.arc(x, y + markerSize * 0.6, markerSize * 1.2, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+          // Pill label with background
+          ctx.globalAlpha = alpha;
+          const label = match.pattern.replace(/_/g, " ").toUpperCase();
+          ctx.font = `bold ${fontSize}px JetBrains Mono, monospace`;
           ctx.textAlign = "center";
-          ctx.fillText(match.pattern.replace(/_/g, " ").toUpperCase(), x, y + markerSize * 2 + 10);
+          const textW = ctx.measureText(label).width;
+          const pillY = y + markerSize * 1.2 + 4;
+          ctx.fillStyle = tc.patternBull;
+          ctx.globalAlpha = 0.15;
+          ctx.beginPath();
+          ctx.roundRect(x - textW / 2 - 3, pillY, textW + 6, fontSize + 4, 3);
+          ctx.fill();
+          ctx.globalAlpha = alpha;
+          ctx.fillStyle = tc.patternBull;
+          ctx.fillText(label, x, pillY + fontSize + 1);
         } else if (match.bias === "bearish") {
-          // Bear triangle above the candle high
-          const y = priceToY(candle.high) - 6;
+          const y = priceToY(candle.high) - 8;
+          // Arrow down triangle
+          ctx.globalAlpha = alpha;
           ctx.fillStyle = tc.patternBear;
           ctx.beginPath();
-          ctx.moveTo(x, y - markerSize);
-          ctx.lineTo(x - markerSize / 2, y - markerSize * 2);
-          ctx.lineTo(x + markerSize / 2, y - markerSize * 2);
+          ctx.moveTo(x, y);
+          ctx.lineTo(x - markerSize * 0.6, y - markerSize * 1.2);
+          ctx.lineTo(x + markerSize * 0.6, y - markerSize * 1.2);
           ctx.closePath();
           ctx.fill();
-          // Pattern label
-          ctx.fillStyle = tc.patternBear;
-          ctx.font = `bold ${Math.max(7, Math.min(9, candleW * 0.3))}px JetBrains Mono, monospace`;
+          // Reversal glow
+          if (isReversal && match.strength >= 0.8) {
+            ctx.strokeStyle = tc.patternBear;
+            ctx.lineWidth = 1.5;
+            ctx.globalAlpha = 0.3;
+            ctx.beginPath();
+            ctx.arc(x, y - markerSize * 0.6, markerSize * 1.2, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+          // Pill label
+          ctx.globalAlpha = alpha;
+          const label = match.pattern.replace(/_/g, " ").toUpperCase();
+          ctx.font = `bold ${fontSize}px JetBrains Mono, monospace`;
           ctx.textAlign = "center";
-          ctx.fillText(match.pattern.replace(/_/g, " ").toUpperCase(), x, y - markerSize * 2 - 4);
+          const textW = ctx.measureText(label).width;
+          const pillY = y - markerSize * 1.2 - fontSize - 8;
+          ctx.fillStyle = tc.patternBear;
+          ctx.globalAlpha = 0.15;
+          ctx.beginPath();
+          ctx.roundRect(x - textW / 2 - 3, pillY, textW + 6, fontSize + 4, 3);
+          ctx.fill();
+          ctx.globalAlpha = alpha;
+          ctx.fillStyle = tc.patternBear;
+          ctx.fillText(label, x, pillY + fontSize + 1);
         } else {
           // Amber diamond for neutral (doji)
-          const y = priceToY(candle.high) - 10;
+          const y = priceToY(candle.high) - 12;
+          ctx.globalAlpha = alpha;
           ctx.fillStyle = tc.patternNeutral;
           ctx.beginPath();
           ctx.moveTo(x, y - markerSize);
-          ctx.lineTo(x + markerSize / 2, y);
+          ctx.lineTo(x + markerSize * 0.6, y);
           ctx.lineTo(x, y + markerSize);
-          ctx.lineTo(x - markerSize / 2, y);
+          ctx.lineTo(x - markerSize * 0.6, y);
           ctx.closePath();
           ctx.fill();
+          // Label
+          ctx.font = `bold ${fontSize}px JetBrains Mono, monospace`;
+          ctx.textAlign = "center";
+          ctx.fillText("DOJI", x, y - markerSize - 4);
         }
+        ctx.globalAlpha = 1; // reset
       });
     }
 

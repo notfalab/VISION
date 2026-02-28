@@ -32,7 +32,7 @@ function DashboardContent() {
           {/* Left: Chart + Bottom row */}
           <div className="lg:flex-1 flex flex-col gap-2 min-w-0 lg:min-h-0">
             {/* Chart — capped height so widgets get more space */}
-            <div className="h-[250px] md:h-[320px] lg:h-[45%] lg:min-h-[200px] shrink-0">
+            <div className="h-[350px] md:h-[380px] lg:h-[45%] lg:min-h-[200px] shrink-0">
               <ErrorBoundary>
                 <PriceChart />
               </ErrorBoundary>

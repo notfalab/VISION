@@ -65,6 +65,10 @@ export const api = {
   indicators: (symbol: string, timeframe = "1d", limit = 200) =>
     fetchAPI<any>(`/api/v1/indicators/${symbol}/calculate?timeframe=${timeframe}&limit=${limit}`),
 
+  // Pattern History (all candle patterns for chart overlay)
+  patternHistory: (symbol: string, timeframe = "1d", limit = 500) =>
+    fetchAPI<any>(`/api/v1/indicators/${symbol}/patterns?timeframe=${timeframe}&limit=${limit}`),
+
   // Composite Score (advanced multi-factor)
   compositeScore: (symbol: string, timeframe = "1d") =>
     fetchAPI<any>(`/api/v1/indicators/${symbol}/composite?timeframe=${timeframe}`),
