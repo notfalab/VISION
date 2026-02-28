@@ -337,7 +337,7 @@ export default function PriceChart() {
     }
     const fetchPatterns = async () => {
       try {
-        const result = await api.patternHistory(activeSymbol, activeTimeframe, Math.min(data.length, 500));
+        const result = await api.patternHistory(activeSymbol, activeTimeframe, Math.min(data.length, 50));
         if (result?.patterns?.length > 0) {
           const markers: PatternMarker[] = result.patterns
             .filter((p: any) => p.strength >= 0.6)
@@ -694,13 +694,16 @@ export default function PriceChart() {
       ctx.fillRect(x - bodyW / 2, volumeTop + volumeAreaH - vH, bodyW, vH);
     });
 
-    // ── Candle Pattern Markers (enhanced with pill labels + strength glow) ──
+    // ── Candle Pattern Markers (only last N candles — recent signals only) ──
+    const PATTERN_CANDLE_LIMIT = 8; // Only show patterns on the last 8 visible candles
     if (patternMarkers.length > 0) {
       // Build timestamp lookup for fast matching
       const patternMap = new Map<number, PatternMarker>();
       patternMarkers.forEach((m) => patternMap.set(new Date(m.timestamp).getTime(), m));
 
+      const startIdx = Math.max(0, visibleData.length - PATTERN_CANDLE_LIMIT);
       visibleData.forEach((candle, i) => {
+        if (i < startIdx) return; // Skip old candles — only annotate recent ones
         const match = patternMap.get(new Date(candle.timestamp).getTime());
         if (!match) return;
         const x = PADDING.left + candleW * i + candleW / 2;
