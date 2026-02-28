@@ -23,7 +23,9 @@ export default function VolumeProfile() {
   useEffect(() => {
     if (data.length === 0) return;
 
-    const prices = data.map((c) => c.close);
+    // Use only recent candles so VP reflects current price action
+    const recentData = data.slice(-200);
+    const prices = recentData.map((c) => c.close);
     const min = Math.min(...prices);
     const max = Math.max(...prices);
     const bins = 20;
@@ -35,7 +37,7 @@ export default function VolumeProfile() {
       let buyVol = 0;
       let sellVol = 0;
 
-      data.forEach((c) => {
+      recentData.forEach((c) => {
         if (c.close >= min + binSize * i && c.close < min + binSize * (i + 1)) {
           if (c.close >= c.open) buyVol += c.volume;
           else sellVol += c.volume;
