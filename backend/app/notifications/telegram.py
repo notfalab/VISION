@@ -3,15 +3,18 @@ Telegram Bot Notifier — sends scalper signals and alerts to Telegram.
 
 Uses the Telegram Bot API directly via httpx (no extra deps needed).
 
-Supports two targets:
+Supports multiple targets:
   - Personal chat (TELEGRAM_CHAT_ID) — admin/test messages
-  - Channel (TELEGRAM_CHANNEL_ID) — public signal broadcasts
+  - Gold channel (TELEGRAM_GOLD_CHANNEL_ID) — XAUUSD signal broadcasts
+  - Crypto channel (TELEGRAM_CRYPTO_CHANNEL_ID) — BTCUSD signal broadcasts
+  - General channel (TELEGRAM_CHANNEL_ID) — fallback for other assets
 
 Setup:
   1. Create bot with @BotFather → get token
-  2. Create channel, add bot as admin with "Post Messages" permission
-  3. Send a message in the channel, then call GET /api/v1/scalper/telegram/channel-id
-  4. Set TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_CHANNEL_ID in .env
+  2. Create channels (Gold, Crypto), add bot as admin with "Post Messages" permission
+  3. Send a message in each channel, then call GET /api/v1/scalper/telegram/channel-id
+  4. Set TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_GOLD_CHANNEL_ID,
+     TELEGRAM_CRYPTO_CHANNEL_ID in .env
 """
 
 import httpx
@@ -71,13 +74,26 @@ async def send_message(
         return False
 
 
-async def send_to_channel(text: str, parse_mode: str = "HTML", disable_preview: bool = True) -> bool:
-    """Send a message to the configured Telegram channel."""
+def get_channel_for_symbol(symbol: str) -> str:
+    """Return the appropriate Telegram channel ID based on the asset symbol."""
     settings = get_settings()
-    channel_id = settings.telegram_channel_id
+    symbol_upper = (symbol or "").upper()
+
+    if symbol_upper == "XAUUSD" and settings.telegram_gold_channel_id:
+        return settings.telegram_gold_channel_id
+    elif symbol_upper in ("BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "ETHBTC") and settings.telegram_crypto_channel_id:
+        return settings.telegram_crypto_channel_id
+
+    # Fallback to general channel
+    return settings.telegram_channel_id
+
+
+async def send_to_channel(text: str, parse_mode: str = "HTML", disable_preview: bool = True, symbol: str = "") -> bool:
+    """Send a message to the appropriate Telegram channel based on symbol."""
+    channel_id = get_channel_for_symbol(symbol)
 
     if not channel_id:
-        logger.warning("telegram_channel_not_configured", hint="Set TELEGRAM_CHANNEL_ID in .env")
+        logger.warning("telegram_channel_not_configured", symbol=symbol, hint="Set TELEGRAM_*_CHANNEL_ID in .env")
         return False
 
     return await send_message(text, chat_id=channel_id, parse_mode=parse_mode, disable_preview=disable_preview)
@@ -303,26 +319,28 @@ def format_daily_summary(analytics: dict) -> str:
 
 
 async def notify_signal(signal: dict) -> bool:
-    """Send a new signal notification to both personal chat and channel."""
+    """Send a new signal notification to the symbol-specific channel + personal chat."""
+    symbol = signal.get("symbol", "")
     msg = format_signal_message(signal)
-    # Send to channel (public broadcast)
-    channel_ok = await send_to_channel(msg)
+    # Send to symbol-specific channel (Gold → gold channel, BTC → crypto channel)
+    channel_ok = await send_to_channel(msg, symbol=symbol)
     # Also send to personal chat (admin)
     personal_ok = await send_message(msg)
     return channel_ok or personal_ok
 
 
 async def notify_outcome(signal: dict) -> bool:
-    """Send a signal outcome notification to both personal chat and channel."""
+    """Send a signal outcome notification to the symbol-specific channel + personal chat."""
+    symbol = signal.get("symbol", "")
     msg = format_outcome_message(signal)
-    channel_ok = await send_to_channel(msg)
+    channel_ok = await send_to_channel(msg, symbol=symbol)
     personal_ok = await send_message(msg)
     return channel_ok or personal_ok
 
 
-async def notify_summary(analytics: dict) -> bool:
-    """Send a daily summary to both personal chat and channel."""
+async def notify_summary(analytics: dict, symbol: str = "") -> bool:
+    """Send a daily summary to the symbol-specific channel + personal chat."""
     msg = format_daily_summary(analytics)
-    channel_ok = await send_to_channel(msg)
+    channel_ok = await send_to_channel(msg, symbol=symbol)
     personal_ok = await send_message(msg)
     return channel_ok or personal_ok

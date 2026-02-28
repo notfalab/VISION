@@ -234,12 +234,17 @@ def daily_summary():
         from backend.app.core.scalper.outcome_tracker import compute_analytics
         from backend.app.notifications.telegram import notify_summary
 
-        signals = get_signals(symbol="XAUUSD")
-        if not signals:
-            return {"status": "no_signals"}
+        total_sent = 0
+        for symbol in ("XAUUSD", "BTCUSD"):
+            signals = get_signals(symbol=symbol)
+            if not signals:
+                continue
+            analytics = compute_analytics(signals)
+            await notify_summary(analytics, symbol=symbol)
+            total_sent += len(signals)
 
-        analytics = compute_analytics(signals)
-        await notify_summary(analytics)
-        return {"status": "sent", "signals_analyzed": len(signals)}
+        if total_sent == 0:
+            return {"status": "no_signals"}
+        return {"status": "sent", "signals_analyzed": total_sent}
 
     return _run_async(_send_summary())

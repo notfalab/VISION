@@ -97,7 +97,9 @@ class Settings(BaseSettings):
     # Telegram Bot
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""  # Your personal chat ID (admin notifications)
-    telegram_channel_id: str = ""  # Channel ID for public signal broadcasts
+    telegram_channel_id: str = ""  # Channel ID for public signal broadcasts (fallback)
+    telegram_gold_channel_id: str = ""  # Channel for Gold (XAUUSD) signals
+    telegram_crypto_channel_id: str = ""  # Channel for Crypto (BTCUSD) signals
 
     # On-chain
     etherscan_api_key: str = ""
