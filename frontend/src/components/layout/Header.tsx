@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Send, MessageCircle, ChevronDown, LogOut, User, Palette } from "lucide-react";
+import { ChevronDown, LogOut, User, Palette } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useMarketStore } from "@/stores/market";
@@ -173,10 +173,10 @@ export default function Header() {
             <div className="relative" ref={signalsMobileRef}>
               <button
                 onClick={() => setSignalsOpen(!signalsOpen)}
-                className="flex items-center justify-center w-9 h-9 rounded-lg transition-colors hover:bg-[var(--color-bg-hover)] text-[#29B6F6]"
+                className="flex items-center justify-center w-9 h-9 rounded-lg transition-colors hover:bg-[var(--color-bg-hover)]"
                 title="Telegram Signals"
               >
-                <Send className="w-[18px] h-[18px]" />
+                <Image src="/telegram.svg" alt="Telegram" width={20} height={20} />
               </button>
               {signalsOpen && (
                 <div className="absolute top-full right-0 mt-1 z-50 min-w-[200px] rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-bg-secondary)] shadow-lg overflow-hidden">
@@ -194,7 +194,7 @@ export default function Header() {
                       style={{ background: ch.gradient }}
                     >
                       <span className="font-semibold text-white">{ch.label}</span>
-                      <Send className="w-3.5 h-3.5 text-white/70 ml-auto" />
+                      <Image src="/telegram.svg" alt="" width={14} height={14} className="ml-auto opacity-70" />
                     </a>
                   ))}
                 </div>
@@ -204,10 +204,10 @@ export default function Header() {
               href="https://discord.gg/YOUR_INVITE_CODE"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center w-9 h-9 rounded-lg transition-colors hover:bg-[var(--color-bg-hover)] text-[#7289DA]"
+              className="flex items-center justify-center w-9 h-9 rounded-lg transition-colors hover:bg-[var(--color-bg-hover)]"
               title="Discord Community"
             >
-              <MessageCircle className="w-[18px] h-[18px]" />
+              <Image src="/discord.svg" alt="Discord" width={20} height={20} />
             </a>
             <button
               onClick={toggleTheme}
@@ -391,7 +391,7 @@ export default function Header() {
               className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-semibold uppercase tracking-wider transition-colors hover:bg-[var(--color-bg-hover)] text-[#29B6F6] border border-transparent hover:border-[var(--color-border-primary)]"
               title="Telegram Signal Channels"
             >
-              <Send className="w-3.5 h-3.5" />
+              <Image src="/telegram.svg" alt="Telegram" width={16} height={16} />
               <span>Signals</span>
               <ChevronDown className="w-3 h-3 opacity-60" />
             </button>
@@ -411,7 +411,7 @@ export default function Header() {
                     style={{ background: ch.gradient }}
                   >
                     <span className="font-semibold text-white">{ch.label}</span>
-                    <Send className="w-3 h-3 text-white/70 ml-auto" />
+                    <Image src="/telegram.svg" alt="" width={12} height={12} className="ml-auto opacity-70" />
                   </a>
                 ))}
               </div>
@@ -421,10 +421,10 @@ export default function Header() {
             href="https://discord.gg/YOUR_INVITE_CODE"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-semibold uppercase tracking-wider transition-colors hover:bg-[var(--color-bg-hover)] text-[#7289DA]"
+            className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-semibold uppercase tracking-wider transition-colors hover:bg-[var(--color-bg-hover)] text-[#5865F2]"
             title="Join Discord community"
           >
-            <MessageCircle className="w-3.5 h-3.5" />
+            <Image src="/discord.svg" alt="Discord" width={16} height={16} />
             <span>Discord</span>
           </a>
           <div className="flex items-center gap-1.5">
