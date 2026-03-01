@@ -131,16 +131,19 @@ def format_outcome_embed(signal: dict) -> dict:
     symbol = signal.get("symbol", "XAUUSD")
     entry = signal.get("entry_price", 0)
     exit_price = signal.get("exit_price", 0)
+    sl = signal.get("stop_loss", 0)
+    tp = signal.get("take_profit", 0)
     pnl = signal.get("outcome_pnl", 0) or 0
     pnl_pct = signal.get("outcome_pnl_pct", 0) or 0
     timeframe = signal.get("timeframe", "15m")
+    rr = signal.get("risk_reward_ratio", 0)
 
     if status == "win":
         color = 0x00E676
-        title = "\u2705 WINNER"
+        title = "\U0001f3af TAKE PROFIT HIT"
     elif status == "loss":
         color = 0xFF1744
-        title = "\u274c LOSER"
+        title = "\U0001f6d1 STOP LOSS HIT"
     else:
         color = 0xFFAB00
         title = "\u23f0 EXPIRED"
@@ -149,9 +152,13 @@ def format_outcome_embed(signal: dict) -> dict:
 
     fields = [
         {"name": "Direction", "value": "BUY" if direction == "long" else "SELL", "inline": True},
+        {"name": "R:R", "value": f"`{rr:.2f}`", "inline": True},
+        {"name": "\u200b", "value": "\u200b", "inline": True},
         {"name": "Entry", "value": f"`{entry:,.2f}`", "inline": True},
-        {"name": "Exit", "value": f"`{exit_price:,.2f}`", "inline": True},
-        {"name": "P&L", "value": f"`{pnl_sign}{pnl:,.2f}` ({pnl_sign}{pnl_pct:.3f}%)", "inline": False},
+        {"name": "Take Profit", "value": f"`{tp:,.2f}`", "inline": True},
+        {"name": "Stop Loss", "value": f"`{sl:,.2f}`", "inline": True},
+        {"name": "Exit Price", "value": f"`{exit_price:,.2f}`", "inline": True},
+        {"name": "P&L", "value": f"`{pnl_sign}{pnl:,.2f}` ({pnl_sign}{pnl_pct:.3f}%)", "inline": True},
     ]
 
     if status == "loss":

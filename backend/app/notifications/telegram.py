@@ -246,16 +246,19 @@ def format_outcome_message(signal: dict) -> str:
     symbol = signal.get("symbol", "XAUUSD")
     entry = signal.get("entry_price", 0)
     exit_price = signal.get("exit_price", 0)
+    sl = signal.get("stop_loss", 0)
+    tp = signal.get("take_profit", 0)
     pnl = signal.get("outcome_pnl", 0) or 0
     pnl_pct = signal.get("outcome_pnl_pct", 0) or 0
     timeframe = signal.get("timeframe", "15m")
+    rr = signal.get("risk_reward_ratio", 0)
 
     if status == "win":
         emoji = "✅"
-        header = "WINNER"
+        header = "TAKE PROFIT HIT"
     elif status == "loss":
         emoji = "❌"
-        header = "LOSER"
+        header = "STOP LOSS HIT"
         loss_cat = signal.get("loss_category", "")
         loss_detail = (signal.get("loss_analysis") or {}).get("detail", "")
     else:
@@ -265,11 +268,17 @@ def format_outcome_message(signal: dict) -> str:
     pnl_sign = "+" if pnl >= 0 else ""
 
     msg = f"""
-{emoji} <b>OUTCOME: {header}</b>
+{emoji} <b>{header}</b>
 
-📊 {symbol} | {timeframe} | {'BUY' if direction == 'long' else 'SELL'}
-💰 Entry: <code>{entry:,.2f}</code> → Exit: <code>{exit_price:,.2f}</code>
-{'📈' if pnl >= 0 else '📉'} P&L: <code>{pnl_sign}{pnl:,.2f}</code> ({pnl_sign}{pnl_pct:.3f}%)
+📊 <b>{symbol}</b> | {timeframe} | {'BUY' if direction == 'long' else 'SELL'}
+
+💰 <b>Entry:</b>  <code>{entry:,.2f}</code>
+🎯 <b>TP:</b>     <code>{tp:,.2f}</code>
+🛑 <b>SL:</b>     <code>{sl:,.2f}</code>
+🏁 <b>Exit:</b>   <code>{exit_price:,.2f}</code>
+
+{'📈' if pnl >= 0 else '📉'} <b>P&L:</b> <code>{pnl_sign}{pnl:,.2f}</code> ({pnl_sign}{pnl_pct:.3f}%)
+⚖️ <b>R:R:</b> <code>{rr:.2f}</code>
 """
 
     if status == "loss" and loss_cat:
@@ -286,6 +295,8 @@ def format_outcome_message(signal: dict) -> str:
         msg += f"\n{cat_emoji} <b>Reason:</b> {loss_cat.replace('_', ' ').title()}"
         if loss_detail:
             msg += f"\n<i>{loss_detail[:150]}</i>"
+
+    msg += f"\n⏰ {datetime.now(timezone.utc).strftime('%H:%M UTC')}"
 
     return msg.strip()
 
