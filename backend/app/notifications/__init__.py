@@ -1,1 +1,1 @@
-"""Notification services — Telegram, email, push."""
+"""Notification services — Telegram, Discord, email, push."""

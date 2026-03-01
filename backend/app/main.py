@@ -59,12 +59,17 @@ async def _background_scanner(logger):
                     from backend.app.core.scalper.signal_store import get_signals
                     from backend.app.core.scalper.outcome_tracker import compute_analytics
                     from backend.app.notifications.telegram import notify_summary
+                    from backend.app.notifications.discord import notify_summary as discord_notify_summary
 
                     for symbol in ("XAUUSD", "BTCUSD"):
                         signals = get_signals(symbol=symbol)
                         if signals:
                             analytics = compute_analytics(signals)
                             await notify_summary(analytics, symbol=symbol)
+                            try:
+                                await discord_notify_summary(analytics, symbol=symbol)
+                            except Exception:
+                                pass
 
                     last_summary_date = today
                     logger.info("daily_summary_sent")

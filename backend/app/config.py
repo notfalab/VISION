@@ -102,6 +102,11 @@ class Settings(BaseSettings):
     telegram_gold_channel_id: str = ""  # Channel for Gold (XAUUSD) signals
     telegram_crypto_channel_id: str = ""  # Channel for Crypto (BTCUSD) signals
 
+    # Discord Webhooks
+    discord_webhook_url: str = ""  # General/fallback channel
+    discord_gold_webhook_url: str = ""  # Gold (XAUUSD) signals channel
+    discord_crypto_webhook_url: str = ""  # Crypto (BTC/ETH/SOL) signals channel
+
     # On-chain
     etherscan_api_key: str = ""
     glassnode_api_key: str = ""

@@ -69,6 +69,7 @@ async def _async_scan(symbol: str = "XAUUSD"):
     from backend.app.core.scalper.loss_learning import get_active_loss_filters
     from backend.app.core.scalper.signal_store import save_signal, get_signals, update_signal
     from backend.app.notifications.telegram import notify_signal
+    from backend.app.notifications.discord import notify_signal as discord_notify_signal
 
     logger.info("scalper_scan_start", symbol=symbol)
 
@@ -143,7 +144,7 @@ async def _async_scan(symbol: str = "XAUUSD"):
     # 4. Run multi-timeframe scan
     signals = scan_multi_timeframe(dataframes, symbol, loss_patterns)
 
-    # 5. Save signals to Redis and notify via Telegram
+    # 5. Save signals to Redis and notify via Telegram + Discord
     saved = 0
     for sig in signals:
         save_signal(sig)
@@ -155,10 +156,17 @@ async def _async_scan(symbol: str = "XAUUSD"):
         except Exception as e:
             logger.warning("telegram_notify_failed", error=str(e))
 
+        # Send Discord notification
+        try:
+            await discord_notify_signal(sig)
+        except Exception as e:
+            logger.warning("discord_notify_failed", error=str(e))
+
     # 6. Check active signals for SL/TP hits
     from backend.app.core.scalper.outcome_tracker import check_signal_outcome
     from backend.app.core.scalper.loss_learning import categorize_loss
     from backend.app.notifications.telegram import notify_outcome
+    from backend.app.notifications.discord import notify_outcome as discord_notify_outcome
 
     active_signals = get_signals(symbol=symbol, status="active") + get_signals(symbol=symbol, status="pending")
     outcomes = 0
@@ -192,6 +200,10 @@ async def _async_scan(symbol: str = "XAUUSD"):
                 outcomes += 1
                 try:
                     await notify_outcome(sig)
+                except Exception:
+                    pass
+                try:
+                    await discord_notify_outcome(sig)
                 except Exception:
                     pass
 
