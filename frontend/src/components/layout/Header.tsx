@@ -22,6 +22,28 @@ const ASSET_OPTIONS = [
   { symbol: "USDCHF", label: "USD/CHF", color: "#F43F5E" },
 ];
 
+/**
+ * Check if a market is currently open.
+ * - Crypto (BTCUSD): 24/7
+ * - Forex & Gold: Sunday 22:00 UTC → Friday 22:00 UTC (24/5)
+ */
+function isMarketOpen(symbol: string): boolean {
+  const now = new Date();
+  const day = now.getUTCDay(); // 0=Sun, 6=Sat
+  const hour = now.getUTCHours();
+
+  // Crypto is always open
+  if (symbol === "BTCUSD") return true;
+
+  // Forex & Gold: closed Saturday all day, closed Sunday until 22:00 UTC,
+  // closed Friday after 22:00 UTC
+  if (day === 6) return false; // Saturday
+  if (day === 0 && hour < 22) return false; // Sunday before 22:00 UTC
+  if (day === 5 && hour >= 22) return false; // Friday after 22:00 UTC
+
+  return true;
+}
+
 const SIGNAL_CHANNELS = [
   { label: "VISION GOLD", href: "https://t.me/+_pMYNBlFj0I0YzMx", color: "#F59E0B", gradient: "linear-gradient(to right, #F59E0B, #000)" },
   { label: "VISION BITCOIN", href: "https://t.me/+9qAF1vBDdTkwYWVh", color: "#F97316", gradient: "linear-gradient(to right, #F97316, #000)" },
@@ -243,26 +265,32 @@ export default function Header() {
 
               {selectorOpen && (
                 <div className="absolute top-full left-0 mt-1 z-50 min-w-[180px] rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-bg-secondary)] shadow-lg overflow-hidden">
-                  {ASSET_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.symbol}
-                      onClick={() => {
-                        setActiveSymbol(opt.symbol);
-                        setSelectorOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-2.5 px-4 py-3 text-sm font-mono transition-colors hover:bg-[var(--color-bg-hover)] ${
-                        opt.symbol === activeSymbol ? "bg-[var(--color-bg-hover)]" : ""
-                      }`}
-                    >
-                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: opt.color }} />
-                      <span className="font-bold" style={{ color: opt.color }}>{opt.label}</span>
-                      {livePrices[opt.symbol] && (
-                        <span className="text-[var(--color-text-secondary)] tabular-nums ml-auto text-xs">
-                          {formatPrice(livePrices[opt.symbol].price, opt.symbol)}
-                        </span>
-                      )}
-                    </button>
-                  ))}
+                  {ASSET_OPTIONS.map((opt) => {
+                    const open = isMarketOpen(opt.symbol);
+                    return (
+                      <button
+                        key={opt.symbol}
+                        onClick={() => {
+                          setActiveSymbol(opt.symbol);
+                          setSelectorOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-2.5 px-4 py-3 text-sm font-mono transition-colors hover:bg-[var(--color-bg-hover)] ${
+                          opt.symbol === activeSymbol ? "bg-[var(--color-bg-hover)]" : ""
+                        }`}
+                      >
+                        <span
+                          className={`w-2 h-2 rounded-full shrink-0 ${open ? "bg-[var(--color-neon-green)]" : "bg-[var(--color-bear)]"}`}
+                          title={open ? "Market Open" : "Market Closed"}
+                        />
+                        <span className="font-bold" style={{ color: opt.color }}>{opt.label}</span>
+                        {livePrices[opt.symbol] && (
+                          <span className="text-[var(--color-text-secondary)] tabular-nums ml-auto text-xs">
+                            {formatPrice(livePrices[opt.symbol].price, opt.symbol)}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -312,26 +340,32 @@ export default function Header() {
 
             {selectorOpen && (
               <div className="absolute top-full left-0 mt-1 z-50 min-w-[160px] rounded-md border border-[var(--color-border-primary)] bg-[var(--color-bg-secondary)] shadow-lg overflow-hidden">
-                {ASSET_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.symbol}
-                    onClick={() => {
-                      setActiveSymbol(opt.symbol);
-                      setSelectorOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-[12px] font-mono transition-colors hover:bg-[var(--color-bg-hover)] ${
-                      opt.symbol === activeSymbol ? "bg-[var(--color-bg-hover)]" : ""
-                    }`}
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: opt.color }} />
-                    <span className="font-semibold" style={{ color: opt.color }}>{opt.label}</span>
-                    {livePrices[opt.symbol] && (
-                      <span className="text-[var(--color-text-secondary)] tabular-nums ml-auto">
-                        {formatPrice(livePrices[opt.symbol].price, opt.symbol)}
-                      </span>
-                    )}
-                  </button>
-                ))}
+                {ASSET_OPTIONS.map((opt) => {
+                  const open = isMarketOpen(opt.symbol);
+                  return (
+                    <button
+                      key={opt.symbol}
+                      onClick={() => {
+                        setActiveSymbol(opt.symbol);
+                        setSelectorOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-2 px-3 py-2 text-[12px] font-mono transition-colors hover:bg-[var(--color-bg-hover)] ${
+                        opt.symbol === activeSymbol ? "bg-[var(--color-bg-hover)]" : ""
+                      }`}
+                    >
+                      <span
+                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${open ? "bg-[var(--color-neon-green)]" : "bg-[var(--color-bear)]"}`}
+                        title={open ? "Market Open" : "Market Closed"}
+                      />
+                      <span className="font-semibold" style={{ color: opt.color }}>{opt.label}</span>
+                      {livePrices[opt.symbol] && (
+                        <span className="text-[var(--color-text-secondary)] tabular-nums ml-auto">
+                          {formatPrice(livePrices[opt.symbol].price, opt.symbol)}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
