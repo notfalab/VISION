@@ -142,7 +142,7 @@ export default function Header() {
       {/* ===== Mobile: Two-row layout (< md) ===== */}
       <div className="md:hidden">
         {/* Row 1: Logo + Community + Theme + User */}
-        <div className="flex items-center h-11 px-3">
+        <div className="flex items-center h-14 px-3">
           <div className="flex items-center shrink-0">
             <Image src="/logo-vision.png" alt="VISION" width={110} height={18} priority />
           </div>
@@ -228,7 +228,7 @@ export default function Header() {
         </div>
 
         {/* Row 2: Asset Selector + Price + LIVE */}
-        <div className="flex items-center h-10 px-3 border-t border-[var(--color-border-primary)]/50 bg-[var(--color-bg-primary)]/30">
+        <div className="flex items-center h-12 px-3 border-t border-[var(--color-border-primary)]/50 bg-[var(--color-bg-primary)]/30">
           <div className="flex items-center gap-2 flex-1 min-w-0">
             {/* Selector button */}
             <div className="relative" ref={selectorMobileRef}>
@@ -290,13 +290,13 @@ export default function Header() {
       </div>
 
       {/* ===== Desktop: Single-row layout (md+) ===== */}
-      <div className="hidden md:flex items-center h-11 px-3">
+      <div className="hidden md:flex items-center h-14 px-4">
         {/* Logo */}
         <div className="flex items-center shrink-0">
-          <Image src="/logo-vision.png" alt="VISION" width={120} height={20} priority />
+          <Image src="/logo-vision.png" alt="VISION" width={130} height={22} priority />
         </div>
 
-        <div className="h-4 w-px bg-[var(--color-border-primary)] mx-3 shrink-0" />
+        <div className="h-5 w-px bg-[var(--color-border-primary)] mx-4 shrink-0" />
 
         {/* Asset Selector + Live Price */}
         <div className="flex items-center gap-1.5">
