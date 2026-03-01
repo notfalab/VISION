@@ -74,6 +74,10 @@ async def send_message(
         return False
 
 
+FOREX_SYMBOLS = {"EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDCHF",
+                 "EURGBP", "EURJPY", "GBPJPY"}
+
+
 def get_channel_for_symbol(symbol: str) -> str:
     """Return the appropriate Telegram channel ID based on the asset symbol."""
     settings = get_settings()
@@ -83,6 +87,8 @@ def get_channel_for_symbol(symbol: str) -> str:
         return settings.telegram_gold_channel_id
     elif symbol_upper in ("BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "ETHBTC") and settings.telegram_crypto_channel_id:
         return settings.telegram_crypto_channel_id
+    elif symbol_upper in FOREX_SYMBOLS and settings.telegram_forex_channel_id:
+        return settings.telegram_forex_channel_id
 
     # Fallback to general channel
     return settings.telegram_channel_id

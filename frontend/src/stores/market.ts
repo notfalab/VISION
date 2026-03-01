@@ -2,13 +2,16 @@ import { create } from "zustand";
 import type { OHLCV, Ticker, Timeframe } from "@/types/market";
 import type { LivePrice } from "@/lib/binance-ws";
 
-export type MarketType = "commodity" | "crypto";
+export type MarketType = "commodity" | "crypto" | "forex";
 
 const CRYPTO_SYMBOLS = ["BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "ETHBTC"];
+const FOREX_SYMBOLS = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDCHF",
+                       "EURGBP", "EURJPY", "GBPJPY"];
 
 /** Determine market type from symbol */
 export function getMarketType(symbol: string): MarketType {
   if (CRYPTO_SYMBOLS.includes(symbol.toUpperCase())) return "crypto";
+  if (FOREX_SYMBOLS.includes(symbol.toUpperCase())) return "forex";
   return "commodity";
 }
 
@@ -63,7 +66,7 @@ export const useMarketStore = create<MarketState>((set) => ({
       livePrices: { ...state.livePrices, [symbol]: data },
     })),
 
-  watchlist: ["XAUUSD", "BTCUSD"],
+  watchlist: ["XAUUSD", "BTCUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDCHF"],
   addToWatchlist: (symbol) =>
     set((state) => ({
       watchlist: state.watchlist.includes(symbol)

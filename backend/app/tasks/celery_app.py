@@ -36,6 +36,10 @@ celery_app.conf.update(
             "task": "backend.app.tasks.scalper_scan.auto_scan_btcusd",
             "schedule": 300.0,  # 5 minutes
         },
+        "scalper-auto-scan-forex": {
+            "task": "backend.app.tasks.scalper_scan.auto_scan_forex",
+            "schedule": 300.0,  # 5 minutes
+        },
         # ── Scalper: daily performance summary at 22:00 UTC ──
         "scalper-daily-summary": {
             "task": "backend.app.tasks.scalper_scan.daily_summary",

@@ -101,11 +101,13 @@ class Settings(BaseSettings):
     telegram_channel_id: str = ""  # Channel ID for public signal broadcasts (fallback)
     telegram_gold_channel_id: str = ""  # Channel for Gold (XAUUSD) signals
     telegram_crypto_channel_id: str = ""  # Channel for Crypto (BTCUSD) signals
+    telegram_forex_channel_id: str = ""  # Channel for Forex major pairs
 
     # Discord Webhooks
     discord_webhook_url: str = ""  # General/fallback channel
     discord_gold_webhook_url: str = ""  # Gold (XAUUSD) signals channel
     discord_crypto_webhook_url: str = ""  # Crypto (BTC/ETH/SOL) signals channel
+    discord_forex_webhook_url: str = ""  # Forex major pairs signals channel
     discord_performance_webhook_url: str = ""  # Daily/weekly performance summaries
 
     # On-chain

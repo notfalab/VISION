@@ -53,7 +53,7 @@ def _ensure_adapters():
         data_registry.set_route(pair, "cryptocompare")
     for pair in ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD",
                  "EURGBP", "EURJPY", "GBPJPY"]:
-        data_registry.set_route(pair, "alpha_vantage")
+        data_registry.set_route(pair, "massive")
     for pair in ["ETHBTC", "XRPUSD"]:
         data_registry.set_route(pair, "cryptocompare")
 
@@ -246,6 +246,28 @@ def auto_scan_btcusd():
     return _run_async(_async_scan("BTCUSD"))
 
 
+FOREX_MAJORS = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDCHF"]
+
+
+@celery_app.task(name="backend.app.tasks.scalper_scan.auto_scan_forex")
+def auto_scan_forex():
+    """
+    Celery Beat task: auto-scan all major forex pairs every 5 minutes.
+    Scans sequentially to avoid API rate limits.
+    """
+    async def _scan_all():
+        results = {}
+        for symbol in FOREX_MAJORS:
+            try:
+                result = await _async_scan(symbol)
+                results[symbol] = result
+            except Exception as e:
+                logger.error("forex_scan_failed", symbol=symbol, error=str(e))
+                results[symbol] = {"error": str(e)}
+        return {"status": "complete", "results": results}
+    return _run_async(_scan_all())
+
+
 @celery_app.task(name="backend.app.tasks.scalper_scan.daily_summary")
 def daily_summary():
     """
@@ -259,7 +281,8 @@ def daily_summary():
         from backend.app.notifications.discord import notify_summary as discord_notify_summary
 
         total_sent = 0
-        for symbol in ("XAUUSD", "BTCUSD"):
+        ALL_SYMBOLS = ["XAUUSD", "BTCUSD"] + FOREX_MAJORS
+        for symbol in ALL_SYMBOLS:
             signals = get_signals(symbol=symbol)
             if not signals:
                 continue
@@ -300,7 +323,7 @@ def weekly_ml_retrain():
             "1d": Timeframe.D1,
         }
 
-        SYMBOLS = ["XAUUSD", "BTCUSD", "ETHUSD"]
+        SYMBOLS = ["XAUUSD", "BTCUSD", "ETHUSD"] + FOREX_MAJORS
         results = {}
 
         for symbol in SYMBOLS:

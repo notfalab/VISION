@@ -13,6 +13,13 @@ import { formatPrice, formatChange, priceColor } from "@/lib/format";
 const ASSET_OPTIONS = [
   { symbol: "XAUUSD", label: "XAU/USD", color: "var(--color-neon-amber, #F59E0B)" },
   { symbol: "BTCUSD", label: "BTC/USD", color: "var(--color-neon-orange, #F97316)" },
+  { symbol: "EURUSD", label: "EUR/USD", color: "#3B82F6" },
+  { symbol: "GBPUSD", label: "GBP/USD", color: "#EC4899" },
+  { symbol: "USDJPY", label: "USD/JPY", color: "#EF4444" },
+  { symbol: "AUDUSD", label: "AUD/USD", color: "#10B981" },
+  { symbol: "USDCAD", label: "USD/CAD", color: "#8B5CF6" },
+  { symbol: "NZDUSD", label: "NZD/USD", color: "#06B6D4" },
+  { symbol: "USDCHF", label: "USD/CHF", color: "#F43F5E" },
 ];
 
 const SIGNAL_CHANNELS = [
@@ -37,7 +44,7 @@ export default function Header() {
   const signalsDesktopRef = useRef<HTMLDivElement>(null);
   const wsConnected = useRef(false);
 
-  // Connect Binance WebSocket for real-time prices
+  // Connect Binance WebSocket for real-time prices (gold, crypto)
   useEffect(() => {
     if (wsConnected.current) return;
     wsConnected.current = true;
@@ -52,6 +59,45 @@ export default function Header() {
       wsConnected.current = false;
     };
   }, [watchlist, updateLivePrice]);
+
+  // REST polling for forex pairs (not available on Binance WS)
+  useEffect(() => {
+    const forexSymbols = ASSET_OPTIONS
+      .map((a) => a.symbol)
+      .filter((s) => !isBinanceSymbol(s));
+    if (forexSymbols.length === 0) return;
+
+    let cancelled = false;
+    const poll = async () => {
+      for (const symbol of forexSymbols) {
+        if (cancelled) break;
+        try {
+          const res = await fetch(`/api/v1/prices/${symbol}/latest`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.price) {
+              updateLivePrice(symbol, {
+                price: data.price,
+                change: data.open ? ((data.price - data.open) / data.open) * 100 : 0,
+                high24h: data.high || 0,
+                low24h: data.low || 0,
+                volume: data.volume || 0,
+              });
+            }
+          }
+        } catch {
+          // Silently ignore — price will show "—"
+        }
+      }
+    };
+
+    poll();
+    const interval = setInterval(poll, 15000); // Every 15s
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [updateLivePrice]);
 
   // Clock
   useEffect(() => {
@@ -216,9 +262,6 @@ export default function Header() {
                       )}
                     </button>
                   ))}
-                  <div className="px-4 py-2.5 border-t border-[var(--color-border-primary)]/50">
-                    <p className="text-[11px] text-[var(--color-text-muted)] italic text-center">More pairs coming soon</p>
-                  </div>
                 </div>
               )}
             </div>
@@ -288,9 +331,6 @@ export default function Header() {
                     )}
                   </button>
                 ))}
-                <div className="px-3 py-2 border-t border-[var(--color-border-primary)]/50">
-                  <p className="text-[10px] text-[var(--color-text-muted)] italic text-center">More pairs coming soon</p>
-                </div>
               </div>
             )}
           </div>

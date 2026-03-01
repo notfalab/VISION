@@ -58,6 +58,10 @@ async def send_webhook(
         return False
 
 
+FOREX_SYMBOLS = {"EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDCHF",
+                 "EURGBP", "EURJPY", "GBPJPY"}
+
+
 def get_webhook_for_symbol(symbol: str) -> str:
     """Return the appropriate Discord webhook URL based on the asset symbol."""
     settings = get_settings()
@@ -67,6 +71,8 @@ def get_webhook_for_symbol(symbol: str) -> str:
         return settings.discord_gold_webhook_url
     elif symbol_upper in ("BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "ETHBTC") and settings.discord_crypto_webhook_url:
         return settings.discord_crypto_webhook_url
+    elif symbol_upper in FOREX_SYMBOLS and settings.discord_forex_webhook_url:
+        return settings.discord_forex_webhook_url
 
     return settings.discord_webhook_url
 

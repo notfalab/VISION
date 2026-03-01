@@ -46,10 +46,22 @@ CRYPTO_THRESHOLDS = {
 
 CRYPTO_SYMBOLS = {"BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "ETHBTC"}
 
+# Forex thresholds — moderate volatility, slightly stricter on short timeframes
+FOREX_THRESHOLDS = {
+    "default": {"min_score": 62, "min_confidence": 0.57, "min_confluence": 4},
+    "5m":      {"min_score": 65, "min_confidence": 0.60, "min_confluence": 5},
+    "1d":      {"min_score": 55, "min_confidence": 0.45, "min_confluence": 3},
+}
+
+FOREX_SYMBOLS = {"EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDCHF",
+                 "EURGBP", "EURJPY", "GBPJPY"}
+
 
 def _get_thresholds(timeframe: str, symbol: str = "") -> dict:
     if symbol.upper() in CRYPTO_SYMBOLS:
         return CRYPTO_THRESHOLDS.get(timeframe, CRYPTO_THRESHOLDS["default"])
+    if symbol.upper() in FOREX_SYMBOLS:
+        return FOREX_THRESHOLDS.get(timeframe, FOREX_THRESHOLDS["default"])
     return THRESHOLDS.get(timeframe, THRESHOLDS["default"])
 
 

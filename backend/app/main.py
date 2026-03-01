@@ -142,10 +142,10 @@ async def lifespan(app: FastAPI):
     for pair in ["BTCUSD", "ETHUSD", "SOLUSD"]:
         data_registry.set_route(pair, "cryptocompare")
 
-    # Route forex pairs to Alpha Vantage (fallback handles rate limits)
+    # Route forex pairs to Massive (paid plan, full intraday data)
     for pair in ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD",
                  "EURGBP", "EURJPY", "GBPJPY"]:
-        data_registry.set_route(pair, "alpha_vantage")
+        data_registry.set_route(pair, "massive")
 
     for pair in ["ETHBTC", "XRPUSD"]:
         data_registry.set_route(pair, "cryptocompare")
