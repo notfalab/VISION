@@ -31,6 +31,7 @@ export default function Header() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [signalsOpen, setSignalsOpen] = useState(false);
   const selectorRef = useRef<HTMLDivElement>(null);
+  const selectorMobileRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const signalsMobileRef = useRef<HTMLDivElement>(null);
   const signalsDesktopRef = useRef<HTMLDivElement>(null);
@@ -63,8 +64,10 @@ export default function Header() {
   useEffect(() => {
     if (!selectorOpen && !userMenuOpen && !signalsOpen) return;
     const handler = (e: MouseEvent) => {
-      if (selectorOpen && selectorRef.current && !selectorRef.current.contains(e.target as Node)) {
-        setSelectorOpen(false);
+      if (selectorOpen) {
+        const inDesktop = selectorRef.current?.contains(e.target as Node);
+        const inMobile = selectorMobileRef.current?.contains(e.target as Node);
+        if (!inDesktop && !inMobile) setSelectorOpen(false);
       }
       if (userMenuOpen && userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setUserMenuOpen(false);
@@ -179,9 +182,9 @@ export default function Header() {
 
         {/* Row 2: Asset Selector + Price + LIVE */}
         <div className="flex items-center h-10 px-3 border-t border-[var(--color-border-primary)]/50 bg-[var(--color-bg-primary)]/30">
-          <div className="flex items-center gap-2 flex-1 min-w-0" ref={selectorRef}>
+          <div className="flex items-center gap-2 flex-1 min-w-0">
             {/* Selector button */}
-            <div className="relative">
+            <div className="relative" ref={selectorMobileRef}>
               <button
                 onClick={() => setSelectorOpen(!selectorOpen)}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-mono font-bold transition-colors hover:bg-[var(--color-bg-hover)] border border-transparent hover:border-[var(--color-border-primary)] min-h-[36px]"
@@ -213,6 +216,9 @@ export default function Header() {
                       )}
                     </button>
                   ))}
+                  <div className="px-4 py-2.5 border-t border-[var(--color-border-primary)]/50">
+                    <p className="text-[11px] text-[var(--color-text-muted)] italic text-center">More pairs coming soon</p>
+                  </div>
                 </div>
               )}
             </div>
@@ -282,6 +288,9 @@ export default function Header() {
                     )}
                   </button>
                 ))}
+                <div className="px-3 py-2 border-t border-[var(--color-border-primary)]/50">
+                  <p className="text-[10px] text-[var(--color-text-muted)] italic text-center">More pairs coming soon</p>
+                </div>
               </div>
             )}
           </div>
