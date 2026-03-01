@@ -23,9 +23,9 @@ const ASSET_OPTIONS = [
 ];
 
 const SIGNAL_CHANNELS = [
-  { label: "VISION GOLD", emoji: "🥇", href: "https://t.me/+_pMYNBlFj0I0YzMx", color: "#F59E0B" },
-  { label: "VISION BITCOIN", emoji: "₿", href: "https://t.me/+9qAF1vBDdTkwYWVh", color: "#F97316" },
-  { label: "VISION FOREX", emoji: "💱", href: "https://t.me/+rV8dmhYnX804ZjY5", color: "#3B82F6" },
+  { label: "VISION GOLD", href: "https://t.me/+_pMYNBlFj0I0YzMx", color: "#F59E0B", gradient: "linear-gradient(to right, #F59E0B, #000)" },
+  { label: "VISION BITCOIN", href: "https://t.me/+9qAF1vBDdTkwYWVh", color: "#F97316", gradient: "linear-gradient(to right, #F97316, #000)" },
+  { label: "VISION FOREX", href: "https://t.me/+rV8dmhYnX804ZjY5", color: "#3B82F6", gradient: "linear-gradient(to right, #60A5FA, #000)" },
 ];
 
 export default function Header() {
@@ -168,11 +168,11 @@ export default function Header() {
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={() => setSignalsOpen(false)}
-                      className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-mono transition-colors hover:bg-[var(--color-bg-hover)]"
+                      className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-mono transition-colors hover:brightness-110"
+                      style={{ background: ch.gradient }}
                     >
-                      <span className="text-base">{ch.emoji}</span>
-                      <span className="font-semibold" style={{ color: ch.color }}>{ch.label}</span>
-                      <Send className="w-3.5 h-3.5 text-[#29B6F6] ml-auto" />
+                      <span className="font-semibold text-white">{ch.label}</span>
+                      <Send className="w-3.5 h-3.5 text-white/70 ml-auto" />
                     </a>
                   ))}
                 </div>
@@ -373,11 +373,11 @@ export default function Header() {
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() => setSignalsOpen(false)}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-mono transition-colors hover:bg-[var(--color-bg-hover)]"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-mono transition-colors hover:brightness-110"
+                    style={{ background: ch.gradient }}
                   >
-                    <span className="text-sm">{ch.emoji}</span>
-                    <span className="font-semibold" style={{ color: ch.color }}>{ch.label}</span>
-                    <Send className="w-3 h-3 text-[#29B6F6] ml-auto" />
+                    <span className="font-semibold text-white">{ch.label}</span>
+                    <Send className="w-3 h-3 text-white/70 ml-auto" />
                   </a>
                 ))}
               </div>
