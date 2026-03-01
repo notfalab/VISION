@@ -464,9 +464,10 @@ export default function PriceChart() {
     const priceMax = Math.max(...allHighs) * 1.001;
     const volMax = Math.max(...allVols) * 1.1;
 
-    // Each slot has fixed width; candles are drawn from left, empty space on right
-    const candleW = chartW / VIEW_SLOTS;
-    const bodyW = Math.max(1, candleW * 0.6);
+    // Fit candles to actual data when fewer than VIEW_SLOTS
+    const effectiveSlots = Math.min(VIEW_SLOTS, visibleData.length);
+    const candleW = chartW / effectiveSlots;
+    const bodyW = Math.max(3, candleW * 0.6);
 
     const priceToY = (p: number) =>
       PADDING.top + priceAreaH - ((p - priceMin) / (priceMax - priceMin)) * priceAreaH;

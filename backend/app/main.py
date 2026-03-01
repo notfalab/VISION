@@ -136,20 +136,19 @@ async def lifespan(app: FastAPI):
     data_registry.set_route("XAUUSD", "massive")
     data_registry.set_route("XAGUSD", "massive")
 
-    # Route crypto to Binance as primary (works locally).
-    # On Railway (US), Binance fails with HTTP 451 and the fallback chain
-    # tries: cryptocompare -> massive -> oanda -> alpha_vantage -> goldapi
+    # Route crypto to CryptoCompare as primary (works from US/Railway).
+    # Binance REST returns HTTP 451 from US servers.
+    # Fallback chain: binance -> massive -> oanda -> alpha_vantage -> goldapi
     for pair in ["BTCUSD", "ETHUSD", "SOLUSD"]:
-        data_registry.set_route(pair, "binance")
+        data_registry.set_route(pair, "cryptocompare")
 
     # Route forex pairs to Alpha Vantage (fallback handles rate limits)
     for pair in ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD",
                  "EURGBP", "EURJPY", "GBPJPY"]:
         data_registry.set_route(pair, "alpha_vantage")
 
-    # Binance as fallback for unsupported crypto pairs
     for pair in ["ETHBTC", "XRPUSD"]:
-        data_registry.set_route(pair, "binance")
+        data_registry.set_route(pair, "cryptocompare")
 
     logger.info("adapters_registered", adapters=data_registry.list_adapters())
 
