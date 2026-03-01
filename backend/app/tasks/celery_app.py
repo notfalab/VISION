@@ -41,6 +41,11 @@ celery_app.conf.update(
             "task": "backend.app.tasks.scalper_scan.daily_summary",
             "schedule": crontab(hour=22, minute=0),
         },
+        # ── ML: retrain models every Sunday at 03:00 UTC ──
+        "ml-weekly-retrain": {
+            "task": "backend.app.tasks.scalper_scan.weekly_ml_retrain",
+            "schedule": crontab(hour=3, minute=0, day_of_week="sunday"),
+        },
         # ── COT reports: every Saturday ──
         "fetch-cot-weekly": {
             "task": "backend.app.tasks.fetch_cot.fetch_latest_cot",

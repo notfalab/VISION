@@ -276,3 +276,96 @@ def daily_summary():
         return {"status": "sent", "signals_analyzed": total_sent}
 
     return _run_async(_send_summary())
+
+
+@celery_app.task(name="backend.app.tasks.scalper_scan.weekly_ml_retrain")
+def weekly_ml_retrain():
+    """
+    Celery Beat task: retrain ML ensemble models weekly with latest data.
+    Runs every Sunday at 03:00 UTC for each symbol/timeframe combo.
+    """
+    async def _retrain():
+        _ensure_adapters()
+
+        import pandas as pd
+        from sqlalchemy import select
+        from backend.app.database import async_session
+        from backend.app.models.asset import Asset
+        from backend.app.models.ohlcv import OHLCVData, Timeframe
+        from backend.app.core.ml.predictor import train_model
+
+        TF_MAP = {
+            "15m": Timeframe.M15,
+            "1h": Timeframe.H1,
+            "1d": Timeframe.D1,
+        }
+
+        SYMBOLS = ["XAUUSD", "BTCUSD", "ETHUSD"]
+        results = {}
+
+        for symbol in SYMBOLS:
+            async with async_session() as session:
+                result = await session.execute(
+                    select(Asset).where(Asset.symbol == symbol)
+                )
+                asset = result.scalar_one_or_none()
+                if not asset:
+                    logger.warning("ml_retrain_skip_no_asset", symbol=symbol)
+                    continue
+
+                for tf_str, tf_enum in TF_MAP.items():
+                    query = (
+                        select(OHLCVData)
+                        .where(
+                            OHLCVData.asset_id == asset.id,
+                            OHLCVData.timeframe == tf_enum,
+                        )
+                        .order_by(OHLCVData.timestamp.desc())
+                        .limit(2000)
+                    )
+                    rows = await session.execute(query)
+                    ohlcv_list = rows.scalars().all()
+
+                    if len(ohlcv_list) < 200:
+                        logger.info(
+                            "ml_retrain_skip_insufficient_data",
+                            symbol=symbol, timeframe=tf_str,
+                            rows=len(ohlcv_list),
+                        )
+                        continue
+
+                    df = pd.DataFrame([{
+                        "timestamp": r.timestamp,
+                        "open": float(r.open),
+                        "high": float(r.high),
+                        "low": float(r.low),
+                        "close": float(r.close),
+                        "volume": float(r.volume),
+                    } for r in reversed(ohlcv_list)])
+
+                    try:
+                        result = train_model(df, symbol, tf_str)
+                        key = f"{symbol}_{tf_str}"
+                        results[key] = {
+                            "accuracy": result.get("accuracy"),
+                            "directional_accuracy": result.get("directional_accuracy"),
+                            "model_type": result.get("model_type"),
+                            "samples": result.get("samples_used"),
+                        }
+                        logger.info(
+                            "ml_retrain_complete",
+                            symbol=symbol, timeframe=tf_str,
+                            accuracy=result.get("accuracy"),
+                            directional_accuracy=result.get("directional_accuracy"),
+                        )
+                    except Exception as e:
+                        logger.error(
+                            "ml_retrain_failed",
+                            symbol=symbol, timeframe=tf_str,
+                            error=str(e),
+                        )
+                        results[f"{symbol}_{tf_str}"] = {"error": str(e)}
+
+        return {"status": "complete", "models": results}
+
+    return _run_async(_retrain())

@@ -37,12 +37,34 @@ THRESHOLDS = {
     "1w":      {"min_score": 55, "min_confidence": 0.40, "min_confluence": 3},
 }
 
-def _get_thresholds(timeframe: str) -> dict:
+# Crypto needs stricter thresholds (higher volatility → more false signals)
+CRYPTO_THRESHOLDS = {
+    "default": {"min_score": 65, "min_confidence": 0.60, "min_confluence": 5},
+    "1h":      {"min_score": 62, "min_confidence": 0.58, "min_confluence": 5},
+    "1d":      {"min_score": 58, "min_confidence": 0.50, "min_confluence": 4},
+}
+
+CRYPTO_SYMBOLS = {"BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "ETHBTC"}
+
+
+def _get_thresholds(timeframe: str, symbol: str = "") -> dict:
+    if symbol.upper() in CRYPTO_SYMBOLS:
+        return CRYPTO_THRESHOLDS.get(timeframe, CRYPTO_THRESHOLDS["default"])
     return THRESHOLDS.get(timeframe, THRESHOLDS["default"])
 
-# SL/TP ATR multipliers
+
+# SL/TP ATR multipliers — crypto gets wider stops to avoid noise wicks
 SL_ATR_MULT = 1.5
 TP_ATR_MULT = 2.5
+CRYPTO_SL_ATR_MULT = 2.0    # Wider SL for crypto volatility
+CRYPTO_TP_ATR_MULT = 3.0    # Wider TP to match the wider SL
+
+
+def _get_atr_multipliers(symbol: str) -> tuple[float, float]:
+    """Return (SL_mult, TP_mult) based on asset type."""
+    if symbol.upper() in CRYPTO_SYMBOLS:
+        return CRYPTO_SL_ATR_MULT, CRYPTO_TP_ATR_MULT
+    return SL_ATR_MULT, TP_ATR_MULT
 
 
 def _classify_signal(metadata: dict) -> str:
@@ -167,7 +189,7 @@ def generate_signals(
     if total_weight == 0:
         return []
 
-    thresholds = _get_thresholds(timeframe)
+    thresholds = _get_thresholds(timeframe, symbol)
     min_composite_score = thresholds["min_score"]
     min_confidence = thresholds["min_confidence"]
     min_confluence = thresholds["min_confluence"]
@@ -331,15 +353,16 @@ def generate_signals(
         atr_value = abs(df["close"].iloc[-1] * 0.002)  # 0.2% fallback
 
     current_price = float(df["close"].iloc[-1])
+    sl_mult, tp_mult = _get_atr_multipliers(symbol)
 
     if direction == "long":
         entry_price = current_price
-        stop_loss = round(entry_price - (SL_ATR_MULT * atr_value), 2)
-        take_profit = round(entry_price + (TP_ATR_MULT * atr_value), 2)
+        stop_loss = round(entry_price - (sl_mult * atr_value), 2)
+        take_profit = round(entry_price + (tp_mult * atr_value), 2)
     else:
         entry_price = current_price
-        stop_loss = round(entry_price + (SL_ATR_MULT * atr_value), 2)
-        take_profit = round(entry_price - (TP_ATR_MULT * atr_value), 2)
+        stop_loss = round(entry_price + (sl_mult * atr_value), 2)
+        take_profit = round(entry_price - (tp_mult * atr_value), 2)
 
     risk = abs(entry_price - stop_loss)
     reward = abs(take_profit - entry_price)
@@ -347,8 +370,8 @@ def generate_signals(
 
     # ── 13. Build signal ──
     # Expiry: 5m → 30min, 15m → 1.5h, 30m → 3h
-    expiry_map = {"5m": 30, "15m": 90, "30m": 180, "1m": 10}
-    expiry_minutes = expiry_map.get(timeframe, 60)
+    expiry_map = {"1m": 10, "5m": 30, "15m": 90, "30m": 180, "1h": 360, "4h": 720, "1d": 1440}
+    expiry_minutes = expiry_map.get(timeframe, 120)
 
     signal = {
         "symbol": symbol.upper(),
