@@ -189,9 +189,10 @@ def compute_analytics(signals: list[dict]) -> dict:
     pnls = [s.get("outcome_pnl", 0) or 0 for s in completed]
     pnl_pcts = [s.get("outcome_pnl_pct", 0) or 0 for s in completed]
 
-    # Per-timeframe breakdown
+    # Per-timeframe breakdown — discover all timeframes present in signals
     by_tf = {}
-    for tf in ["5m", "15m", "30m"]:
+    all_timeframes = sorted(set(s.get("timeframe", "") for s in completed if s.get("timeframe")))
+    for tf in all_timeframes:
         tf_signals = [s for s in completed if s.get("timeframe") == tf]
         tf_wins = [s for s in tf_signals if s["status"] == "win"]
         if tf_signals:

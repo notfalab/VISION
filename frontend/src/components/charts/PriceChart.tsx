@@ -217,20 +217,37 @@ export default function PriceChart() {
 
   const isIntraday = ["1m", "5m", "15m", "1h", "4h"].includes(activeTimeframe);
 
-  // Reset pan and zoom when symbol/timeframe changes
+  // Reset pan/zoom and CLEAR data immediately when symbol/timeframe changes.
+  // This prevents cross-symbol contamination (e.g. BTC highs in GBPUSD Y-axis)
+  // because REST polling might fire before the async data fetch completes.
   useEffect(() => {
     setPanOffset(0);
     setZoomLevel(1);
+    // Load from cache synchronously, or clear to empty array
+    const cached = candles[`${activeSymbol}_${activeTimeframe}`];
+    setData(cached || []);
   }, [activeSymbol, activeTimeframe]);
+
+  // Track when each cache key was last fetched
+  const cacheTimestamps = useRef<Record<string, number>>({});
 
   // Fetch historical data
   useEffect(() => {
     const load = async () => {
-      if (candles[cacheKey]) {
-        setData(candles[cacheKey]);
+      const cached = candles[cacheKey];
+      const cacheAge = Date.now() - (cacheTimestamps.current[cacheKey] || 0);
+      const CACHE_TTL = 2 * 60 * 1000; // 2 min cache freshness
+
+      if (cached && cacheAge < CACHE_TTL) {
+        setData(cached);
         return;
       }
-      setLoading(true);
+      // If cached but stale, show cache immediately then refresh in background
+      if (cached) {
+        setData(cached);
+      } else {
+        setLoading(true);
+      }
       try {
         // Always trigger ingestion first to ensure data exists in DB
         await api.fetchPrices(activeSymbol, activeTimeframe, 2000);
@@ -238,6 +255,7 @@ export default function PriceChart() {
         const sorted = [...prices].reverse();
         setData(sorted);
         setCandles(cacheKey, sorted);
+        cacheTimestamps.current[cacheKey] = Date.now();
       } catch (err) {
         console.error("Failed to load prices:", err);
         // Try a smaller fetch as fallback
@@ -247,6 +265,7 @@ export default function PriceChart() {
           const sorted = [...prices].reverse();
           setData(sorted);
           setCandles(cacheKey, sorted);
+          cacheTimestamps.current[cacheKey] = Date.now();
         } catch {
           // Data source may be unavailable
         }
@@ -323,30 +342,61 @@ export default function PriceChart() {
       });
     });
 
+    // Periodic background candle refresh — keeps chart fresh even if WS drops
+    const bgRefresh = setInterval(async () => {
+      try {
+        const prices = await api.prices(activeSymbol, activeTimeframe, 10);
+        const sorted = [...prices].reverse();
+        if (sorted.length === 0) return;
+        setData((prev) => {
+          if (prev.length === 0) return sorted;
+          const lastTs = prev[prev.length - 1].timestamp;
+          const updated = [...prev];
+          for (const c of sorted) {
+            if (c.timestamp === lastTs) updated[updated.length - 1] = c;
+            else if (c.timestamp > lastTs) updated.push(c);
+          }
+          return updated.length > 2500 ? updated.slice(-2000) : updated;
+        });
+      } catch { /* ignore */ }
+    }, 90_000); // every 90s
+
     return () => {
       binanceKlineWS.close();
+      clearInterval(bgRefresh);
       setIsLive(false);
     };
   }, [canStream, activeSymbol, activeTimeframe, data.length > 0]);
 
-  // REST polling for non-Binance symbols (forex) — update last candle + show LIVE
+  // REST polling for non-Binance symbols (forex, gold via Massive) — two loops:
+  //  1) Fast: update last candle close every 10s (lightweight /latest endpoint)
+  //  2) Slow: fetch last 10 candles every 60s to append new candles & keep chart moving
   useEffect(() => {
     if (canStream || data.length === 0) return; // Binance symbols use WS above
 
     setIsLive(true);
     let cancelled = false;
+    const sym = activeSymbol; // capture for stale-closure guard
+    const tf = activeTimeframe;
 
-    const poll = async () => {
+    // Fast poll: update last candle close price (lightweight)
+    const quickPoll = async () => {
       if (cancelled) return;
       try {
-        const res = await fetch(`/api/v1/prices/${activeSymbol}/latest`);
+        const res = await fetch(`/api/v1/prices/${sym}/latest`);
         if (res.ok) {
           const d = await res.json();
           if (d.price) {
             setData((prev) => {
               if (prev.length === 0) return prev;
+              const last = prev[prev.length - 1];
+              // Price sanity guard: reject if new price differs >5x from last close
+              // (prevents cross-symbol contamination during symbol switch)
+              if (last.close > 0) {
+                const ratio = d.price / last.close;
+                if (ratio > 5 || ratio < 0.2) return prev;
+              }
               const updated = [...prev];
-              const last = updated[updated.length - 1];
               updated[updated.length - 1] = {
                 ...last,
                 close: d.price,
@@ -360,14 +410,47 @@ export default function PriceChart() {
       } catch { /* ignore */ }
     };
 
-    poll();
-    const interval = setInterval(poll, 10000); // 10s — close to real-time for REST
+    // Slow poll: fetch recent candles to append new ones & keep chart advancing
+    const candleRefresh = async () => {
+      if (cancelled) return;
+      try {
+        // Trigger ingestion for the latest few candles, then read from DB
+        await api.fetchPrices(sym, tf, 10);
+        const prices = await api.prices(sym, tf, 10);
+        const newCandles = [...prices].reverse(); // oldest first
+        if (newCandles.length === 0) return;
+
+        setData((prev) => {
+          if (prev.length === 0) return newCandles;
+          const lastTs = prev[prev.length - 1].timestamp;
+          const updated = [...prev];
+          // Update the last candle if timestamps match, and append newer ones
+          for (const c of newCandles) {
+            if (c.timestamp === lastTs) {
+              updated[updated.length - 1] = c;
+            } else if (c.timestamp > lastTs) {
+              updated.push(c);
+            }
+          }
+          // Keep array bounded
+          return updated.length > 2500 ? updated.slice(-2000) : updated;
+        });
+      } catch { /* ignore */ }
+    };
+
+    quickPoll();
+    const quickInterval = setInterval(quickPoll, 10_000);  // 10s
+    const refreshInterval = setInterval(candleRefresh, 60_000); // 60s
+    const firstRefresh = setTimeout(candleRefresh, 20_000); // first at 20s
+
     return () => {
       cancelled = true;
-      clearInterval(interval);
+      clearInterval(quickInterval);
+      clearInterval(refreshInterval);
+      clearTimeout(firstRefresh);
       setIsLive(false);
     };
-  }, [canStream, activeSymbol, data.length > 0]);
+  }, [canStream, activeSymbol, activeTimeframe, data.length > 0]);
 
   // Fetch all candle pattern markers from dedicated patterns endpoint
   useEffect(() => {

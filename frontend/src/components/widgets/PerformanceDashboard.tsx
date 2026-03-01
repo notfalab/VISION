@@ -418,108 +418,153 @@ export default function PerformanceDashboard() {
         )}
 
         {/* Bottom row: Win/Loss pie + Timeframe bars + Direction */}
-        <div className="grid grid-cols-3 gap-3">
-          {/* Win/Loss Donut */}
-          <div>
-            <p className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase mb-1 text-center">W/L Ratio</p>
-            <div className="h-[90px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={winLossData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={25}
-                    outerRadius={38}
-                    dataKey="value"
-                    stroke="none"
-                  >
-                    {winLossData.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      background: "var(--color-bg-elevated)",
-                      border: "1px solid var(--color-border-primary)",
-                      borderRadius: 8,
-                      fontSize: 10,
-                      fontFamily: "JetBrains Mono",
-                    }}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Timeframe Win Rate Bars */}
-          {tfData.length > 0 && (
-            <div>
-              <p className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase mb-1 text-center">By Timeframe</p>
-              <div className="h-[90px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={tfData}>
-                    <XAxis
-                      dataKey="name"
-                      tick={{ fontSize: 9, fill: "var(--color-text-muted)" }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <YAxis hide domain={[0, 100]} />
-                    <Tooltip
-                      contentStyle={{
-                        background: "var(--color-bg-elevated)",
-                        border: "1px solid var(--color-border-primary)",
-                        borderRadius: 8,
-                        fontSize: 10,
-                        fontFamily: "JetBrains Mono",
-                      }}
-                      formatter={(value) => [`${Number(value ?? 0)}%`, "Win Rate"]}
-                    />
-                    <Bar dataKey="winRate" radius={[3, 3, 0, 0]}>
-                      {tfData.map((entry, i) => (
-                        <Cell
-                          key={i}
-                          fill={entry.winRate >= 50 ? "var(--color-bull)" : "var(--color-bear)"}
-                          opacity={0.8}
-                        />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          )}
-
-          {/* Direction */}
-          {dirData.length > 0 && (
-            <div>
-              <p className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase mb-1 text-center">Long vs Short</p>
-              <div className="space-y-2 pt-2">
-                {dirData.map((d) => (
-                  <div key={d.name} className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono w-8" style={{ color: d.color }}>
-                      {d.name === "Long" ? <ArrowUpRight className="w-3 h-3 inline" /> : <ArrowDownRight className="w-3 h-3 inline" />}
-                    </span>
-                    <div className="flex-1 h-3 bg-[var(--color-bg-hover)] rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full transition-all"
-                        style={{
-                          width: `${d.winRate}%`,
-                          backgroundColor: d.color,
-                          opacity: 0.8,
+        {(() => {
+          const hasTf = tfData.length > 0;
+          const hasDir = dirData.length > 0;
+          const cols = 1 + (hasTf ? 1 : 0) + (hasDir ? 1 : 0);
+          const gridClass = cols === 3 ? "grid-cols-3" : cols === 2 ? "grid-cols-2" : "grid-cols-1";
+          return (
+            <div className={`grid ${gridClass} gap-3`}>
+              {/* Win/Loss Donut with center label + legend */}
+              <div>
+                <p className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase mb-1 text-center">W/L Ratio</p>
+                <div className="h-[100px] relative">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={winLossData}
+                        cx="50%"
+                        cy="45%"
+                        innerRadius={25}
+                        outerRadius={38}
+                        dataKey="value"
+                        stroke="none"
+                      >
+                        {winLossData.map((entry, i) => (
+                          <Cell key={i} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{
+                          background: "var(--color-bg-elevated)",
+                          border: "1px solid var(--color-border-primary)",
+                          borderRadius: 8,
+                          fontSize: 10,
+                          fontFamily: "JetBrains Mono",
                         }}
                       />
-                    </div>
-                    <span className="text-[10px] font-mono text-[var(--color-text-secondary)] w-10 text-right">
-                      {d.winRate}%
+                    </PieChart>
+                  </ResponsiveContainer>
+                  {/* Center label — win rate % */}
+                  <div className="absolute inset-0 flex items-center justify-center" style={{ pointerEvents: "none", paddingBottom: 10 }}>
+                    <span
+                      className="text-sm font-mono font-bold"
+                      style={{ color: analytics.win_rate >= 50 ? "var(--color-bull)" : "var(--color-bear)" }}
+                    >
+                      {analytics.win_rate}%
                     </span>
                   </div>
-                ))}
+                </div>
+                {/* Legend */}
+                <div className="flex items-center justify-center gap-3 -mt-1">
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full inline-block" style={{ background: "var(--color-bull)" }} />
+                    <span className="text-[9px] font-mono text-[var(--color-text-secondary)]">{analytics.wins}W</span>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full inline-block" style={{ background: "var(--color-bear)" }} />
+                    <span className="text-[9px] font-mono text-[var(--color-text-secondary)]">{analytics.losses}L</span>
+                  </span>
+                  {analytics.expired > 0 && (
+                    <span className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full inline-block" style={{ background: "var(--color-text-muted)" }} />
+                      <span className="text-[9px] font-mono text-[var(--color-text-secondary)]">{analytics.expired}E</span>
+                    </span>
+                  )}
+                </div>
               </div>
+
+              {/* Timeframe Win Rate Bars */}
+              {hasTf && (
+                <div>
+                  <p className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase mb-1 text-center">By Timeframe</p>
+                  <div className="h-[100px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={tfData}>
+                        <XAxis
+                          dataKey="name"
+                          tick={{ fontSize: 9, fill: "var(--color-text-muted)" }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <YAxis hide domain={[0, 100]} />
+                        <Tooltip
+                          contentStyle={{
+                            background: "var(--color-bg-elevated)",
+                            border: "1px solid var(--color-border-primary)",
+                            borderRadius: 8,
+                            fontSize: 10,
+                            fontFamily: "JetBrains Mono",
+                          }}
+                          formatter={(value) => [`${Number(value ?? 0)}%`, "Win Rate"]}
+                        />
+                        <Bar dataKey="winRate" radius={[3, 3, 0, 0]}>
+                          {tfData.map((entry, i) => (
+                            <Cell
+                              key={i}
+                              fill={entry.winRate >= 50 ? "var(--color-bull)" : "var(--color-bear)"}
+                              opacity={0.8}
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  {/* Inline legend with totals */}
+                  <div className="flex items-center justify-center gap-2 mt-0.5">
+                    {tfData.map((tf) => (
+                      <span key={tf.name} className="text-[8px] font-mono text-[var(--color-text-muted)]">
+                        {tf.name}: {tf.total}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Direction */}
+              {hasDir && (
+                <div>
+                  <p className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase mb-1 text-center">Long vs Short</p>
+                  <div className="space-y-3 pt-2">
+                    {dirData.map((d) => (
+                      <div key={d.name}>
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-[10px] font-mono font-semibold flex items-center gap-0.5" style={{ color: d.color }}>
+                            {d.name === "Long" ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                            {d.name}
+                          </span>
+                          <span className="text-[10px] font-mono text-[var(--color-text-secondary)]">
+                            {d.winRate}% <span className="text-[var(--color-text-muted)]">({d.value})</span>
+                          </span>
+                        </div>
+                        <div className="h-3 bg-[var(--color-bg-hover)] rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full transition-all"
+                            style={{
+                              width: `${d.winRate}%`,
+                              backgroundColor: d.color,
+                              opacity: 0.8,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          );
+        })()}
       </div>
     </div>
   );
