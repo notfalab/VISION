@@ -106,6 +106,7 @@ class Settings(BaseSettings):
     discord_webhook_url: str = ""  # General/fallback channel
     discord_gold_webhook_url: str = ""  # Gold (XAUUSD) signals channel
     discord_crypto_webhook_url: str = ""  # Crypto (BTC/ETH/SOL) signals channel
+    discord_performance_webhook_url: str = ""  # Daily/weekly performance summaries
 
     # On-chain
     etherscan_api_key: str = ""

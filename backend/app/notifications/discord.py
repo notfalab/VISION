@@ -214,7 +214,8 @@ async def notify_outcome(signal: dict) -> bool:
 
 
 async def notify_summary(analytics: dict, symbol: str = "") -> bool:
-    """Send a daily summary to the symbol-specific Discord channel."""
-    webhook_url = get_webhook_for_symbol(symbol)
+    """Send a daily summary to the performance Discord channel."""
+    settings = get_settings()
+    webhook_url = settings.discord_performance_webhook_url or get_webhook_for_symbol(symbol)
     embed = format_summary_embed(analytics)
     return await send_webhook(embeds=[embed], webhook_url=webhook_url)
