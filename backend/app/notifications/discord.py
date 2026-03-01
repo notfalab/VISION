@@ -175,7 +175,7 @@ def format_outcome_embed(signal: dict) -> dict:
     }
 
 
-def format_summary_embed(analytics: dict) -> dict:
+def format_summary_embed(analytics: dict, symbol: str = "") -> dict:
     """Format a daily performance summary as a Discord embed."""
     win_rate = analytics.get("win_rate", 0)
     total = analytics.get("completed", 0)
@@ -188,9 +188,10 @@ def format_summary_embed(analytics: dict) -> dict:
 
     pf_text = "\u221e" if profit_factor == float("inf") else f"{profit_factor:.2f}"
     color = 0x00E676 if total_pnl >= 0 else 0xFF1744
+    title = f"\U0001f4ca DAILY SUMMARY — {symbol.upper()}" if symbol else "\U0001f4ca DAILY SUMMARY"
 
     return {
-        "title": "\U0001f4ca DAILY SUMMARY",
+        "title": title,
         "color": color,
         "fields": [
             {"name": "Win Rate", "value": f"**{win_rate}%** ({wins}W / {losses}L)", "inline": True},
@@ -213,16 +214,26 @@ async def notify_signal(signal: dict) -> bool:
 
 
 async def notify_outcome(signal: dict) -> bool:
-    """Send a signal outcome to the symbol-specific Discord channel."""
+    """Send a signal outcome to the symbol-specific Discord channel AND performance channel."""
+    settings = get_settings()
     symbol = signal.get("symbol", "")
-    webhook_url = get_webhook_for_symbol(symbol)
     embed = format_outcome_embed(signal)
-    return await send_webhook(embeds=[embed], webhook_url=webhook_url)
+
+    # Send to symbol-specific channel (gold/crypto)
+    symbol_url = get_webhook_for_symbol(symbol)
+    result = await send_webhook(embeds=[embed], webhook_url=symbol_url)
+
+    # Also send to performance channel if configured
+    perf_url = settings.discord_performance_webhook_url
+    if perf_url and perf_url != symbol_url:
+        await send_webhook(embeds=[embed], webhook_url=perf_url)
+
+    return result
 
 
 async def notify_summary(analytics: dict, symbol: str = "") -> bool:
     """Send a daily summary to the performance Discord channel."""
     settings = get_settings()
     webhook_url = settings.discord_performance_webhook_url or get_webhook_for_symbol(symbol)
-    embed = format_summary_embed(analytics)
+    embed = format_summary_embed(analytics, symbol=symbol)
     return await send_webhook(embeds=[embed], webhook_url=webhook_url)
