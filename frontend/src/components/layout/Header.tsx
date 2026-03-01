@@ -25,6 +25,7 @@ const ASSET_OPTIONS = [
 const SIGNAL_CHANNELS = [
   { label: "VISION GOLD", emoji: "🥇", href: "https://t.me/+_pMYNBlFj0I0YzMx", color: "#F59E0B" },
   { label: "VISION BITCOIN", emoji: "₿", href: "https://t.me/+9qAF1vBDdTkwYWVh", color: "#F97316" },
+  { label: "VISION FOREX", emoji: "💱", href: "https://t.me/+rV8dmhYnX804ZjY5", color: "#3B82F6" },
 ];
 
 export default function Header() {
