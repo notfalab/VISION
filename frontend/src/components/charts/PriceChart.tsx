@@ -329,6 +329,46 @@ export default function PriceChart() {
     };
   }, [canStream, activeSymbol, activeTimeframe, data.length > 0]);
 
+  // REST polling for non-Binance symbols (forex) — update last candle + show LIVE
+  useEffect(() => {
+    if (canStream || data.length === 0) return; // Binance symbols use WS above
+
+    setIsLive(true);
+    let cancelled = false;
+
+    const poll = async () => {
+      if (cancelled) return;
+      try {
+        const res = await fetch(`/api/v1/prices/${activeSymbol}/latest`);
+        if (res.ok) {
+          const d = await res.json();
+          if (d.price) {
+            setData((prev) => {
+              if (prev.length === 0) return prev;
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              updated[updated.length - 1] = {
+                ...last,
+                close: d.price,
+                high: Math.max(last.high, d.price),
+                low: Math.min(last.low, d.price),
+              };
+              return updated;
+            });
+          }
+        }
+      } catch { /* ignore */ }
+    };
+
+    poll();
+    const interval = setInterval(poll, 15000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      setIsLive(false);
+    };
+  }, [canStream, activeSymbol, data.length > 0]);
+
   // Fetch all candle pattern markers from dedicated patterns endpoint
   useEffect(() => {
     if (data.length < 30) {

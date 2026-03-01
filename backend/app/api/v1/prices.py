@@ -80,40 +80,86 @@ async def fetch_batch(
 
 @router.get("/{symbol}/latest")
 async def get_latest_price(symbol: str):
-    """Get latest price — tries Redis cache first, then live fetch from adapter."""
+    """Get latest price — tries Redis cache, then DB, then live fetch from adapter."""
     from backend.app.data.redis_pubsub import get_latest_price as get_cached, cache_latest_price
+
+    # 1. Try Redis cache first (fastest)
     price = await get_cached(symbol)
     if price:
         return price
 
-    # Fallback: fetch live from adapter and cache it
+    # 2. Try latest candle from DB (no external API call)
+    try:
+        from sqlalchemy import select as sa_select
+        from backend.app.database import async_session as db_session
+        from backend.app.models.asset import Asset
+        from backend.app.models.ohlcv import OHLCVData
+
+        async with db_session() as session:
+            result = await session.execute(
+                sa_select(Asset).where(Asset.symbol == symbol.upper())
+            )
+            asset = result.scalar_one_or_none()
+            if asset:
+                result = await session.execute(
+                    sa_select(OHLCVData)
+                    .where(OHLCVData.asset_id == asset.id)
+                    .order_by(OHLCVData.timestamp.desc())
+                    .limit(1)
+                )
+                row = result.scalar_one_or_none()
+                if row:
+                    from backend.app.data.base import Candle
+                    candle = Candle(
+                        timestamp=row.timestamp,
+                        open=float(row.open),
+                        high=float(row.high),
+                        low=float(row.low),
+                        close=float(row.close),
+                        volume=float(row.volume),
+                    )
+                    await cache_latest_price(symbol.upper(), candle)
+                    return {
+                        "symbol": symbol.upper(),
+                        "price": float(row.close),
+                        "high": float(row.high),
+                        "low": float(row.low),
+                        "volume": float(row.volume),
+                        "timestamp": row.timestamp.isoformat() if hasattr(row.timestamp, "isoformat") else str(row.timestamp),
+                    }
+    except Exception:
+        pass
+
+    # 3. Live fetch from adapter (slowest — makes external API call)
     from backend.app.data.registry import data_registry
     try:
         adapter = data_registry.route_symbol(symbol)
         await adapter.connect()
         try:
-            df = await adapter.fetch_ohlcv(symbol, "1h", 1)
-            if not df.empty:
-                from backend.app.data.base import Candle
-                row = df.iloc[-1]
-                ts = row["timestamp"]
-                candle = Candle(
-                    timestamp=ts.to_pydatetime() if hasattr(ts, "to_pydatetime") else ts,
-                    open=float(row["open"]),
-                    high=float(row["high"]),
-                    low=float(row["low"]),
-                    close=float(row["close"]),
-                    volume=float(row["volume"]),
-                )
-                await cache_latest_price(symbol.upper(), candle)
-                return {
-                    "symbol": symbol.upper(),
-                    "price": float(row["close"]),
-                    "high": float(row["high"]),
-                    "low": float(row["low"]),
-                    "volume": float(row["volume"]),
-                    "timestamp": ts.isoformat() if hasattr(ts, "isoformat") else str(ts),
-                }
+            # Try 5m first (more recent), fallback to 1h, then 1d
+            for tf in ("5m", "1h", "1d"):
+                df = await adapter.fetch_ohlcv(symbol, tf, 1)
+                if not df.empty:
+                    from backend.app.data.base import Candle
+                    row = df.iloc[-1]
+                    ts = row["timestamp"]
+                    candle = Candle(
+                        timestamp=ts.to_pydatetime() if hasattr(ts, "to_pydatetime") else ts,
+                        open=float(row["open"]),
+                        high=float(row["high"]),
+                        low=float(row["low"]),
+                        close=float(row["close"]),
+                        volume=float(row["volume"]),
+                    )
+                    await cache_latest_price(symbol.upper(), candle)
+                    return {
+                        "symbol": symbol.upper(),
+                        "price": float(row["close"]),
+                        "high": float(row["high"]),
+                        "low": float(row["low"]),
+                        "volume": float(row["volume"]),
+                        "timestamp": ts.isoformat() if hasattr(ts, "isoformat") else str(ts),
+                    }
         finally:
             await adapter.disconnect()
     except Exception:
