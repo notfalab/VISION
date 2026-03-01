@@ -101,6 +101,8 @@ async def _async_scan(symbol: str = "XAUUSD"):
         "5m": Timeframe.M5,
         "15m": Timeframe.M15,
         "30m": Timeframe.M30,
+        "1h": Timeframe.H1,
+        "4h": Timeframe.H4,
         "1d": Timeframe.D1,
     }
 
@@ -254,6 +256,7 @@ def daily_summary():
         from backend.app.core.scalper.signal_store import get_signals
         from backend.app.core.scalper.outcome_tracker import compute_analytics
         from backend.app.notifications.telegram import notify_summary
+        from backend.app.notifications.discord import notify_summary as discord_notify_summary
 
         total_sent = 0
         for symbol in ("XAUUSD", "BTCUSD"):
@@ -262,6 +265,10 @@ def daily_summary():
                 continue
             analytics = compute_analytics(signals)
             await notify_summary(analytics, symbol=symbol)
+            try:
+                await discord_notify_summary(analytics, symbol=symbol)
+            except Exception:
+                pass
             total_sent += len(signals)
 
         if total_sent == 0:
