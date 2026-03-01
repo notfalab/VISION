@@ -361,7 +361,7 @@ export default function PriceChart() {
     };
 
     poll();
-    const interval = setInterval(poll, 15000);
+    const interval = setInterval(poll, 10000); // 10s — close to real-time for REST
     return () => {
       cancelled = true;
       clearInterval(interval);

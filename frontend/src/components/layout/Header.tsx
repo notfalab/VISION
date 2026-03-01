@@ -115,7 +115,7 @@ export default function Header() {
     };
 
     poll();
-    const interval = setInterval(poll, 15000); // Every 15s
+    const interval = setInterval(poll, 10000); // Every 10s
     return () => {
       cancelled = true;
       clearInterval(interval);

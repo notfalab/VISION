@@ -21,8 +21,8 @@ FOREX_PAIRS = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDC
 async def _forex_price_refresh(logger):
     """
     Lightweight loop: keep forex live prices in Redis cache.
-    Polls Massive API every 60s for latest 5m candle per pair.
-    This ensures the Header dropdown shows prices between full scans.
+    Polls Massive API every 30s for latest 1m candle per pair.
+    This ensures the Header dropdown and chart update frequently.
     """
     await asyncio.sleep(45)  # Let startup complete
     logger.info("forex_price_refresh_starting")
@@ -39,7 +39,7 @@ async def _forex_price_refresh(logger):
             try:
                 for pair in FOREX_PAIRS:
                     try:
-                        df = await adapter.fetch_ohlcv(pair, "5m", 1)
+                        df = await adapter.fetch_ohlcv(pair, "1m", 1)
                         if not df.empty:
                             row = df.iloc[-1]
                             ts = row["timestamp"]
@@ -62,7 +62,7 @@ async def _forex_price_refresh(logger):
         except Exception as e:
             logger.error("forex_price_refresh_error", error=str(e))
 
-        await asyncio.sleep(60)
+        await asyncio.sleep(30)
 
 
 async def _background_scanner(logger):
