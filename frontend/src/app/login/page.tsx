@@ -37,7 +37,7 @@ export default function LoginPage() {
     setSubmitting(false);
   };
 
-  if (loading || isAuthenticated) {
+  if (loading) {
     return (
       <div className="h-screen flex items-center justify-center bg-[var(--color-bg-primary)] grid-pattern">
         <Loader2 className="w-5 h-5 text-[var(--color-neon-blue)] animate-spin" />

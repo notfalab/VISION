@@ -119,46 +119,46 @@ export default function PerformanceDashboard() {
         for (const r of results) {
           if (r.status !== "fulfilled") continue;
           const a = r.value as Analytics;
-          merged.total_signals += a.total_signals;
-          merged.completed += a.completed;
-          merged.wins += a.wins;
-          merged.losses += a.losses;
-          merged.pending += a.pending;
-          merged.active += a.active;
-          merged.expired += a.expired;
-          merged.total_pnl += a.total_pnl;
-          if (a.best_trade > merged.best_trade) merged.best_trade = a.best_trade;
-          if (a.worst_trade < merged.worst_trade) merged.worst_trade = a.worst_trade;
-          totalRR += a.avg_rr * a.completed;
+          merged.total_signals += a.total_signals || 0;
+          merged.completed += a.completed || 0;
+          merged.wins += a.wins || 0;
+          merged.losses += a.losses || 0;
+          merged.pending += a.pending || 0;
+          merged.active += a.active || 0;
+          merged.expired += a.expired || 0;
+          merged.total_pnl += a.total_pnl || 0;
+          if ((a.best_trade || 0) > merged.best_trade) merged.best_trade = a.best_trade || 0;
+          if ((a.worst_trade || 0) < merged.worst_trade) merged.worst_trade = a.worst_trade || 0;
+          totalRR += (a.avg_rr || 0) * (a.completed || 0);
 
           // Merge equity curves
-          for (const pt of a.equity_curve) {
+          for (const pt of (a.equity_curve || [])) {
             merged.equity_curve.push(pt);
           }
 
           // Accumulate for profit factor
-          for (const pt of a.equity_curve) {
+          for (const pt of (a.equity_curve || [])) {
             if (pt.pnl > 0) grossWins += pt.pnl;
             else grossLosses += Math.abs(pt.pnl);
           }
 
           // Merge by_timeframe
-          for (const [tf, stats] of Object.entries(a.by_timeframe)) {
+          for (const [tf, stats] of Object.entries(a.by_timeframe || {})) {
             if (!merged.by_timeframe[tf]) {
               merged.by_timeframe[tf] = { total: 0, wins: 0, losses: 0, win_rate: 0, avg_pnl: 0 };
             }
-            merged.by_timeframe[tf].total += stats.total;
-            merged.by_timeframe[tf].wins += stats.wins;
-            merged.by_timeframe[tf].losses += stats.losses;
+            merged.by_timeframe[tf].total += stats.total || 0;
+            merged.by_timeframe[tf].wins += stats.wins || 0;
+            merged.by_timeframe[tf].losses += stats.losses || 0;
           }
 
           // Merge by_direction
-          for (const [dir, stats] of Object.entries(a.by_direction)) {
+          for (const [dir, stats] of Object.entries(a.by_direction || {})) {
             if (!merged.by_direction[dir]) {
               merged.by_direction[dir] = { total: 0, wins: 0, win_rate: 0, avg_pnl: 0 };
             }
-            merged.by_direction[dir].total += stats.total;
-            merged.by_direction[dir].wins += stats.wins;
+            merged.by_direction[dir].total += stats.total || 0;
+            merged.by_direction[dir].wins += stats.wins || 0;
           }
         }
 

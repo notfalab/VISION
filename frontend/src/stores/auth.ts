@@ -56,7 +56,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   error: null,
 
   login: async (username, password) => {
-    set({ error: null, loading: true });
+    set({ error: null });
     try {
       const data = await apiFetch<{ access_token: string }>("/api/v1/auth/login", {
         method: "POST",
@@ -73,7 +73,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   register: async (email, username, password) => {
-    set({ error: null, loading: true });
+    set({ error: null });
     try {
       const data = await apiFetch<{ access_token: string }>("/api/v1/auth/register", {
         method: "POST",
