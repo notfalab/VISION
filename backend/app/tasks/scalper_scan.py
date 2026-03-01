@@ -392,3 +392,93 @@ def weekly_ml_retrain():
         return {"status": "complete", "models": results}
 
     return _run_async(_retrain())
+
+
+@celery_app.task(name="backend.app.tasks.scalper_scan.daily_ai_brief")
+def daily_ai_brief():
+    """
+    Celery Beat task: generate AI market brief every day at 07:00 UTC.
+    Collects market data, calls OpenAI, and sends to Discord + Telegram.
+    """
+    async def _brief():
+        _ensure_adapters()
+
+        from backend.app.data.registry import data_registry
+        from backend.app.core.scalper.outcome_tracker import compute_analytics
+        from backend.app.core.scalper.signal_store import SignalStore
+        from backend.app.core.ai_brief import (
+            generate_market_brief,
+            format_brief_discord,
+            format_brief_telegram,
+        )
+        from backend.app.notifications import discord as discord_notify
+        from backend.app.notifications import telegram as telegram_notify
+
+        market_data: dict = {"prices": {}, "signals": [], "performance": {}}
+
+        # Collect price data for all symbols
+        all_symbols = ["XAUUSD", "BTCUSD"] + FOREX_MAJORS
+        for symbol in all_symbols:
+            try:
+                adapter = data_registry.get_adapter(symbol)
+                if adapter:
+                    ticker = await adapter.fetch_ticker(symbol)
+                    if ticker:
+                        market_data["prices"][symbol] = {
+                            "price": ticker.get("price", ticker.get("last", 0)),
+                            "change_pct": ticker.get("change_pct", ticker.get("change_24h", 0)),
+                            "high": ticker.get("high", ticker.get("high_24h", 0)),
+                            "low": ticker.get("low", ticker.get("low_24h", 0)),
+                        }
+            except Exception as e:
+                logger.warning("brief_price_fetch_failed", symbol=symbol, error=str(e))
+
+        # Collect active signals
+        try:
+            store = SignalStore()
+            for symbol in all_symbols:
+                signals = store.get_signals(symbol, status="active")
+                for sig in (signals or []):
+                    market_data["signals"].append(sig)
+        except Exception as e:
+            logger.warning("brief_signals_fetch_failed", error=str(e))
+
+        # Collect yesterday's performance (XAUUSD as representative)
+        try:
+            analytics = await compute_analytics("XAUUSD")
+            if analytics:
+                market_data["performance"] = {
+                    "win_rate": analytics.get("win_rate", 0),
+                    "total_pnl": analytics.get("total_pnl", 0),
+                    "wins": analytics.get("wins", 0),
+                    "losses": analytics.get("losses", 0),
+                }
+        except Exception as e:
+            logger.warning("brief_analytics_failed", error=str(e))
+
+        # Generate brief
+        brief = await generate_market_brief(market_data)
+        if not brief:
+            logger.warning("ai_brief_generation_failed")
+            return {"status": "failed", "reason": "LLM generation failed"}
+
+        # Send to Discord (performance channel)
+        try:
+            embed = format_brief_discord(brief)
+            await discord_notify.send_webhook(embed, channel="performance")
+        except Exception as e:
+            logger.error("brief_discord_failed", error=str(e))
+
+        # Send to Telegram (all channels)
+        try:
+            msg = format_brief_telegram(brief)
+            await telegram_notify.send_to_channel(msg, symbol="XAUUSD")
+            await telegram_notify.send_to_channel(msg, symbol="BTCUSD")
+            await telegram_notify.send_to_channel(msg, symbol="EURUSD")
+        except Exception as e:
+            logger.error("brief_telegram_failed", error=str(e))
+
+        logger.info("ai_brief_sent", length=len(brief))
+        return {"status": "complete", "brief_length": len(brief)}
+
+    return _run_async(_brief())

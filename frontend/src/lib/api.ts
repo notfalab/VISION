@@ -141,4 +141,12 @@ export const api = {
 
   scalperLossPatterns: (symbol: string) =>
     fetchAPI<any>(`/api/v1/scalper/${symbol}/loss-patterns`),
+
+  // Zones (supply/demand, S/R, order blocks, FVG)
+  scalperZones: (symbol: string, tf: string = "15m") =>
+    fetchAPISafe<any>(`/api/v1/scalper/${symbol}/zones?timeframe=${tf}`, { zones: {} }),
+
+  // AI Market Brief
+  aiBrief: () =>
+    fetchAPI<any>(`/api/v1/scalper/ai-brief`),
 };

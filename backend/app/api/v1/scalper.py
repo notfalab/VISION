@@ -438,6 +438,161 @@ Daily summary: 22:00 UTC
     }
 
 
+# ── AI Market Brief ──────────────────────────────────────────
+
+@router.get("/ai-brief")
+async def get_ai_brief(db: AsyncSession = Depends(get_db)):
+    """Generate an AI market brief on demand."""
+    from backend.app.data.registry import data_registry
+    from backend.app.core.ai_brief import generate_market_brief
+
+    market_data: dict = {"prices": {}, "signals": [], "performance": {}}
+
+    # Collect recent prices
+    all_symbols = ["XAUUSD", "BTCUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD"]
+    for symbol in all_symbols:
+        try:
+            adapter = data_registry.get_adapter(symbol)
+            if adapter:
+                ticker = await adapter.fetch_ticker(symbol)
+                if ticker:
+                    market_data["prices"][symbol] = {
+                        "price": ticker.get("price", ticker.get("last", 0)),
+                        "change_pct": ticker.get("change_pct", ticker.get("change_24h", 0)),
+                        "high": ticker.get("high", ticker.get("high_24h", 0)),
+                        "low": ticker.get("low", ticker.get("low_24h", 0)),
+                    }
+        except Exception:
+            pass
+
+    # Collect active signals
+    try:
+        for symbol in all_symbols:
+            signals = get_signals(symbol, status="active")
+            for sig in (signals or []):
+                market_data["signals"].append(sig)
+    except Exception:
+        pass
+
+    # Generate brief
+    brief = await generate_market_brief(market_data)
+    if not brief:
+        raise HTTPException(status_code=503, detail="AI brief generation failed. Check OPENAI_API_KEY.")
+
+    return {"brief": brief, "generated_at": datetime.now(timezone.utc).isoformat()}
+
+
+# ── Supply/Demand Zones ──────────────────────────────────────
+
+@router.get("/{symbol}/zones")
+async def get_zones(
+    symbol: str,
+    timeframe: str = Query(default="15m"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get supply/demand zones, support/resistance, and smart money levels for chart overlay."""
+    import pandas as pd
+
+    df = await _fetch_ohlcv_df(db, symbol.upper(), timeframe, limit=200)
+    if df is None or df.empty:
+        raise HTTPException(status_code=404, detail=f"No data for {symbol.upper()} {timeframe}")
+
+    zones: dict = {"supply": [], "demand": [], "support": [], "resistance": [], "fvg": [], "order_blocks": []}
+
+    # Key levels (support/resistance)
+    try:
+        from backend.app.core.indicators.key_levels import calculate as calc_key_levels
+
+        kl = calc_key_levels(df)
+        vals = kl.get("values", {})
+
+        # Support levels
+        for level_data in vals.get("support_levels", []):
+            if isinstance(level_data, dict):
+                zones["support"].append({
+                    "price": level_data.get("price", 0),
+                    "strength": level_data.get("strength", 1),
+                    "touches": level_data.get("touches", 1),
+                })
+            elif isinstance(level_data, (int, float)):
+                zones["support"].append({"price": float(level_data), "strength": 1, "touches": 1})
+
+        # Resistance levels
+        for level_data in vals.get("resistance_levels", []):
+            if isinstance(level_data, dict):
+                zones["resistance"].append({
+                    "price": level_data.get("price", 0),
+                    "strength": level_data.get("strength", 1),
+                    "touches": level_data.get("touches", 1),
+                })
+            elif isinstance(level_data, (int, float)):
+                zones["resistance"].append({"price": float(level_data), "strength": 1, "touches": 1})
+
+        # Pivot points
+        pivots = vals.get("pivot_points", {})
+        if pivots:
+            zones["pivots"] = pivots
+
+        # Fibonacci levels
+        fibs = vals.get("fibonacci", {})
+        if fibs:
+            zones["fibonacci"] = fibs
+
+    except Exception as e:
+        pass  # Key levels not critical
+
+    # Smart Money Concepts (order blocks, FVG)
+    try:
+        from backend.app.core.indicators.smart_money import calculate as calc_smc
+
+        smc = calc_smc(df)
+        vals = smc.get("values", {})
+
+        # Order blocks
+        for ob in vals.get("order_blocks", []):
+            if isinstance(ob, dict):
+                zones["order_blocks"].append({
+                    "type": ob.get("type", "unknown"),
+                    "high": ob.get("high", 0),
+                    "low": ob.get("low", 0),
+                    "index": ob.get("index", 0),
+                    "active": ob.get("active", True),
+                })
+
+        # Fair Value Gaps
+        for fvg in vals.get("fair_value_gaps", []):
+            if isinstance(fvg, dict):
+                zones["fvg"].append({
+                    "type": fvg.get("type", "unknown"),
+                    "high": fvg.get("high", 0),
+                    "low": fvg.get("low", 0),
+                    "index": fvg.get("index", 0),
+                    "filled": fvg.get("filled", False),
+                })
+
+        # BOS / CHoCH
+        bos = vals.get("bos", [])
+        choch = vals.get("choch", [])
+        if bos or choch:
+            zones["structure"] = {"bos": bos, "choch": choch}
+
+    except Exception:
+        pass  # SMC not critical
+
+    # Derive supply/demand zones from order blocks
+    for ob in zones["order_blocks"]:
+        if ob.get("type") == "bullish" and ob.get("active"):
+            zones["demand"].append({"high": ob["high"], "low": ob["low"], "strength": "strong"})
+        elif ob.get("type") == "bearish" and ob.get("active"):
+            zones["supply"].append({"high": ob["high"], "low": ob["low"], "strength": "strong"})
+
+    return {
+        "symbol": symbol.upper(),
+        "timeframe": timeframe,
+        "zones": zones,
+    }
+
+
 def _check_active_signals(symbol: str, dataframes: dict):
     """Check active/pending signals against current prices."""
     from backend.app.core.scalper.outcome_tracker import check_signal_outcome

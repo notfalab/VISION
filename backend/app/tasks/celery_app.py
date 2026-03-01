@@ -50,6 +50,11 @@ celery_app.conf.update(
             "task": "backend.app.tasks.scalper_scan.weekly_ml_retrain",
             "schedule": crontab(hour=3, minute=0, day_of_week="sunday"),
         },
+        # ── AI Market Brief: every day at 07:00 UTC ──
+        "ai-daily-brief": {
+            "task": "backend.app.tasks.scalper_scan.daily_ai_brief",
+            "schedule": crontab(hour=7, minute=0),
+        },
         # ── COT reports: every Saturday ──
         "fetch-cot-weekly": {
             "task": "backend.app.tasks.fetch_cot.fetch_latest_cot",
