@@ -503,6 +503,73 @@ Daily summary: 22:00 UTC
     }
 
 
+# ── Discord ──────────────────────────────────────────────────
+
+@router.get("/discord/status")
+async def discord_status():
+    """Check if Discord webhooks are configured."""
+    from backend.app.config import get_settings
+    s = get_settings()
+    return {
+        "general": bool(s.discord_webhook_url),
+        "gold": bool(s.discord_gold_webhook_url),
+        "crypto": bool(s.discord_crypto_webhook_url),
+        "forex": bool(s.discord_forex_webhook_url),
+        "performance": bool(s.discord_performance_webhook_url),
+        "any_configured": bool(
+            s.discord_webhook_url or s.discord_gold_webhook_url
+            or s.discord_crypto_webhook_url or s.discord_forex_webhook_url
+        ),
+    }
+
+
+@router.post("/discord/test")
+async def discord_test():
+    """Send a test signal to all configured Discord webhooks."""
+    from backend.app.notifications.discord import send_webhook, get_webhook_for_symbol
+    from backend.app.config import get_settings
+
+    s = get_settings()
+    results = {}
+
+    test_embed = {
+        "title": "🧪 TEST — VISION Signals",
+        "description": "Discord webhook connection verified!",
+        "color": 0x00E676,
+        "fields": [
+            {"name": "Status", "value": "✅ Connected", "inline": True},
+            {"name": "Confidence Filter", "value": "≥70%", "inline": True},
+        ],
+        "footer": {"text": "VISION Markets • Test Message"},
+    }
+
+    # Test each configured webhook
+    for name, url in [
+        ("general", s.discord_webhook_url),
+        ("gold", s.discord_gold_webhook_url),
+        ("crypto", s.discord_crypto_webhook_url),
+        ("forex", s.discord_forex_webhook_url),
+        ("performance", s.discord_performance_webhook_url),
+    ]:
+        if url:
+            sent = await send_webhook(embeds=[test_embed], webhook_url=url)
+            results[name] = "sent" if sent else "failed"
+        else:
+            results[name] = "not_configured"
+
+    any_sent = any(v == "sent" for v in results.values())
+    return {
+        "status": "ok" if any_sent else "no_webhooks_configured",
+        "results": results,
+        "message": (
+            "Check your Discord channels!"
+            if any_sent
+            else "No Discord webhooks configured. Set DISCORD_WEBHOOK_URL (or DISCORD_GOLD_WEBHOOK_URL, "
+                 "DISCORD_CRYPTO_WEBHOOK_URL, DISCORD_FOREX_WEBHOOK_URL) in Railway environment variables."
+        ),
+    }
+
+
 # ── AI Market Brief ──────────────────────────────────────────
 
 @router.get("/ai-brief")
