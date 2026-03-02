@@ -8,42 +8,20 @@ const TELEGRAM_CHANNELS = [
   {
     label: "VISION GOLD",
     href: "https://t.me/+_pMYNBlFj0I0YzMx",
-    gradient: "from-amber-500/20 to-yellow-600/20 border-amber-500/30 hover:border-amber-400/60",
-    iconBg: "bg-gradient-to-br from-amber-400/30 to-yellow-600/30",
-    iconColor: "text-amber-400",
-    hoverArrow: "group-hover:text-amber-400",
-    icon: (
-      <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2L5 12h6l-1 10 8-14h-6l1-6z" />
-      </svg>
-    ),
+    gradient: "linear-gradient(to right, #F59E0B, #000)",
+    borderColor: "border-amber-500/40 hover:border-amber-400/70",
   },
   {
     label: "VISION BITCOIN",
     href: "https://t.me/+9qAF1vBDdTkwYWVh",
-    gradient: "from-orange-500/20 to-amber-600/20 border-orange-500/30 hover:border-orange-400/60",
-    iconBg: "bg-gradient-to-br from-orange-400/30 to-amber-600/30",
-    iconColor: "text-orange-400",
-    hoverArrow: "group-hover:text-orange-400",
-    icon: (
-      <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M14.24 10.56c-.31 1.24-2.24.73-2.88.58l.55-2.18c.64.16 2.67.47 2.33 1.6zm-1.31 2.87c-.36 1.44-2.68.66-3.44.49l.6-2.39c.76.19 3.23.58 2.84 1.9zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.05 8.75c.07-1.76-1.08-2.71-2.91-3.34l.6-2.37-1.46-.36-.58 2.3c-.38-.1-.78-.19-1.17-.27l.58-2.32-1.45-.36-.6 2.37c-.32-.07-.63-.14-.93-.22l-2-.5-.39 1.55s1.08.25 1.06.26c.59.15.69.54.67.85l-.67 2.7c.04.01.09.02.15.05l-.15-.04-.94 3.78c-.07.18-.25.44-.66.34.01.02-1.06-.26-1.06-.26l-.72 1.66 1.89.47c.35.09.69.18 1.03.26l-.6 2.41 1.45.36.6-2.37c.4.11.78.2 1.16.29l-.59 2.37 1.45.36.6-2.4c2.54.48 4.45.29 5.25-2.01.65-1.85-.03-2.91-1.37-3.61.98-.22 1.71-.86 1.9-2.18z" />
-      </svg>
-    ),
+    gradient: "linear-gradient(to right, #F97316, #000)",
+    borderColor: "border-orange-500/40 hover:border-orange-400/70",
   },
   {
     label: "VISION FOREX",
     href: "https://t.me/+rV8dmhYnX804ZjY5",
-    gradient: "from-blue-500/20 to-cyan-600/20 border-blue-500/30 hover:border-blue-400/60",
-    iconBg: "bg-gradient-to-br from-blue-400/30 to-cyan-600/30",
-    iconColor: "text-blue-400",
-    hoverArrow: "group-hover:text-blue-400",
-    icon: (
-      <svg className="w-4.5 h-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
-        <polyline points="16 7 22 7 22 13" />
-      </svg>
-    ),
+    gradient: "linear-gradient(to right, #60A5FA, #000)",
+    borderColor: "border-blue-500/40 hover:border-blue-400/70",
   },
 ];
 
@@ -121,15 +99,13 @@ export default function CommunityModal({ onJoined, onSkip }: CommunityModalProps
                   href={ch.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`flex items-center gap-3 w-full px-4 py-2.5 rounded-xl border bg-gradient-to-r transition-all group ${ch.gradient}`}
+                  style={{ background: ch.gradient }}
+                  className={`flex items-center gap-3 w-full px-4 py-3 rounded-xl border transition-all group ${ch.borderColor}`}
                 >
-                  <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${ch.iconBg} ${ch.iconColor}`}>
-                    {ch.icon}
-                  </div>
-                  <span className="flex-1 text-sm font-mono font-semibold text-[var(--color-text-primary)]">
+                  <span className="flex-1 text-sm font-mono font-semibold text-white">
                     {ch.label}
                   </span>
-                  <ArrowRight className={`w-3.5 h-3.5 text-[var(--color-text-muted)] ${ch.hoverArrow} group-hover:translate-x-0.5 transition-all`} />
+                  <img src="/telegram.svg" alt="" width={16} height={16} className="opacity-70 group-hover:opacity-100 transition-opacity" />
                 </a>
               ))}
             </div>
