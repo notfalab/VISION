@@ -20,9 +20,13 @@ const nextConfig: NextConfig = {
       ];
     }
 
-    // Vercel production: proxy API calls to the droplet (server-side, no mixed content)
-    const backendUrl = process.env.API_BACKEND_URL;
-    if (backendUrl) {
+    // Vercel production: proxy API calls to Railway backend
+    const rawBackendUrl = process.env.API_BACKEND_URL;
+    if (rawBackendUrl) {
+      // Ensure URL has protocol (fixes "destination does not start with https://" error)
+      const backendUrl = rawBackendUrl.startsWith("http")
+        ? rawBackendUrl
+        : `https://${rawBackendUrl}`;
       return [
         {
           source: "/api/:path*",
