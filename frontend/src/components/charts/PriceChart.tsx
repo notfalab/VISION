@@ -550,7 +550,7 @@ export default function PriceChart() {
     // Compute visible slice based on pan offset
     // panOffset > 0 = viewing older data, panOffset < 0 = empty space on right
     const VIEW_SLOTS = getViewSlots();
-    const MIN_OFFSET = -Math.round(VIEW_SLOTS * 0.3); // allow 30% empty space on right
+    const MIN_OFFSET = -Math.round(VIEW_SLOTS * 0.9); // allow 90% empty space — latest candle can be at the left edge
     const maxOffset = Math.max(0, data.length - VIEW_SLOTS);
     const clampedOffset = Math.max(MIN_OFFSET, Math.min(panOffset, maxOffset));
     const emptyRight = clampedOffset < 0 ? -clampedOffset : 0;
@@ -976,7 +976,7 @@ export default function PriceChart() {
   // Compute visible data for hover hit-testing (same logic as draw)
   const getVisibleData = useCallback(() => {
     const VIEW_SLOTS = getViewSlots();
-    const MIN_OFFSET = -Math.round(VIEW_SLOTS * 0.3);
+    const MIN_OFFSET = -Math.round(VIEW_SLOTS * 0.9);
     const maxOffset = Math.max(0, data.length - VIEW_SLOTS);
     const clampedOffset = Math.max(MIN_OFFSET, Math.min(panOffset, maxOffset));
     const emptyRight = clampedOffset < 0 ? -clampedOffset : 0;
@@ -989,29 +989,52 @@ export default function PriceChart() {
 
   // Mouse drag to pan
   const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault(); // prevent text selection / browser drag
     isDragging.current = true;
     dragStartX.current = e.clientX;
     dragStartOffset.current = panOffset;
     if (containerRef.current) containerRef.current.style.cursor = "grabbing";
   };
 
+  // Global mouse move/up — registered on window so drag works even outside the chart
+  const handleGlobalMouseMove = useCallback((e: MouseEvent) => {
+    if (!isDragging.current || !containerRef.current || data.length === 0) return;
+
+    const dx = e.clientX - dragStartX.current;
+    const geom = chartGeomRef.current;
+    const chartW = dimensions.width - geom.paddingLeft - geom.paddingRight;
+    if (chartW <= 0) return;
+    const VIEW_SLOTS = getViewSlots();
+    const candleW = chartW / VIEW_SLOTS;
+    const candleShift = Math.round(dx / candleW);
+    const MIN_OFFSET = -Math.round(VIEW_SLOTS * 0.9);
+    const maxOffset = Math.max(0, data.length - VIEW_SLOTS);
+    const newOffset = Math.max(MIN_OFFSET, Math.min(dragStartOffset.current + candleShift, maxOffset));
+    setPanOffset(newOffset);
+  }, [dimensions.width, getViewSlots, data.length]);
+
+  const handleGlobalMouseUp = useCallback(() => {
+    if (isDragging.current) {
+      isDragging.current = false;
+      if (containerRef.current) containerRef.current.style.cursor = "crosshair";
+    }
+  }, []);
+
+  // Register global mouse listeners for robust drag tracking
+  useEffect(() => {
+    window.addEventListener("mousemove", handleGlobalMouseMove);
+    window.addEventListener("mouseup", handleGlobalMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleGlobalMouseMove);
+      window.removeEventListener("mouseup", handleGlobalMouseUp);
+    };
+  }, [handleGlobalMouseMove, handleGlobalMouseUp]);
+
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!containerRef.current || data.length === 0) return;
 
-    // Handle dragging
-    if (isDragging.current) {
-      const dx = e.clientX - dragStartX.current;
-      const geom = chartGeomRef.current;
-      const chartW = dimensions.width - geom.paddingLeft - geom.paddingRight;
-      const VIEW_SLOTS = getViewSlots();
-      const candleW = chartW / VIEW_SLOTS;
-      const candleShift = Math.round(dx / candleW);
-      const MIN_OFFSET = -Math.round(VIEW_SLOTS * 0.3);
-      const maxOffset = Math.max(0, data.length - VIEW_SLOTS);
-      const newOffset = Math.max(MIN_OFFSET, Math.min(dragStartOffset.current + candleShift, maxOffset));
-      setPanOffset(newOffset);
-      return;
-    }
+    // Dragging is handled by global listener above
+    if (isDragging.current) return;
 
     const rect = containerRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -1048,15 +1071,14 @@ export default function PriceChart() {
   };
 
   const handleMouseUp = () => {
-    isDragging.current = false;
-    if (containerRef.current) containerRef.current.style.cursor = "crosshair";
+    // Handled by global listener
   };
 
   const handleMouseLeave = () => {
-    isDragging.current = false;
-    if (containerRef.current) containerRef.current.style.cursor = "crosshair";
-    setHoveredCandle(null);
-    setHoveredZone(null);
+    if (!isDragging.current) {
+      setHoveredCandle(null);
+      setHoveredZone(null);
+    }
   };
 
   // ── Native non-passive event handlers (wheel + touch) ──
@@ -1079,7 +1101,7 @@ export default function PriceChart() {
 
     // Pan
     const VIEW_SLOTS = getViewSlots();
-    const MIN_OFFSET = -Math.round(VIEW_SLOTS * 0.3);
+    const MIN_OFFSET = -Math.round(VIEW_SLOTS * 0.9);
     const delta = e.deltaX !== 0 ? e.deltaX : e.deltaY;
     const shift = delta > 0 ? -3 : 3;
     setPanOffset((prev) => {
@@ -1112,7 +1134,7 @@ export default function PriceChart() {
       const VIEW_SLOTS = getViewSlots();
       const candleW = chartW / VIEW_SLOTS;
       const candleShift = Math.round(dx / candleW);
-      const MIN_OFFSET = -Math.round(VIEW_SLOTS * 0.3);
+      const MIN_OFFSET = -Math.round(VIEW_SLOTS * 0.9);
       setPanOffset(() => {
         const maxOff = Math.max(0, data.length - VIEW_SLOTS);
         return Math.max(MIN_OFFSET, Math.min(touchStartOffset.current + candleShift, maxOff));
@@ -1273,8 +1295,8 @@ export default function PriceChart() {
           <canvas ref={canvasRef} className="absolute inset-0" />
         )}
 
-        {/* Snap to latest candle button */}
-        {panOffset > 0 && !loading && (
+        {/* Snap to latest candle button — shows when panned away from default view */}
+        {panOffset !== 0 && !loading && (
           <button
             onClick={() => setPanOffset(0)}
             className="absolute bottom-14 right-20 z-40 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-mono font-semibold transition-all duration-200 shadow-lg hover:scale-105 active:scale-95"
