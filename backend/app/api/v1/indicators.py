@@ -140,7 +140,10 @@ async def calculate_indicators(
         "volume": float(r.volume),
     } for r in reversed(ohlcv_list)])
 
-    raw = indicator_registry.calculate_all(df)
+    try:
+        raw = indicator_registry.calculate_all(df)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Indicator calculation failed: {str(e)}")
 
     # Aggregate per-indicator: summarize latest values + collect signals
     indicators_out = []
@@ -310,7 +313,11 @@ async def multi_timeframe_confluence(
             tf_results[tf] = {"available": False, "indicators": {}}
             continue
 
-        raw = indicator_registry.calculate_all(df)
+        try:
+            raw = indicator_registry.calculate_all(df)
+        except Exception:
+            tf_results[tf] = {"available": False, "indicators": {}}
+            continue
 
         tf_indicators = {}
         for ind_name in mtf_key_indicators:
@@ -436,7 +443,10 @@ async def composite_score(
     if df is None:
         raise HTTPException(status_code=400, detail="Not enough data")
 
-    raw = indicator_registry.calculate_all(df)
+    try:
+        raw = indicator_registry.calculate_all(df)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Indicator calculation failed: {str(e)}")
 
     # Extract indicator signals with weights
     WEIGHTS = {

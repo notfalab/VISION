@@ -126,6 +126,7 @@ async def get_latest_price(symbol: str):
                 return {
                     "symbol": symbol.upper(),
                     "price": float(ticker["price"]),
+                    "open": float(ticker.get("open", ticker["price"])),
                     "high": float(ticker.get("high", ticker["price"])),
                     "low": float(ticker.get("low", ticker["price"])),
                     "volume": float(ticker.get("volume", 0)),
@@ -176,6 +177,7 @@ async def get_latest_price(symbol: str):
                     return {
                         "symbol": symbol.upper(),
                         "price": float(row.close),
+                        "open": float(row.open),
                         "high": float(row.high),
                         "low": float(row.low),
                         "volume": float(row.volume),

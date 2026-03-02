@@ -67,6 +67,7 @@ async def cache_latest_price(symbol: str, candle: Candle) -> None:
     key = f"latest:{symbol.upper()}"
     await r.hset(key, mapping={
         "price": str(candle.close),
+        "open": str(candle.open),
         "high": str(candle.high),
         "low": str(candle.low),
         "volume": str(candle.volume),
@@ -109,6 +110,7 @@ async def get_latest_price(symbol: str) -> dict | None:
     return {
         "symbol": symbol.upper(),
         "price": float(data["price"]),
+        "open": float(data.get("open", data["price"])),
         "high": float(data["high"]),
         "low": float(data["low"]),
         "volume": float(data["volume"]),

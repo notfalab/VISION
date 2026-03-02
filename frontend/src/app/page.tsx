@@ -50,7 +50,10 @@ function DashboardContent() {
             localStorage.setItem(COMMUNITY_KEY, "true");
             setShowCommunity(false);
           }}
-          onSkip={() => setShowCommunity(false)}
+          onSkip={() => {
+            localStorage.setItem(COMMUNITY_KEY, "true");
+            setShowCommunity(false);
+          }}
         />
       )}
       <div className="flex-1 min-h-0 p-2 md:p-3 overflow-y-auto lg:overflow-hidden">
