@@ -8,6 +8,35 @@ import { formatPrice, formatVolume } from "@/lib/format";
 import { binanceKlineWS, isBinanceSymbol } from "@/lib/binance-ws";
 import type { LiveCandle } from "@/lib/binance-ws";
 import type { OHLCV, Timeframe } from "@/types/market";
+import {
+  createChart,
+  createSeriesMarkers,
+  createTextWatermark,
+  CandlestickSeries,
+  HistogramSeries,
+  LineSeries,
+  type IChartApi,
+  type ISeriesApi,
+  type UTCTimestamp,
+  type Time,
+  type SeriesMarker,
+  type ISeriesMarkersPluginApi,
+} from "lightweight-charts";
+import {
+  getChartOptions,
+  getCandlestickOptions,
+  getVolumeOptions,
+} from "./helpers/chartTheme";
+import { computeSMA, computeEMA } from "./helpers/indicators";
+import { getPriceFormatter } from "./helpers/priceFormatter";
+import { SessionBandsPrimitive } from "./primitives/SessionBandsPrimitive";
+import {
+  AccZonePrimitive,
+  computeAccumulationZones,
+  detectZoneShifts,
+  type AccZone,
+  type ZoneShift,
+} from "./primitives/AccZonePrimitive";
 
 const TIMEFRAMES: { label: string; value: Timeframe }[] = [
   { label: "1m", value: "1m" },
@@ -19,246 +48,318 @@ const TIMEFRAMES: { label: string; value: Timeframe }[] = [
   { label: "1W", value: "1w" },
 ];
 
-/* ── Trading Sessions (UTC hours) ── */
-interface TradingSession {
-  name: string;
-  startHour: number;
-  endHour: number;
-  color: string;
-  labelColor: string;
+/* ── Data conversion helpers ── */
+function toTime(ts: string): UTCTimestamp {
+  return (new Date(ts).getTime() / 1000) as UTCTimestamp;
 }
 
-const SESSIONS: TradingSession[] = [
-  { name: "ASIA", startHour: 0, endHour: 8, color: "rgba(59, 130, 246, 0.04)", labelColor: "rgba(59, 130, 246, 0.5)" },
-  { name: "LONDON", startHour: 7, endHour: 16, color: "rgba(16, 185, 129, 0.04)", labelColor: "rgba(16, 185, 129, 0.5)" },
-  { name: "NEW YORK", startHour: 13, endHour: 22, color: "rgba(245, 158, 11, 0.04)", labelColor: "rgba(245, 158, 11, 0.5)" },
-];
-
-const OVERLAP_COLOR = "rgba(168, 85, 247, 0.06)";
-
-function getSessionForHour(hour: number): { sessions: string[]; isOverlap: boolean } {
-  const active = SESSIONS.filter(s => {
-    if (s.startHour < s.endHour) return hour >= s.startHour && hour < s.endHour;
-    return hour >= s.startHour || hour < s.endHour;
-  });
+function toChartData(c: OHLCV) {
   return {
-    sessions: active.map(s => s.name),
-    isOverlap: active.length > 1,
+    time: toTime(c.timestamp),
+    open: c.open,
+    high: c.high,
+    low: c.low,
+    close: c.close,
   };
 }
 
-/* ── Accumulation Zone types ── */
-interface AccZone {
-  priceMin: number;
-  priceMax: number;
-  volume: number;
-  type: "buy" | "sell";
+function toVolumeData(c: OHLCV, bullAlpha: string, bearAlpha: string) {
+  return {
+    time: toTime(c.timestamp),
+    value: c.volume,
+    color: c.close >= c.open ? bullAlpha : bearAlpha,
+  };
+}
+
+/* ── Pattern Marker type ── */
+interface PatternMarker {
+  timestamp: string;
+  pattern: string;
+  bias: string;
   strength: number;
-}
-
-interface ZoneShift {
-  zone: AccZone;
-  direction: "new" | "growing" | "shrinking" | "gone";
-  timestamp: number;
-}
-
-/* ── Zone computation helpers ── */
-function clusterLevels(
-  levels: { price: number; quantity: number }[],
-  thresholdPct = 0.005
-): { priceMin: number; priceMax: number; volume: number }[] {
-  if (levels.length === 0) return [];
-  const sorted = [...levels].sort((a, b) => a.price - b.price);
-  const clusters: { prices: number[]; volumes: number[] }[] = [];
-  let current = { prices: [sorted[0].price], volumes: [sorted[0].quantity] };
-
-  for (let i = 1; i < sorted.length; i++) {
-    const dist = Math.abs(sorted[i].price - current.prices[current.prices.length - 1]) / sorted[i].price;
-    if (dist < thresholdPct) {
-      current.prices.push(sorted[i].price);
-      current.volumes.push(sorted[i].quantity);
-    } else {
-      clusters.push(current);
-      current = { prices: [sorted[i].price], volumes: [sorted[i].quantity] };
-    }
-  }
-  clusters.push(current);
-
-  return clusters.map((c) => ({
-    priceMin: Math.min(...c.prices),
-    priceMax: Math.max(...c.prices),
-    volume: c.volumes.reduce((a, b) => a + b, 0),
-  }));
-}
-
-function computeAccumulationZones(
-  bids: { price: number; quantity: number }[],
-  asks: { price: number; quantity: number }[]
-): AccZone[] {
-  const bidClusters = clusterLevels(bids);
-  const askClusters = clusterLevels(asks);
-
-  const allVolumes = [...bidClusters, ...askClusters].map((c) => c.volume);
-  const maxVol = Math.max(...allVolumes, 1);
-
-  const zones: AccZone[] = [];
-
-  for (const c of bidClusters) {
-    const strength = c.volume / maxVol;
-    if (strength > 0.25) {
-      zones.push({ priceMin: c.priceMin, priceMax: c.priceMax, volume: c.volume, type: "buy", strength });
-    }
-  }
-
-  for (const c of askClusters) {
-    const strength = c.volume / maxVol;
-    if (strength > 0.25) {
-      zones.push({ priceMin: c.priceMin, priceMax: c.priceMax, volume: c.volume, type: "sell", strength });
-    }
-  }
-
-  return zones;
-}
-
-function detectZoneShifts(prev: AccZone[], next: AccZone[]): ZoneShift[] {
-  const shifts: ZoneShift[] = [];
-  const now = Date.now();
-
-  for (const nz of next) {
-    const mid = (nz.priceMin + nz.priceMax) / 2;
-    const match = prev.find((pz) => {
-      const pMid = (pz.priceMin + pz.priceMax) / 2;
-      return Math.abs(pMid - mid) / mid < 0.005 && pz.type === nz.type;
-    });
-    if (!match) {
-      if (nz.strength > 0.4) shifts.push({ zone: nz, direction: "new", timestamp: now });
-    } else if (nz.volume > match.volume * 1.3) {
-      shifts.push({ zone: nz, direction: "growing", timestamp: now });
-    } else if (nz.volume < match.volume * 0.6) {
-      shifts.push({ zone: nz, direction: "shrinking", timestamp: now });
-    }
-  }
-
-  for (const pz of prev) {
-    const pMid = (pz.priceMin + pz.priceMax) / 2;
-    const still = next.find((nz) => {
-      const nMid = (nz.priceMin + nz.priceMax) / 2;
-      return Math.abs(nMid - pMid) / pMid < 0.005 && nz.type === pz.type;
-    });
-    if (!still && pz.strength > 0.4) {
-      shifts.push({ zone: pz, direction: "gone", timestamp: now });
-    }
-  }
-
-  return shifts;
+  type: string;
 }
 
 /* ── Component ── */
 export default function PriceChart() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+  const sma20Ref = useRef<ISeriesApi<"Line"> | null>(null);
+  const ema50Ref = useRef<ISeriesApi<"Line"> | null>(null);
+  const ema200Ref = useRef<ISeriesApi<"Line"> | null>(null);
+  const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
+  const sessionPrimRef = useRef<SessionBandsPrimitive | null>(null);
+  const accZonePrimRef = useRef<AccZonePrimitive | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const watermarkRef = useRef<any>(null);
+
   const { activeSymbol, activeTimeframe, setActiveTimeframe, setCandles, candles, livePrices } = useMarketStore();
   const theme = useThemeStore((s) => s.theme);
   const [data, setData] = useState<OHLCV[]>([]);
   const [loading, setLoading] = useState(false);
   const [hoveredCandle, setHoveredCandle] = useState<OHLCV | null>(null);
-  const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [isLive, setIsLive] = useState(false);
+  const [showSessions, setShowSessions] = useState(true);
+  const [isPannedAway, setIsPannedAway] = useState(false);
+
+  // Zone state
   const [zones, setZones] = useState<AccZone[]>([]);
   const [zoneShifts, setZoneShifts] = useState<ZoneShift[]>([]);
-  const [showSessions, setShowSessions] = useState(true);
   const prevZonesRef = useRef<AccZone[]>([]);
-
-  // Candle pattern markers
-  interface PatternMarker {
-    timestamp: string;
-    pattern: string;
-    bias: string;      // bullish, bearish, neutral
-    strength: number;
-    type: string;       // reversal, continuation
-  }
   const [patternMarkers, setPatternMarkers] = useState<PatternMarker[]>([]);
-
-  // Zone tooltip state
-  const [hoveredZone, setHoveredZone] = useState<AccZone | null>(null);
-  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
-
-  // Pan/drag state
-  const [panOffset, setPanOffset] = useState(0); // positive = shifted right (viewing older data)
-  const [zoomLevel, setZoomLevel] = useState(1); // 1x = 200 candles, 2x = 100, 0.5x = 400
-  const isDragging = useRef(false);
-  const dragStartX = useRef(0);
-  const dragStartOffset = useRef(0);
-
-  // Touch state
-  const touchStartX = useRef(0);
-  const touchStartOffset = useRef(0);
-  const pinchStartDist = useRef(0);
-  const pinchStartZoom = useRef(1);
-  const isTouching = useRef(false);
-
-  const ZOOM_MIN = 0.5;
-  const ZOOM_MAX = 4;
-  const BASE_SLOTS = 200;
-
-  const getViewSlots = useCallback(() => {
-    return Math.round(BASE_SLOTS / zoomLevel);
-  }, [zoomLevel]);
-
-  // Store chart geometry for mouse hit-testing
-  const chartGeomRef = useRef({
-    paddingTop: 20, paddingLeft: 10, paddingRight: 70, priceAreaH: 0,
-    priceMin: 0, priceMax: 0,
-  });
 
   const livePrice = livePrices[activeSymbol]?.price;
   const cacheKey = `${activeSymbol}_${activeTimeframe}`;
   const canStream = isBinanceSymbol(activeSymbol);
-
   const isIntraday = ["1m", "5m", "15m", "1h", "4h"].includes(activeTimeframe);
 
-  // Reset pan/zoom and CLEAR data immediately when symbol/timeframe changes.
-  // This prevents cross-symbol contamination (e.g. BTC highs in GBPUSD Y-axis)
-  // because REST polling might fire before the async data fetch completes.
+  // Refs to avoid stale closures in data effects
+  const dataRef = useRef<OHLCV[]>([]);
+  dataRef.current = data;
+
+  /* ──────────────────────────────────────────────────
+     Chart creation / destruction (mount only)
+     ────────────────────────────────────────────────── */
   useEffect(() => {
-    setPanOffset(0);
-    setZoomLevel(1);
-    // Load from cache synchronously, or clear to empty array
+    const container = chartContainerRef.current;
+    if (!container) return;
+
+    const chart = createChart(container, {
+      ...getChartOptions(theme),
+      autoSize: true,
+    });
+
+    // Candlestick series
+    const candleSeries = chart.addSeries(CandlestickSeries, {
+      ...getCandlestickOptions(theme),
+      priceFormat: {
+        type: "custom" as const,
+        formatter: getPriceFormatter(activeSymbol),
+        minMove: 0.00001,
+      },
+    });
+
+    // Volume histogram (bottom 20%)
+    const volumeSeries = chart.addSeries(HistogramSeries, {
+      ...getVolumeOptions(theme),
+    });
+    chart.priceScale("volume").applyOptions({
+      scaleMargins: { top: 0.8, bottom: 0 },
+    });
+
+    // MA overlays
+    const sma20 = chart.addSeries(LineSeries, {
+      color: "#f59e0b",
+      lineWidth: 1,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+      title: "SMA 20",
+    });
+    const ema50 = chart.addSeries(LineSeries, {
+      color: "#3b82f6",
+      lineWidth: 1,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+      title: "EMA 50",
+    });
+    const ema200 = chart.addSeries(LineSeries, {
+      color: "#8b5cf6",
+      lineWidth: 1,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+      title: "EMA 200",
+    });
+
+    // Session bands primitive
+    const sessionPrim = new SessionBandsPrimitive();
+    candleSeries.attachPrimitive(sessionPrim);
+
+    // Accumulation zones primitive
+    const accZonePrim = new AccZonePrimitive(theme);
+    candleSeries.attachPrimitive(accZonePrim);
+
+    // Watermark
+    const watermark = createTextWatermark(chart.panes()[0], {
+      horzAlign: "center",
+      vertAlign: "center",
+      lines: [
+        {
+          text: activeSymbol,
+          color: "rgba(100,116,139,0.07)",
+          fontSize: 48,
+          fontFamily: "JetBrains Mono",
+          fontStyle: "bold",
+        },
+      ],
+    });
+
+    // Series markers plugin
+    const markersPlugin = createSeriesMarkers(candleSeries, []);
+
+    // Crosshair tooltip
+    chart.subscribeCrosshairMove((param) => {
+      if (param.time && param.seriesData) {
+        const candleData = param.seriesData.get(candleSeries);
+        if (candleData && "open" in candleData) {
+          const cd = candleData as { time: UTCTimestamp; open: number; high: number; low: number; close: number };
+          setHoveredCandle({
+            timestamp: new Date((cd.time as number) * 1000).toISOString(),
+            open: cd.open,
+            high: cd.high,
+            low: cd.low,
+            close: cd.close,
+            volume: 0,
+          });
+        }
+      } else {
+        setHoveredCandle(null);
+      }
+    });
+
+    // Detect panning
+    chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+      if (!range) return;
+      const d = dataRef.current;
+      setIsPannedAway(d.length > 0 && range.to < d.length - 2);
+    });
+
+    // Store refs
+    chartRef.current = chart;
+    candleSeriesRef.current = candleSeries;
+    volumeSeriesRef.current = volumeSeries;
+    sma20Ref.current = sma20;
+    ema50Ref.current = ema50;
+    ema200Ref.current = ema200;
+    markersRef.current = markersPlugin;
+    sessionPrimRef.current = sessionPrim;
+    accZonePrimRef.current = accZonePrim;
+    watermarkRef.current = watermark;
+
+    return () => {
+      chart.remove();
+      chartRef.current = null;
+      candleSeriesRef.current = null;
+      volumeSeriesRef.current = null;
+      sma20Ref.current = null;
+      ema50Ref.current = null;
+      ema200Ref.current = null;
+      markersRef.current = null;
+      sessionPrimRef.current = null;
+      accZonePrimRef.current = null;
+      watermarkRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /* ──────────────────────────────────────────────────
+     Theme switching
+     ────────────────────────────────────────────────── */
+  useEffect(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    chart.applyOptions(getChartOptions(theme));
+    candleSeriesRef.current?.applyOptions(getCandlestickOptions(theme));
+    // Re-set volume data with new colors
+    if (data.length > 0) {
+      const tc = THEME_CANVAS[theme];
+      volumeSeriesRef.current?.setData(
+        data.map((c) => toVolumeData(c, tc.bullAlpha, tc.bearAlpha))
+      );
+    }
+    accZonePrimRef.current?.setTheme(theme);
+  }, [theme, data]);
+
+  /* ──────────────────────────────────────────────────
+     Symbol / Timeframe change — update chart config
+     ────────────────────────────────────────────────── */
+  useEffect(() => {
+    // Update watermark
+    watermarkRef.current?.applyOptions({
+      lines: [
+        {
+          text: activeSymbol,
+          color: "rgba(100,116,139,0.07)",
+          fontSize: 48,
+          fontFamily: "JetBrains Mono",
+          fontStyle: "bold",
+        },
+      ],
+    });
+    // Update price formatter
+    candleSeriesRef.current?.applyOptions({
+      priceFormat: {
+        type: "custom" as const,
+        formatter: getPriceFormatter(activeSymbol),
+        minMove: 0.00001,
+      },
+    });
+    // Load from cache synchronously, or clear
     const cached = candles[`${activeSymbol}_${activeTimeframe}`];
     setData(cached || []);
-  }, [activeSymbol, activeTimeframe]);
+  }, [activeSymbol, activeTimeframe, candles]);
 
-  // Track when each cache key was last fetched
+  /* ──────────────────────────────────────────────────
+     Push data to chart series whenever data changes
+     ────────────────────────────────────────────────── */
+  const pushDataToChart = useCallback(
+    (newData: OHLCV[]) => {
+      if (newData.length === 0) {
+        candleSeriesRef.current?.setData([]);
+        volumeSeriesRef.current?.setData([]);
+        sma20Ref.current?.setData([]);
+        ema50Ref.current?.setData([]);
+        ema200Ref.current?.setData([]);
+        return;
+      }
+      const tc = THEME_CANVAS[theme];
+      candleSeriesRef.current?.setData(newData.map(toChartData));
+      volumeSeriesRef.current?.setData(
+        newData.map((c) => toVolumeData(c, tc.bullAlpha, tc.bearAlpha))
+      );
+      sma20Ref.current?.setData(computeSMA(newData, 20));
+      ema50Ref.current?.setData(computeEMA(newData, 50));
+      ema200Ref.current?.setData(computeEMA(newData, 200));
+    },
+    [theme]
+  );
+
+  /* ──────────────────────────────────────────────────
+     Fetch historical data
+     ────────────────────────────────────────────────── */
   const cacheTimestamps = useRef<Record<string, number>>({});
 
-  // Fetch historical data
   useEffect(() => {
     const load = async () => {
       const cached = candles[cacheKey];
       const cacheAge = Date.now() - (cacheTimestamps.current[cacheKey] || 0);
-      const CACHE_TTL = 2 * 60 * 1000; // 2 min cache freshness
+      const CACHE_TTL = 2 * 60 * 1000;
 
       if (cached && cacheAge < CACHE_TTL) {
         setData(cached);
+        pushDataToChart(cached);
         return;
       }
-      // If cached but stale, show cache immediately then refresh in background
       if (cached) {
         setData(cached);
+        pushDataToChart(cached);
       } else {
         setLoading(true);
       }
       try {
-        // Always trigger ingestion first to ensure data exists in DB
         await api.fetchPrices(activeSymbol, activeTimeframe, 2000);
         const prices = await api.prices(activeSymbol, activeTimeframe, 2000);
         const sorted = [...prices].reverse();
         setData(sorted);
         setCandles(cacheKey, sorted);
         cacheTimestamps.current[cacheKey] = Date.now();
+        pushDataToChart(sorted);
       } catch (err) {
         console.error("Failed to load prices:", err);
-        // Try a smaller fetch as fallback
         try {
           await api.fetchPrices(activeSymbol, activeTimeframe, 500);
           const prices = await api.prices(activeSymbol, activeTimeframe, 500);
@@ -266,6 +367,7 @@ export default function PriceChart() {
           setData(sorted);
           setCandles(cacheKey, sorted);
           cacheTimestamps.current[cacheKey] = Date.now();
+          pushDataToChart(sorted);
         } catch {
           // Data source may be unavailable
         }
@@ -274,9 +376,12 @@ export default function PriceChart() {
       }
     };
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSymbol, activeTimeframe, cacheKey]);
 
-  // Real-time kline WebSocket subscription
+  /* ──────────────────────────────────────────────────
+     Real-time WebSocket (Binance crypto)
+     ────────────────────────────────────────────────── */
   const gapRefetchDone = useRef(false);
   useEffect(() => {
     gapRefetchDone.current = false;
@@ -290,6 +395,7 @@ export default function PriceChart() {
 
     setIsLive(true);
     const intervalMs = getIntervalMs(activeTimeframe);
+    const tc = THEME_CANVAS[theme];
 
     binanceKlineWS.subscribe(activeSymbol, activeTimeframe, (_symbol: string, candle: LiveCandle) => {
       setData((prev) => {
@@ -303,46 +409,54 @@ export default function PriceChart() {
         // Same candle — update in place
         if (Math.abs(gap) < intervalMs * 0.9) {
           const updated = [...prev];
-          updated[updated.length - 1] = {
+          const newCandle = {
             ...lastCandle,
             high: Math.max(lastCandle.high, candle.high),
             low: Math.min(lastCandle.low, candle.low),
             close: candle.close,
             volume: candle.volume,
           };
+          updated[updated.length - 1] = newCandle;
+          // Update chart series in place
+          candleSeriesRef.current?.update(toChartData(newCandle));
+          volumeSeriesRef.current?.update(toVolumeData(newCandle, tc.bullAlpha, tc.bearAlpha));
           return updated;
         }
 
-        // Gap detected — re-fetch historical data to fill it (once)
+        // Gap detected — re-fetch
         if (gap > intervalMs * 2 && !gapRefetchDone.current) {
           gapRefetchDone.current = true;
-          // Async re-fetch in background to fill the gap
           (async () => {
             try {
               await api.fetchPrices(activeSymbol, activeTimeframe, 200);
               const prices = await api.prices(activeSymbol, activeTimeframe, 200);
               const sorted = [...prices].reverse();
               setData(sorted);
+              pushDataToChart(sorted);
             } catch { /* ignore */ }
           })();
-          // Still append live candle for now
         }
 
         // Next candle — append
         if (candleTs > lastTs) {
-          const newCandle: OHLCV = {
+          const newOHLCV: OHLCV = {
             timestamp: new Date(candleTs).toISOString(),
-            open: candle.open, high: candle.high, low: candle.low,
-            close: candle.close, volume: candle.volume,
+            open: candle.open,
+            high: candle.high,
+            low: candle.low,
+            close: candle.close,
+            volume: candle.volume,
           };
-          return [...prev.slice(-499), newCandle];
+          candleSeriesRef.current?.update(toChartData(newOHLCV));
+          volumeSeriesRef.current?.update(toVolumeData(newOHLCV, tc.bullAlpha, tc.bearAlpha));
+          return [...prev.slice(-499), newOHLCV];
         }
 
         return prev;
       });
     });
 
-    // Periodic background candle refresh — keeps chart fresh even if WS drops
+    // Periodic background candle refresh
     const bgRefresh = setInterval(async () => {
       try {
         const prices = await api.prices(activeSymbol, activeTimeframe, 10);
@@ -353,33 +467,42 @@ export default function PriceChart() {
           const lastTs = prev[prev.length - 1].timestamp;
           const updated = [...prev];
           for (const c of sorted) {
-            if (c.timestamp === lastTs) updated[updated.length - 1] = c;
-            else if (c.timestamp > lastTs) updated.push(c);
+            if (c.timestamp === lastTs) {
+              updated[updated.length - 1] = c;
+              candleSeriesRef.current?.update(toChartData(c));
+              volumeSeriesRef.current?.update(toVolumeData(c, tc.bullAlpha, tc.bearAlpha));
+            } else if (c.timestamp > lastTs) {
+              updated.push(c);
+              candleSeriesRef.current?.update(toChartData(c));
+              volumeSeriesRef.current?.update(toVolumeData(c, tc.bullAlpha, tc.bearAlpha));
+            }
           }
           return updated.length > 2500 ? updated.slice(-2000) : updated;
         });
       } catch { /* ignore */ }
-    }, 90_000); // every 90s
+    }, 90_000);
 
     return () => {
       binanceKlineWS.close();
       clearInterval(bgRefresh);
       setIsLive(false);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canStream, activeSymbol, activeTimeframe, data.length > 0]);
 
-  // REST polling for non-Binance symbols (forex, gold via Massive) — two loops:
-  //  1) Fast: update last candle close every 10s (lightweight /latest endpoint)
-  //  2) Slow: fetch last 10 candles every 60s to append new candles & keep chart moving
+  /* ──────────────────────────────────────────────────
+     REST polling for non-Binance (forex, gold)
+     ────────────────────────────────────────────────── */
   useEffect(() => {
-    if (canStream || data.length === 0) return; // Binance symbols use WS above
+    if (canStream || data.length === 0) return;
 
     setIsLive(true);
     let cancelled = false;
-    const sym = activeSymbol; // capture for stale-closure guard
+    const sym = activeSymbol;
     const tf = activeTimeframe;
+    const tc = THEME_CANVAS[theme];
 
-    // Fast poll: update last candle close price (lightweight)
+    // Fast poll: update last candle close price
     const quickPoll = async () => {
       if (cancelled) return;
       try {
@@ -390,19 +513,20 @@ export default function PriceChart() {
             setData((prev) => {
               if (prev.length === 0) return prev;
               const last = prev[prev.length - 1];
-              // Price sanity guard: reject if new price differs >5x from last close
-              // (prevents cross-symbol contamination during symbol switch)
               if (last.close > 0) {
                 const ratio = d.price / last.close;
                 if (ratio > 5 || ratio < 0.2) return prev;
               }
               const updated = [...prev];
-              updated[updated.length - 1] = {
+              const newCandle = {
                 ...last,
                 close: d.price,
                 high: Math.max(last.high, d.price),
                 low: Math.min(last.low, d.price),
               };
+              updated[updated.length - 1] = newCandle;
+              candleSeriesRef.current?.update(toChartData(newCandle));
+              volumeSeriesRef.current?.update(toVolumeData(newCandle, tc.bullAlpha, tc.bearAlpha));
               return updated;
             });
           }
@@ -410,38 +534,39 @@ export default function PriceChart() {
       } catch { /* ignore */ }
     };
 
-    // Slow poll: fetch recent candles to append new ones & keep chart advancing
+    // Slow poll: fetch recent candles
     const candleRefresh = async () => {
       if (cancelled) return;
       try {
-        // Trigger ingestion for the latest few candles, then read from DB
         await api.fetchPrices(sym, tf, 10);
         const prices = await api.prices(sym, tf, 10);
-        const newCandles = [...prices].reverse(); // oldest first
+        const newCandles = [...prices].reverse();
         if (newCandles.length === 0) return;
 
         setData((prev) => {
           if (prev.length === 0) return newCandles;
           const lastTs = prev[prev.length - 1].timestamp;
           const updated = [...prev];
-          // Update the last candle if timestamps match, and append newer ones
           for (const c of newCandles) {
             if (c.timestamp === lastTs) {
               updated[updated.length - 1] = c;
+              candleSeriesRef.current?.update(toChartData(c));
+              volumeSeriesRef.current?.update(toVolumeData(c, tc.bullAlpha, tc.bearAlpha));
             } else if (c.timestamp > lastTs) {
               updated.push(c);
+              candleSeriesRef.current?.update(toChartData(c));
+              volumeSeriesRef.current?.update(toVolumeData(c, tc.bullAlpha, tc.bearAlpha));
             }
           }
-          // Keep array bounded
           return updated.length > 2500 ? updated.slice(-2000) : updated;
         });
       } catch { /* ignore */ }
     };
 
     quickPoll();
-    const quickInterval = setInterval(quickPoll, 10_000);  // 10s
-    const refreshInterval = setInterval(candleRefresh, 60_000); // 60s
-    const firstRefresh = setTimeout(candleRefresh, 20_000); // first at 20s
+    const quickInterval = setInterval(quickPoll, 10_000);
+    const refreshInterval = setInterval(candleRefresh, 60_000);
+    const firstRefresh = setTimeout(candleRefresh, 20_000);
 
     return () => {
       cancelled = true;
@@ -450,12 +575,16 @@ export default function PriceChart() {
       clearTimeout(firstRefresh);
       setIsLive(false);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canStream, activeSymbol, activeTimeframe, data.length > 0]);
 
-  // Fetch all candle pattern markers from dedicated patterns endpoint
+  /* ──────────────────────────────────────────────────
+     Pattern markers
+     ────────────────────────────────────────────────── */
   useEffect(() => {
     if (data.length < 30) {
       setPatternMarkers([]);
+      markersRef.current?.setMarkers([]);
       return;
     }
     const fetchPatterns = async () => {
@@ -482,11 +611,31 @@ export default function PriceChart() {
     fetchPatterns();
   }, [data.length, activeSymbol, activeTimeframe]);
 
-  // Fetch accumulation zones from order book (crypto symbols only)
+  // Push markers to chart when they change
+  useEffect(() => {
+    if (!markersRef.current) return;
+    const tc = THEME_CANVAS[theme];
+    const chartMarkers: SeriesMarker<Time>[] = patternMarkers
+      .map((m) => ({
+        time: toTime(m.timestamp),
+        position: (m.bias === "bullish" ? "belowBar" : "aboveBar") as "belowBar" | "aboveBar",
+        shape: (m.bias === "bullish" ? "arrowUp" : m.bias === "bearish" ? "arrowDown" : "circle") as "arrowUp" | "arrowDown" | "circle",
+        color: m.bias === "bullish" ? tc.patternBull : m.bias === "bearish" ? tc.patternBear : tc.patternNeutral,
+        text: m.pattern.replace(/_/g, " ").toUpperCase(),
+        size: m.strength >= 0.8 ? 2 : 1,
+      }))
+      .sort((a, b) => (a.time as number) - (b.time as number));
+    markersRef.current.setMarkers(chartMarkers);
+  }, [patternMarkers, theme]);
+
+  /* ──────────────────────────────────────────────────
+     Accumulation zones (order book — crypto only)
+     ────────────────────────────────────────────────── */
   useEffect(() => {
     const crypto = activeSymbol.endsWith("USDT") || activeSymbol.endsWith("USDC") || activeSymbol.endsWith("BTC");
     if (!crypto) {
       setZones([]);
+      accZonePrimRef.current?.updateZones([], []);
       return;
     }
 
@@ -500,8 +649,16 @@ export default function PriceChart() {
         if (prevZonesRef.current.length > 0) {
           const shifts = detectZoneShifts(prevZonesRef.current, newZones);
           if (shifts.length > 0) {
-            setZoneShifts((prev) => [...prev, ...shifts].slice(-20));
+            setZoneShifts((prev) => {
+              const newShifts = [...prev, ...shifts].slice(-20);
+              accZonePrimRef.current?.updateZones(newZones, newShifts);
+              return newShifts;
+            });
+          } else {
+            accZonePrimRef.current?.updateZones(newZones, zoneShifts);
           }
+        } else {
+          accZonePrimRef.current?.updateZones(newZones, []);
         }
 
         prevZonesRef.current = newZones;
@@ -514,672 +671,28 @@ export default function PriceChart() {
     fetchZones();
     const interval = setInterval(fetchZones, 60000);
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSymbol]);
 
-  // Clean up old zone shifts (fade after 30s)
+  // Clean up old zone shifts
   useEffect(() => {
     const timer = setInterval(() => {
-      const cutoff = Date.now() - 30000;
-      setZoneShifts((prev) => prev.filter((s) => s.timestamp > cutoff));
+      accZonePrimRef.current?.cleanOldShifts();
+      setZoneShifts((prev) => prev.filter((s) => s.timestamp > Date.now() - 30000));
     }, 5000);
     return () => clearInterval(timer);
   }, []);
 
-  // Resize observer
+  /* ──────────────────────────────────────────────────
+     Session bands toggle
+     ────────────────────────────────────────────────── */
   useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const observer = new ResizeObserver((entries) => {
-      const { width, height } = entries[0].contentRect;
-      setDimensions({ width, height });
-    });
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, []);
-
-  // Draw chart
-  const draw = useCallback(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || data.length === 0 || dimensions.width === 0) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const tc = THEME_CANVAS[theme];
-
-    // Compute visible slice based on pan offset
-    // panOffset > 0 = viewing older data, panOffset < 0 = empty space on right
-    const VIEW_SLOTS = getViewSlots();
-    const MIN_OFFSET = -Math.round(VIEW_SLOTS * 0.9); // allow 90% empty space — latest candle can be at the left edge
-    const maxOffset = Math.max(0, data.length - VIEW_SLOTS);
-    const clampedOffset = Math.max(MIN_OFFSET, Math.min(panOffset, maxOffset));
-    const emptyRight = clampedOffset < 0 ? -clampedOffset : 0;
-    const dataSlots = VIEW_SLOTS - emptyRight;
-    const effectiveOffset = Math.max(0, clampedOffset);
-    const startIdx = Math.max(0, data.length - dataSlots - effectiveOffset);
-    const endIdx = startIdx + dataSlots;
-    const visibleData = data.slice(startIdx, Math.min(endIdx, data.length));
-
-    if (visibleData.length === 0) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    const W = dimensions.width;
-    const H = dimensions.height;
-
-    canvas.width = W * dpr;
-    canvas.height = H * dpr;
-    canvas.style.width = `${W}px`;
-    canvas.style.height = `${H}px`;
-    ctx.scale(dpr, dpr);
-
-    ctx.clearRect(0, 0, W, H);
-
-    const PADDING = { top: 20, right: 70, bottom: 50, left: 10 };
-    const chartW = W - PADDING.left - PADDING.right;
-    const priceAreaH = (H - PADDING.top - PADDING.bottom) * 0.75;
-    const volumeAreaH = (H - PADDING.top - PADDING.bottom) * 0.2;
-    const volumeTop = PADDING.top + priceAreaH + 10;
-
-    const allHighs = visibleData.map((d) => d.high);
-    const allLows = visibleData.map((d) => d.low);
-    const allVols = visibleData.map((d) => d.volume);
-    const priceMin = Math.min(...allLows) * 0.999;
-    const priceMax = Math.max(...allHighs) * 1.001;
-    const volMax = Math.max(...allVols) * 1.1;
-
-    // When panning past the latest candle (emptyRight > 0), keep candle width
-    // fixed at VIEW_SLOTS so empty space is visible on the right side.
-    // Only stretch candles when genuinely less data exists (not panning).
-    const effectiveSlots = emptyRight > 0 ? VIEW_SLOTS : Math.min(VIEW_SLOTS, visibleData.length);
-    const candleW = chartW / effectiveSlots;
-    const bodyW = Math.max(3, candleW * 0.6);
-
-    const priceToY = (p: number) =>
-      PADDING.top + priceAreaH - ((p - priceMin) / (priceMax - priceMin)) * priceAreaH;
-    const volToH = (v: number) => (v / volMax) * volumeAreaH;
-
-    // Store geometry for hit-testing
-    chartGeomRef.current = {
-      paddingTop: PADDING.top, paddingLeft: PADDING.left,
-      paddingRight: PADDING.right, priceAreaH, priceMin, priceMax,
-    };
-
-    // ── Draw trading session bands (behind everything) ──
-    if (showSessions && isIntraday) {
-      // Group consecutive candles by session
-      let currentSessionKey = "";
-      let bandStart = -1;
-
-      for (let i = 0; i <= visibleData.length; i++) {
-        let sessionKey = "";
-        let sessionColor = "";
-        let sessionLabel = "";
-
-        if (i < visibleData.length) {
-          const d = new Date(visibleData[i].timestamp);
-          const hour = d.getUTCHours();
-          const info = getSessionForHour(hour);
-
-          if (info.isOverlap) {
-            sessionKey = "OVERLAP";
-            sessionColor = OVERLAP_COLOR;
-            sessionLabel = "OVERLAP";
-          } else if (info.sessions.length > 0) {
-            const sess = SESSIONS.find(s => s.name === info.sessions[0]);
-            sessionKey = info.sessions[0];
-            sessionColor = sess?.color || "";
-            sessionLabel = sess?.name || "";
-          }
-        }
-
-        if (sessionKey !== currentSessionKey || i === visibleData.length) {
-          // Draw previous band
-          if (bandStart >= 0 && currentSessionKey) {
-            const x1 = PADDING.left + candleW * bandStart;
-            const x2 = PADDING.left + candleW * i;
-            const bandW = x2 - x1;
-
-            // Background fill for entire chart height
-            let bgColor = "";
-            if (currentSessionKey === "OVERLAP") {
-              bgColor = OVERLAP_COLOR;
-            } else {
-              const sess = SESSIONS.find(s => s.name === currentSessionKey);
-              bgColor = sess?.color || "";
-            }
-
-            if (bgColor) {
-              ctx.fillStyle = bgColor;
-              ctx.fillRect(x1, PADDING.top, bandW, priceAreaH + volumeAreaH + 10);
-            }
-
-            // Session label at top
-            const labelSess = currentSessionKey === "OVERLAP"
-              ? null
-              : SESSIONS.find(s => s.name === currentSessionKey);
-            const labelColor = currentSessionKey === "OVERLAP"
-              ? "rgba(168, 85, 247, 0.45)"
-              : (labelSess?.labelColor || "rgba(100,100,100,0.4)");
-
-            ctx.font = "bold 8px JetBrains Mono, monospace";
-            ctx.fillStyle = labelColor;
-            ctx.textAlign = "center";
-            const labelX = x1 + bandW / 2;
-            if (bandW > 30) {
-              ctx.fillText(
-                currentSessionKey === "OVERLAP" ? "L/NY" : currentSessionKey,
-                labelX, PADDING.top + 10
-              );
-            }
-
-            // Vertical separator line
-            ctx.strokeStyle = labelColor;
-            ctx.lineWidth = 0.5;
-            ctx.setLineDash([2, 4]);
-            ctx.beginPath();
-            ctx.moveTo(x1, PADDING.top);
-            ctx.lineTo(x1, PADDING.top + priceAreaH);
-            ctx.stroke();
-            ctx.setLineDash([]);
-          }
-
-          bandStart = i;
-          currentSessionKey = sessionKey;
-        }
-      }
-    }
-
-    // Grid lines
-    ctx.strokeStyle = tc.grid;
-    ctx.lineWidth = 0.5;
-    for (let i = 0; i < 5; i++) {
-      const y = PADDING.top + (priceAreaH / 4) * i;
-      ctx.beginPath();
-      ctx.moveTo(PADDING.left, y);
-      ctx.lineTo(W - PADDING.right, y);
-      ctx.stroke();
-
-      const price = priceMax - ((priceMax - priceMin) / 4) * i;
-      ctx.fillStyle = tc.textMuted;
-      ctx.font = "10px JetBrains Mono, monospace";
-      ctx.textAlign = "left";
-      ctx.fillText(formatPrice(price, activeSymbol), W - PADDING.right + 5, y + 3);
-    }
-
-    // ── Draw accumulation zones (behind candles) ──
-    const lastPrice = visibleData.length > 0 ? visibleData[visibleData.length - 1].close : 0;
-    for (const zone of zones) {
-      const yTop = priceToY(zone.priceMax);
-      const yBot = priceToY(zone.priceMin);
-      // Ensure minimum visible height of 4px
-      const rawH = yBot - yTop;
-      const zoneH = Math.max(4, rawH);
-      const yCenter = (yTop + yBot) / 2;
-      const drawYTop = yCenter - zoneH / 2;
-
-      if (drawYTop > PADDING.top + priceAreaH || drawYTop + zoneH < PADDING.top) continue;
-
-      const alpha = 0.08 + zone.strength * 0.15;
-      const zRgb = zone.type === "buy" ? tc.zonesBuy : tc.zonesSell;
-      ctx.fillStyle = `rgba(${zRgb[0]}, ${zRgb[1]}, ${zRgb[2]}, ${alpha})`;
-
-      ctx.fillRect(PADDING.left, drawYTop, chartW, zoneH);
-
-      // Zone edge line
-      const edgeAlpha = 0.2 + zone.strength * 0.3;
-      ctx.strokeStyle = `rgba(${zRgb[0]}, ${zRgb[1]}, ${zRgb[2]}, ${edgeAlpha})`;
-      ctx.lineWidth = 0.5;
-      ctx.setLineDash([3, 3]);
-      ctx.beginPath();
-      ctx.moveTo(PADDING.left, yCenter);
-      ctx.lineTo(W - PADDING.right, yCenter);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // Zone label — show for strong zones, offset buy labels down and sell labels up
-      if (zone.strength > 0.4) {
-        const label = zone.type === "buy" ? "BUY WALL" : "SELL WALL";
-        ctx.font = "bold 8px JetBrains Mono, monospace";
-        const labelAlpha = 0.5 + zone.strength * 0.4;
-        ctx.fillStyle = `rgba(${zRgb[0]}, ${zRgb[1]}, ${zRgb[2]}, ${labelAlpha})`;
-        ctx.textAlign = "left";
-        // Position label slightly away from center to avoid overlap with price line
-        const labelY = zone.type === "buy" ? yCenter + 10 : yCenter - 4;
-        ctx.fillText(label, PADDING.left + 4, labelY);
-      }
-    }
-
-    // ── Draw zone shift markers ──
-    const now = Date.now();
-    for (const shift of zoneShifts) {
-      const age = now - shift.timestamp;
-      if (age > 30000) continue;
-      const fade = 1 - age / 30000;
-
-      const midPrice = (shift.zone.priceMin + shift.zone.priceMax) / 2;
-      const y = priceToY(midPrice);
-      if (y < PADDING.top || y > PADDING.top + priceAreaH) continue;
-
-      let marker = "";
-      let color = "";
-      const sn = tc.shiftNew, sg = tc.shiftGrowing, ss = tc.shiftShrinking, sgo = tc.shiftGone;
-      if (shift.direction === "new") {
-        marker = "NEW"; color = `rgba(${sn[0]}, ${sn[1]}, ${sn[2]}, ${fade})`;
-      } else if (shift.direction === "growing") {
-        marker = shift.zone.type === "buy" ? "++BUY" : "++SELL";
-        color = `rgba(${sg[0]}, ${sg[1]}, ${sg[2]}, ${fade})`;
-      } else if (shift.direction === "shrinking") {
-        marker = "WEAK"; color = `rgba(${ss[0]}, ${ss[1]}, ${ss[2]}, ${fade})`;
-      } else if (shift.direction === "gone") {
-        marker = "GONE"; color = `rgba(${sgo[0]}, ${sgo[1]}, ${sgo[2]}, ${fade * 0.7})`;
-      }
-
-      if (marker) {
-        ctx.font = "bold 9px JetBrains Mono, monospace";
-        ctx.fillStyle = color;
-        ctx.textAlign = "right";
-        ctx.fillText(marker, W - PADDING.right - 4, y + 3);
-
-        ctx.beginPath();
-        ctx.arc(W - PADDING.right - ctx.measureText(marker).width - 8, y, 2.5, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
-
-    // ── Candlesticks ──
-    visibleData.forEach((candle, i) => {
-      const x = PADDING.left + candleW * i + candleW / 2;
-      const isBull = candle.close >= candle.open;
-      const color = isBull ? tc.bull : tc.bear;
-
-      // Wick
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(x, priceToY(candle.high));
-      ctx.lineTo(x, priceToY(candle.low));
-      ctx.stroke();
-
-      // Body
-      const bodyTop = priceToY(Math.max(candle.open, candle.close));
-      const bodyBot = priceToY(Math.min(candle.open, candle.close));
-      const bodyH = Math.max(1, bodyBot - bodyTop);
-
-      ctx.fillStyle = color;
-      if (isBull) {
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 1;
-        ctx.strokeRect(x - bodyW / 2, bodyTop, bodyW, bodyH);
-      } else {
-        ctx.fillRect(x - bodyW / 2, bodyTop, bodyW, bodyH);
-      }
-
-      // Volume bar
-      const vH = volToH(candle.volume);
-      ctx.fillStyle = isBull ? tc.bullAlpha : tc.bearAlpha;
-      ctx.fillRect(x - bodyW / 2, volumeTop + volumeAreaH - vH, bodyW, vH);
-    });
-
-    // ── Candle Pattern Markers (only last N candles — recent signals only) ──
-    const PATTERN_CANDLE_LIMIT = 8; // Only show patterns on the last 8 visible candles
-    if (patternMarkers.length > 0) {
-      // Build timestamp lookup for fast matching
-      const patternMap = new Map<number, PatternMarker>();
-      patternMarkers.forEach((m) => patternMap.set(new Date(m.timestamp).getTime(), m));
-
-      const startIdx = Math.max(0, visibleData.length - PATTERN_CANDLE_LIMIT);
-      visibleData.forEach((candle, i) => {
-        if (i < startIdx) return; // Skip old candles — only annotate recent ones
-        const match = patternMap.get(new Date(candle.timestamp).getTime());
-        if (!match) return;
-        const x = PADDING.left + candleW * i + candleW / 2;
-        const markerSize = Math.max(5, Math.min(10, candleW * 0.5));
-        const alpha = 0.6 + match.strength * 0.4; // stronger = more opaque
-        const isReversal = match.type === "reversal";
-        const fontSize = Math.max(7, Math.min(9, candleW * 0.35));
-
-        if (match.bias === "bullish") {
-          const y = priceToY(candle.low) + 8;
-          // Arrow up triangle
-          ctx.globalAlpha = alpha;
-          ctx.fillStyle = tc.patternBull;
-          ctx.beginPath();
-          ctx.moveTo(x, y);
-          ctx.lineTo(x - markerSize * 0.6, y + markerSize * 1.2);
-          ctx.lineTo(x + markerSize * 0.6, y + markerSize * 1.2);
-          ctx.closePath();
-          ctx.fill();
-          // Reversal patterns get a glow ring
-          if (isReversal && match.strength >= 0.8) {
-            ctx.strokeStyle = tc.patternBull;
-            ctx.lineWidth = 1.5;
-            ctx.globalAlpha = 0.3;
-            ctx.beginPath();
-            ctx.arc(x, y + markerSize * 0.6, markerSize * 1.2, 0, Math.PI * 2);
-            ctx.stroke();
-          }
-          // Pill label with background
-          ctx.globalAlpha = alpha;
-          const label = match.pattern.replace(/_/g, " ").toUpperCase();
-          ctx.font = `bold ${fontSize}px JetBrains Mono, monospace`;
-          ctx.textAlign = "center";
-          const textW = ctx.measureText(label).width;
-          const pillY = y + markerSize * 1.2 + 4;
-          ctx.fillStyle = tc.patternBull;
-          ctx.globalAlpha = 0.15;
-          ctx.beginPath();
-          ctx.roundRect(x - textW / 2 - 3, pillY, textW + 6, fontSize + 4, 3);
-          ctx.fill();
-          ctx.globalAlpha = alpha;
-          ctx.fillStyle = tc.patternBull;
-          ctx.fillText(label, x, pillY + fontSize + 1);
-        } else if (match.bias === "bearish") {
-          const y = priceToY(candle.high) - 8;
-          // Arrow down triangle
-          ctx.globalAlpha = alpha;
-          ctx.fillStyle = tc.patternBear;
-          ctx.beginPath();
-          ctx.moveTo(x, y);
-          ctx.lineTo(x - markerSize * 0.6, y - markerSize * 1.2);
-          ctx.lineTo(x + markerSize * 0.6, y - markerSize * 1.2);
-          ctx.closePath();
-          ctx.fill();
-          // Reversal glow
-          if (isReversal && match.strength >= 0.8) {
-            ctx.strokeStyle = tc.patternBear;
-            ctx.lineWidth = 1.5;
-            ctx.globalAlpha = 0.3;
-            ctx.beginPath();
-            ctx.arc(x, y - markerSize * 0.6, markerSize * 1.2, 0, Math.PI * 2);
-            ctx.stroke();
-          }
-          // Pill label
-          ctx.globalAlpha = alpha;
-          const label = match.pattern.replace(/_/g, " ").toUpperCase();
-          ctx.font = `bold ${fontSize}px JetBrains Mono, monospace`;
-          ctx.textAlign = "center";
-          const textW = ctx.measureText(label).width;
-          const pillY = y - markerSize * 1.2 - fontSize - 8;
-          ctx.fillStyle = tc.patternBear;
-          ctx.globalAlpha = 0.15;
-          ctx.beginPath();
-          ctx.roundRect(x - textW / 2 - 3, pillY, textW + 6, fontSize + 4, 3);
-          ctx.fill();
-          ctx.globalAlpha = alpha;
-          ctx.fillStyle = tc.patternBear;
-          ctx.fillText(label, x, pillY + fontSize + 1);
-        } else {
-          // Amber diamond for neutral (doji)
-          const y = priceToY(candle.high) - 12;
-          ctx.globalAlpha = alpha;
-          ctx.fillStyle = tc.patternNeutral;
-          ctx.beginPath();
-          ctx.moveTo(x, y - markerSize);
-          ctx.lineTo(x + markerSize * 0.6, y);
-          ctx.lineTo(x, y + markerSize);
-          ctx.lineTo(x - markerSize * 0.6, y);
-          ctx.closePath();
-          ctx.fill();
-          // Label
-          ctx.font = `bold ${fontSize}px JetBrains Mono, monospace`;
-          ctx.textAlign = "center";
-          ctx.fillText("DOJI", x, y - markerSize - 4);
-        }
-        ctx.globalAlpha = 1; // reset
-      });
-    }
-
-    // Date labels
-    const labelInterval = Math.max(1, Math.floor(visibleData.length / 6));
-    ctx.fillStyle = tc.textMuted;
-    ctx.font = "10px JetBrains Mono, monospace";
-    ctx.textAlign = "center";
-    visibleData.forEach((candle, i) => {
-      if (i % labelInterval === 0) {
-        const x = PADDING.left + candleW * i + candleW / 2;
-        const d = new Date(candle.timestamp);
-        const label =
-          activeTimeframe === "1d" || activeTimeframe === "1w"
-            ? d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
-            : d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false });
-        ctx.fillText(label, x, H - PADDING.bottom + 20);
-      }
-    });
-
-    // Current price line
-    if (visibleData.length > 0) {
-      const lastCandle = visibleData[visibleData.length - 1];
-      const lastPrice = livePrice ?? lastCandle.close;
-      const y = priceToY(lastPrice);
-      const isBull = lastPrice >= lastCandle.open;
-
-      ctx.setLineDash([4, 4]);
-      ctx.strokeStyle = isBull ? tc.bull : tc.bear;
-      ctx.lineWidth = 0.8;
-      ctx.beginPath();
-      ctx.moveTo(PADDING.left, y);
-      ctx.lineTo(W - PADDING.right, y);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      ctx.fillStyle = isBull ? tc.bull : tc.bear;
-      ctx.fillRect(W - PADDING.right, y - 10, PADDING.right - 2, 20);
-      ctx.fillStyle = "#fff";
-      ctx.font = "bold 10px JetBrains Mono, monospace";
-      ctx.textAlign = "left";
-      ctx.fillText(formatPrice(lastPrice, activeSymbol), W - PADDING.right + 4, y + 4);
-    }
-  }, [data, dimensions, activeSymbol, activeTimeframe, livePrice, zones, zoneShifts, showSessions, isIntraday, panOffset, getViewSlots, patternMarkers, theme]);
-
-  useEffect(() => {
-    draw();
-  }, [draw]);
-
-  // Compute visible data for hover hit-testing (same logic as draw)
-  const getVisibleData = useCallback(() => {
-    const VIEW_SLOTS = getViewSlots();
-    const MIN_OFFSET = -Math.round(VIEW_SLOTS * 0.9);
-    const maxOffset = Math.max(0, data.length - VIEW_SLOTS);
-    const clampedOffset = Math.max(MIN_OFFSET, Math.min(panOffset, maxOffset));
-    const emptyRight = clampedOffset < 0 ? -clampedOffset : 0;
-    const dataSlots = VIEW_SLOTS - emptyRight;
-    const effectiveOffset = Math.max(0, clampedOffset);
-    const startIdx = Math.max(0, data.length - dataSlots - effectiveOffset);
-    const endIdx = startIdx + dataSlots;
-    return data.slice(startIdx, Math.min(endIdx, data.length));
-  }, [data, panOffset, getViewSlots]);
-
-  // ── ALL mouse handlers registered natively for reliable drag ──
-  // (React synthetic events can be swallowed by canvas overlays)
-
-  const handleMouseDownNative = useCallback((e: MouseEvent) => {
-    e.preventDefault(); // prevent text selection / browser drag
-    isDragging.current = true;
-    dragStartX.current = e.clientX;
-    // Read current panOffset via setter to avoid stale closure
-    setPanOffset((current) => { dragStartOffset.current = current; return current; });
-    if (containerRef.current) containerRef.current.style.cursor = "grabbing";
-  }, []);
-
-  const handleMouseMoveNative = useCallback((e: MouseEvent) => {
-    const el = containerRef.current;
-    if (!el || data.length === 0) return;
-
-    if (isDragging.current) {
-      // Drag to pan
-      const dx = e.clientX - dragStartX.current;
-      const geom = chartGeomRef.current;
-      const chartW = dimensions.width - geom.paddingLeft - geom.paddingRight;
-      if (chartW <= 0) return;
-      const VIEW_SLOTS = getViewSlots();
-      const candleW = chartW / VIEW_SLOTS;
-      const candleShift = Math.round(dx / candleW);
-      const MIN_OFFSET = -Math.round(VIEW_SLOTS * 0.9);
-      const maxOffset = Math.max(0, data.length - VIEW_SLOTS);
-      const newOffset = Math.max(MIN_OFFSET, Math.min(dragStartOffset.current + candleShift, maxOffset));
-      setPanOffset(newOffset);
-      return;
-    }
-
-    // Hover (not dragging)
-    const rect = el.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    const geom = chartGeomRef.current;
-    const VIEW_SLOTS = getViewSlots();
-    const clampedOff = panOffset;
-    const emptyR = clampedOff < 0 ? -clampedOff : 0;
-    const dSlots = VIEW_SLOTS - emptyR;
-    const effOff = Math.max(0, clampedOff);
-    const sIdx = Math.max(0, data.length - dSlots - effOff);
-    const eIdx = sIdx + dSlots;
-    const visData = data.slice(sIdx, Math.min(eIdx, data.length));
-    const chartW = dimensions.width - geom.paddingLeft - geom.paddingRight;
-    const cW = chartW / Math.max(visData.length, 1);
-
-    const idx = Math.floor((x - geom.paddingLeft) / cW);
-    if (idx >= 0 && idx < visData.length) {
-      setHoveredCandle(visData[idx]);
-    }
-
-    if (zones.length > 0 && geom.priceAreaH > 0) {
-      const yToPrice = (yPos: number) =>
-        geom.priceMax - ((yPos - geom.paddingTop) / geom.priceAreaH) * (geom.priceMax - geom.priceMin);
-      const mousePrice = yToPrice(y);
-      const hit = zones.find(z => mousePrice >= z.priceMin && mousePrice <= z.priceMax);
-      if (hit) {
-        setHoveredZone(hit);
-        setTooltipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
-      } else {
-        setHoveredZone(null);
-      }
-    } else {
-      setHoveredZone(null);
-    }
-  }, [dimensions.width, getViewSlots, data, panOffset, zones]);
-
-  const handleMouseUpNative = useCallback(() => {
-    if (isDragging.current) {
-      isDragging.current = false;
-      if (containerRef.current) containerRef.current.style.cursor = "crosshair";
-    }
-  }, []);
-
-  const handleMouseLeaveNative = useCallback(() => {
-    if (!isDragging.current) {
-      setHoveredCandle(null);
-      setHoveredZone(null);
-    }
-  }, []);
-
-  // Register native mouse listeners on container + window
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    el.addEventListener("mousedown", handleMouseDownNative);
-    el.addEventListener("mousemove", handleMouseMoveNative);
-    el.addEventListener("mouseleave", handleMouseLeaveNative);
-    window.addEventListener("mousemove", handleMouseMoveNative);
-    window.addEventListener("mouseup", handleMouseUpNative);
-    return () => {
-      el.removeEventListener("mousedown", handleMouseDownNative);
-      el.removeEventListener("mousemove", handleMouseMoveNative);
-      el.removeEventListener("mouseleave", handleMouseLeaveNative);
-      window.removeEventListener("mousemove", handleMouseMoveNative);
-      window.removeEventListener("mouseup", handleMouseUpNative);
-    };
-  }, [handleMouseDownNative, handleMouseMoveNative, handleMouseUpNative, handleMouseLeaveNative]);
-
-  // ── Native non-passive event handlers (wheel + touch) ──
-  // React 18 registers onWheel/onTouchMove as passive, so e.preventDefault()
-  // is ignored. We use native addEventListener with { passive: false } instead.
-
-  const handleWheelNative = useCallback((e: WheelEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (e.ctrlKey || e.metaKey) {
-      // Zoom: scroll up = zoom in, scroll down = zoom out
-      const d = e.deltaY > 0 ? -0.15 : 0.15;
-      setZoomLevel((prev) => {
-        const next = Math.round((prev + d) * 100) / 100;
-        return Math.max(ZOOM_MIN, Math.min(next, ZOOM_MAX));
-      });
-      return;
-    }
-
-    // Pan
-    const VIEW_SLOTS = getViewSlots();
-    const MIN_OFFSET = -Math.round(VIEW_SLOTS * 0.9);
-    const delta = e.deltaX !== 0 ? e.deltaX : e.deltaY;
-    const shift = delta > 0 ? -3 : 3;
-    setPanOffset((prev) => {
-      const maxOff = Math.max(0, data.length - VIEW_SLOTS);
-      return Math.max(MIN_OFFSET, Math.min(prev + shift, maxOff));
-    });
-  }, [getViewSlots, data.length]);
-
-  const handleTouchStartNative = useCallback((e: TouchEvent) => {
-    if (e.touches.length === 1) {
-      isTouching.current = true;
-      touchStartX.current = e.touches[0].clientX;
-      // Read panOffset from functional updater to avoid stale closure
-      setPanOffset((current) => { touchStartOffset.current = current; return current; });
-    } else if (e.touches.length === 2) {
-      isTouching.current = false;
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      pinchStartDist.current = Math.hypot(dx, dy);
-      setZoomLevel((current) => { pinchStartZoom.current = current; return current; });
-    }
-  }, []);
-
-  const handleTouchMoveNative = useCallback((e: TouchEvent) => {
-    e.preventDefault();
-    if (e.touches.length === 1 && isTouching.current) {
-      const dx = e.touches[0].clientX - touchStartX.current;
-      const geom = chartGeomRef.current;
-      const chartW = dimensions.width - geom.paddingLeft - geom.paddingRight;
-      const VIEW_SLOTS = getViewSlots();
-      const candleW = chartW / VIEW_SLOTS;
-      const candleShift = Math.round(dx / candleW);
-      const MIN_OFFSET = -Math.round(VIEW_SLOTS * 0.9);
-      setPanOffset(() => {
-        const maxOff = Math.max(0, data.length - VIEW_SLOTS);
-        return Math.max(MIN_OFFSET, Math.min(touchStartOffset.current + candleShift, maxOff));
-      });
-    } else if (e.touches.length === 2 && pinchStartDist.current > 0) {
-      const dx = e.touches[0].clientX - e.touches[1].clientX;
-      const dy = e.touches[0].clientY - e.touches[1].clientY;
-      const dist = Math.hypot(dx, dy);
-      const scale = dist / pinchStartDist.current;
-      const newZoom = Math.round(pinchStartZoom.current * scale * 100) / 100;
-      setZoomLevel(Math.max(ZOOM_MIN, Math.min(newZoom, ZOOM_MAX)));
-    }
-  }, [dimensions.width, getViewSlots, data.length]);
-
-  const handleTouchEndNative = useCallback(() => {
-    isTouching.current = false;
-    pinchStartDist.current = 0;
-  }, []);
-
-  // Register non-passive wheel + touch listeners
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    el.addEventListener("wheel", handleWheelNative, { passive: false });
-    el.addEventListener("touchstart", handleTouchStartNative, { passive: false });
-    el.addEventListener("touchmove", handleTouchMoveNative, { passive: false });
-    el.addEventListener("touchend", handleTouchEndNative);
-    return () => {
-      el.removeEventListener("wheel", handleWheelNative);
-      el.removeEventListener("touchstart", handleTouchStartNative);
-      el.removeEventListener("touchmove", handleTouchMoveNative);
-      el.removeEventListener("touchend", handleTouchEndNative);
-    };
-  }, [handleWheelNative, handleTouchStartNative, handleTouchMoveNative, handleTouchEndNative]);
-
+    sessionPrimRef.current?.update(showSessions, isIntraday);
+  }, [showSessions, isIntraday]);
+
+  /* ──────────────────────────────────────────────────
+     JSX
+     ────────────────────────────────────────────────── */
   const buyZoneCount = zones.filter((z) => z.type === "buy").length;
   const sellZoneCount = zones.filter((z) => z.type === "sell").length;
 
@@ -1205,6 +718,12 @@ export default function PriceChart() {
               {" zones"}
             </span>
           )}
+          {/* MA legend */}
+          <div className="hidden md:flex items-center gap-2 text-[10px] font-mono">
+            <span style={{ color: "#f59e0b" }}>SMA 20</span>
+            <span style={{ color: "#3b82f6" }}>EMA 50</span>
+            <span style={{ color: "#8b5cf6" }}>EMA 200</span>
+          </div>
           {hoveredCandle && (
             <div className="hidden md:flex items-center gap-3 text-[12px] font-mono">
               <span className="text-[var(--color-text-muted)]">
@@ -1218,9 +737,6 @@ export default function PriceChart() {
               </span>
               <span className="text-[var(--color-text-muted)]">
                 C <span className="text-[var(--color-text-primary)]">{formatPrice(hoveredCandle.close, activeSymbol)}</span>
-              </span>
-              <span className="text-[var(--color-text-muted)]">
-                V <span className="text-[var(--color-neon-cyan)]">{formatVolume(hoveredCandle.volume)}</span>
               </span>
             </div>
           )}
@@ -1242,26 +758,6 @@ export default function PriceChart() {
               Sessions
             </button>
           )}
-          {/* Zoom controls */}
-          <div className="flex items-center gap-0.5 mr-1">
-            <button
-              onClick={() => setZoomLevel((prev) => Math.max(ZOOM_MIN, Math.round((prev - 0.25) * 100) / 100))}
-              className="px-2 py-1 text-sm font-mono rounded transition-all text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] min-w-[32px] min-h-[32px] flex items-center justify-center"
-              title="Zoom out"
-            >
-              −
-            </button>
-            <span className="text-[11px] font-mono text-[var(--color-text-muted)] min-w-[32px] text-center tabular-nums">
-              {zoomLevel.toFixed(1)}x
-            </span>
-            <button
-              onClick={() => setZoomLevel((prev) => Math.min(ZOOM_MAX, Math.round((prev + 0.25) * 100) / 100))}
-              className="px-2 py-1 text-sm font-mono rounded transition-all text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] min-w-[32px] min-h-[32px] flex items-center justify-center"
-              title="Zoom in"
-            >
-              +
-            </button>
-          </div>
           {/* Timeframe selector */}
           <div className="flex items-center gap-0.5 md:gap-1">
             {TIMEFRAMES.map((tf) => (
@@ -1286,25 +782,23 @@ export default function PriceChart() {
       </div>
 
       {/* Chart area */}
-      <div
-        ref={containerRef}
-        className="flex-1 relative min-h-0 touch-none select-none"
-        style={{ cursor: "crosshair" }}
-      >
-        {loading ? (
-          <div className="absolute inset-0 flex items-center justify-center">
+      <div className="flex-1 relative min-h-0">
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center z-10">
             <div className="text-sm text-[var(--color-text-muted)] animate-pulse">
               Loading {activeSymbol}...
             </div>
           </div>
-        ) : (
-          <canvas ref={canvasRef} className="absolute inset-0" />
         )}
+        <div
+          ref={chartContainerRef}
+          className="absolute inset-0"
+        />
 
-        {/* Snap to latest candle button — shows when panned away from default view */}
-        {panOffset !== 0 && !loading && (
+        {/* Snap to latest button */}
+        {isPannedAway && !loading && (
           <button
-            onClick={() => setPanOffset(0)}
+            onClick={() => chartRef.current?.timeScale().scrollToRealTime()}
             className="absolute bottom-14 right-20 z-40 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-mono font-semibold transition-all duration-200 shadow-lg hover:scale-105 active:scale-95"
             style={{
               backgroundColor: "var(--color-neon-blue)",
@@ -1313,77 +807,8 @@ export default function PriceChart() {
             }}
             title="Scroll to latest candle"
           >
-            Latest ▸
+            Latest
           </button>
-        )}
-
-        {/* Zone hover tooltip */}
-        {hoveredZone && (
-          <div
-            className="absolute z-50 pointer-events-none"
-            style={{
-              left: Math.min(tooltipPos.x + 12, dimensions.width - 180),
-              top: Math.max(tooltipPos.y - 80, 4),
-            }}
-          >
-            <div className="rounded-lg border shadow-xl backdrop-blur-md px-3 py-2 min-w-[160px]"
-              style={{
-                backgroundColor: "color-mix(in srgb, var(--color-bg-card) 92%, transparent)",
-                borderColor: hoveredZone.type === "buy"
-                  ? "color-mix(in srgb, var(--color-bull) 30%, transparent)"
-                  : "color-mix(in srgb, var(--color-bear) 30%, transparent)",
-              }}
-            >
-              {/* Header */}
-              <div className="flex items-center gap-1.5 mb-1.5 pb-1 border-b border-[var(--color-border-primary)]">
-                <div className="w-2 h-2 rounded-full"
-                  style={{ backgroundColor: hoveredZone.type === "buy" ? "var(--color-bull)" : "var(--color-bear)" }}
-                />
-                <span className="text-[10px] font-mono font-bold"
-                  style={{ color: hoveredZone.type === "buy" ? "var(--color-bull)" : "var(--color-bear)" }}
-                >
-                  {hoveredZone.type === "buy" ? "BUY ZONE" : "SELL ZONE"}
-                </span>
-                <span className="text-[8px] font-mono text-[var(--color-text-secondary)] ml-auto">
-                  {(hoveredZone.strength * 100).toFixed(0)}% str
-                </span>
-              </div>
-
-              {/* Price range */}
-              <div className="space-y-0.5">
-                <div className="flex justify-between text-[9px] font-mono">
-                  <span className="text-[var(--color-text-secondary)]">Range</span>
-                  <span className="text-[var(--color-text-primary)]">
-                    {formatPrice(hoveredZone.priceMin, activeSymbol)} – {formatPrice(hoveredZone.priceMax, activeSymbol)}
-                  </span>
-                </div>
-
-                {/* Accumulated volume */}
-                <div className="flex justify-between text-[9px] font-mono">
-                  <span className="text-[var(--color-text-secondary)]">
-                    {hoveredZone.type === "buy" ? "Acc. Buy Vol" : "Acc. Sell Vol"}
-                  </span>
-                  <span className="font-bold"
-                    style={{ color: hoveredZone.type === "buy" ? "var(--color-bull)" : "var(--color-bear)" }}
-                  >
-                    {formatVolume(hoveredZone.volume)}
-                  </span>
-                </div>
-
-                {/* Strength bar */}
-                <div className="mt-1 flex items-center gap-1">
-                  <div className="flex-1 h-1 rounded-full bg-[rgba(100,116,139,0.2)] overflow-hidden">
-                    <div className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${hoveredZone.strength * 100}%`,
-                        backgroundColor: hoveredZone.type === "buy" ? "var(--color-bull)" : "var(--color-bear)",
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         )}
       </div>
     </div>
