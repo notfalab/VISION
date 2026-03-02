@@ -361,6 +361,7 @@ export default function PerformanceDashboard() {
                       borderRadius: 8,
                       fontSize: 11,
                       fontFamily: "JetBrains Mono",
+                      color: "var(--color-text-primary)",
                     }}
                     formatter={(value) => [`$${Number(value ?? 0).toFixed(2)}`, "P&L"]}
                   />
@@ -399,6 +400,7 @@ export default function PerformanceDashboard() {
                       borderRadius: 8,
                       fontSize: 11,
                       fontFamily: "JetBrains Mono",
+                      color: "var(--color-text-primary)",
                     }}
                     formatter={(value) => [`${Number(value ?? 0).toFixed(2)}%`, "Drawdown"]}
                   />
@@ -451,6 +453,7 @@ export default function PerformanceDashboard() {
                           borderRadius: 8,
                           fontSize: 10,
                           fontFamily: "JetBrains Mono",
+                          color: "var(--color-text-primary)",
                         }}
                       />
                     </PieChart>
@@ -505,6 +508,7 @@ export default function PerformanceDashboard() {
                             borderRadius: 8,
                             fontSize: 10,
                             fontFamily: "JetBrains Mono",
+                            color: "var(--color-text-primary)",
                           }}
                           formatter={(value) => [`${Number(value ?? 0)}%`, "Win Rate"]}
                         />
