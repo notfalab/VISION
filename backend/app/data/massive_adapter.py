@@ -1,5 +1,6 @@
 """Massive.com adapter — forex, gold, crypto historical + real-time data."""
 
+import asyncio
 from datetime import datetime, timezone, timedelta
 
 import httpx
@@ -148,6 +149,7 @@ class MassiveAdapter(DataSourceAdapter):
         step = timedelta(days=7) if timespan == "hour" else timedelta(days=1)
         max_pages = 20 if timespan == "hour" else 30  # ~20 weeks for hourly, ~30 days for minute
 
+        page = 0
         for _ in range(max_pages):
             start = end - step
             if since and start < since:
@@ -166,6 +168,13 @@ class MassiveAdapter(DataSourceAdapter):
 
             try:
                 resp = await self._client.get(url, params=params)
+
+                # Handle rate limiting (429) — wait and retry once
+                if resp.status_code == 429:
+                    logger.info("massive_rate_limited", symbol=symbol, page=page)
+                    await asyncio.sleep(13)
+                    resp = await self._client.get(url, params=params)
+
                 if resp.status_code != 200:
                     logger.warning("massive_page_error", status=resp.status_code, symbol=symbol)
                     break
@@ -197,11 +206,16 @@ class MassiveAdapter(DataSourceAdapter):
                 logger.warning("massive_page_failed", symbol=symbol, error=str(e))
                 break
 
+            page += 1
             end = start
             if since and end <= since:
                 break
             if len(all_rows) >= limit:
                 break
+
+            # Rate limit: Polygon free tier allows 5 calls/minute
+            # Brief pause; 429 retry above handles actual rate limits
+            await asyncio.sleep(2)
 
         if not all_rows:
             return pd.DataFrame()
