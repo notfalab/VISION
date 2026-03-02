@@ -147,7 +147,13 @@ class MassiveAdapter(DataSourceAdapter):
         end = datetime.now(timezone.utc)
         # Week step: 7 days for hour, 1 day for minute (to avoid huge responses)
         step = timedelta(days=7) if timespan == "hour" else timedelta(days=1)
-        max_pages = 20 if timespan == "hour" else 30  # ~20 weeks for hourly, ~30 days for minute
+        # 4h candles need more pages (~35 per week vs ~144 for 1h)
+        if multiplier >= 4:
+            max_pages = 40
+        elif timespan == "hour":
+            max_pages = 20
+        else:
+            max_pages = 30
 
         page = 0
         consecutive_empty = 0
