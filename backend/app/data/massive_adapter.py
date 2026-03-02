@@ -188,36 +188,48 @@ class MassiveAdapter(DataSourceAdapter):
         return df
 
     async def fetch_ticker(self, symbol: str) -> dict:
-        """Fetch latest price using most recent candle."""
+        """Fetch latest price — tries 5m candle first, then 1h, then 1d for freshest data."""
         if not self._client:
             await self.connect()
+
+        if not self._api_key:
+            return {"symbol": symbol.upper(), "price": 0, "error": "No API key"}
 
         symbol = symbol.upper()
         ticker = SYMBOL_TO_MASSIVE.get(symbol, f"C:{symbol}")
 
-        to_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        from_date = (datetime.now(timezone.utc) - timedelta(days=3)).strftime("%Y-%m-%d")
-        url = f"{BASE_URL}/v2/aggs/ticker/{ticker}/range/1/day/{from_date}/{to_date}"
-        params = {"adjusted": "true", "sort": "desc", "limit": 1, "apiKey": self._api_key}
+        # Try progressively larger timeframes for freshest available data
+        attempts = [
+            (5, "minute", 1),   # Latest 5m candle (1 day back)
+            (1, "hour", 2),     # Latest 1h candle (2 days back)
+            (1, "day", 5),      # Latest daily candle (5 days back)
+        ]
 
-        try:
-            resp = await self._client.get(url, params=params)
-            if resp.status_code == 200:
-                data = resp.json()
-                results = data.get("results", [])
-                if results:
-                    r = results[0]
-                    return {
-                        "symbol": symbol,
-                        "price": float(r.get("c", 0)),
-                        "open": float(r.get("o", 0)),
-                        "high": float(r.get("h", 0)),
-                        "low": float(r.get("l", 0)),
-                        "volume": float(r.get("v", 0)),
-                        "vwap": float(r.get("vw", 0)),
-                        "timestamp": pd.Timestamp(r.get("t", 0), unit="ms", tz="UTC").isoformat(),
-                    }
-        except Exception as e:
-            logger.error("ticker_failed", symbol=symbol, error=str(e))
+        for multiplier, timespan, days_back in attempts:
+            to_date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            from_date = (datetime.now(timezone.utc) - timedelta(days=days_back)).strftime("%Y-%m-%d")
+            url = f"{BASE_URL}/v2/aggs/ticker/{ticker}/range/{multiplier}/{timespan}/{from_date}/{to_date}"
+            params = {"adjusted": "true", "sort": "desc", "limit": 1, "apiKey": self._api_key}
+
+            try:
+                resp = await self._client.get(url, params=params)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    results = data.get("results", [])
+                    if results:
+                        r = results[0]
+                        return {
+                            "symbol": symbol,
+                            "price": float(r.get("c", 0)),
+                            "open": float(r.get("o", 0)),
+                            "high": float(r.get("h", 0)),
+                            "low": float(r.get("l", 0)),
+                            "volume": float(r.get("v", 0)),
+                            "vwap": float(r.get("vw", 0)),
+                            "timestamp": pd.Timestamp(r.get("t", 0), unit="ms", tz="UTC").isoformat(),
+                        }
+            except Exception as e:
+                logger.warning("ticker_attempt_failed", symbol=symbol,
+                               timespan=timespan, error=str(e))
 
         return {"symbol": symbol, "price": 0, "error": "Failed to fetch ticker"}

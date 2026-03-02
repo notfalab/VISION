@@ -1,6 +1,6 @@
 """Price data endpoints — OHLCV queries, ingestion trigger, and live prices."""
 
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import delete, select
@@ -80,20 +80,68 @@ async def fetch_batch(
 
 @router.get("/{symbol}/latest")
 async def get_latest_price(symbol: str):
-    """Get latest price — tries Redis cache, then DB, then live fetch from adapter."""
-    from backend.app.data.redis_pubsub import get_latest_price as get_cached, cache_latest_price
+    """Get latest price — tries Redis cache, then live adapter, then DB fallback.
 
-    # 1. Try Redis cache first (fastest)
+    Staleness guard: DB data older than 2 hours is skipped in favor of
+    a live adapter call so the frontend always shows a recent price.
+    """
+    from backend.app.data.redis_pubsub import get_latest_price as get_cached, cache_latest_price
+    from backend.app.logging_config import get_logger
+
+    log = get_logger("latest_price")
+
+    # ── 1. Redis cache (fastest, TTL ≤ 5 min) ──
     price = await get_cached(symbol)
     if price:
         return price
 
-    # 2. Try latest candle from DB (no external API call)
+    # ── 2. Live fetch from adapter (real-time, uses OANDA for gold) ──
+    from backend.app.data.registry import data_registry
+    try:
+        adapter = data_registry.route_symbol(symbol)
+        await adapter.connect()
+        try:
+            # fetch_ticker uses S5 candles on OANDA → near real-time
+            ticker = await adapter.fetch_ticker(symbol)
+            if ticker and ticker.get("price", 0) > 0:
+                from backend.app.data.base import Candle
+                ts_raw = ticker.get("timestamp", "")
+                if ts_raw:
+                    import pandas as _pd
+                    ts = _pd.Timestamp(ts_raw)
+                    if ts.tzinfo is None:
+                        ts = ts.tz_localize("UTC")
+                    ts = ts.to_pydatetime()
+                else:
+                    ts = datetime.now(timezone.utc)
+                candle = Candle(
+                    timestamp=ts,
+                    open=float(ticker.get("open", ticker["price"])),
+                    high=float(ticker.get("high", ticker["price"])),
+                    low=float(ticker.get("low", ticker["price"])),
+                    close=float(ticker["price"]),
+                    volume=float(ticker.get("volume", 0)),
+                )
+                await cache_latest_price(symbol.upper(), candle)
+                return {
+                    "symbol": symbol.upper(),
+                    "price": float(ticker["price"]),
+                    "high": float(ticker.get("high", ticker["price"])),
+                    "low": float(ticker.get("low", ticker["price"])),
+                    "volume": float(ticker.get("volume", 0)),
+                    "timestamp": ts.isoformat() if hasattr(ts, "isoformat") else str(ts),
+                }
+        finally:
+            await adapter.disconnect()
+    except Exception as e:
+        log.warning("live_fetch_failed", symbol=symbol, error=str(e))
+
+    # ── 3. DB fallback (stale data, only if < 2 hours old) ──
     try:
         from sqlalchemy import select as sa_select
         from backend.app.database import async_session as db_session
-        from backend.app.models.asset import Asset
-        from backend.app.models.ohlcv import OHLCVData
+
+        staleness_cutoff = datetime.now(timezone.utc) - timedelta(hours=2)
 
         async with db_session() as session:
             result = await session.execute(
@@ -103,7 +151,10 @@ async def get_latest_price(symbol: str):
             if asset:
                 result = await session.execute(
                     sa_select(OHLCVData)
-                    .where(OHLCVData.asset_id == asset.id)
+                    .where(
+                        OHLCVData.asset_id == asset.id,
+                        OHLCVData.timestamp >= staleness_cutoff,
+                    )
                     .order_by(OHLCVData.timestamp.desc())
                     .limit(1)
                 )
@@ -127,41 +178,6 @@ async def get_latest_price(symbol: str):
                         "volume": float(row.volume),
                         "timestamp": row.timestamp.isoformat() if hasattr(row.timestamp, "isoformat") else str(row.timestamp),
                     }
-    except Exception:
-        pass
-
-    # 3. Live fetch from adapter (slowest — makes external API call)
-    from backend.app.data.registry import data_registry
-    try:
-        adapter = data_registry.route_symbol(symbol)
-        await adapter.connect()
-        try:
-            # Try 5m first (more recent), fallback to 1h, then 1d
-            for tf in ("5m", "1h", "1d"):
-                df = await adapter.fetch_ohlcv(symbol, tf, 1)
-                if not df.empty:
-                    from backend.app.data.base import Candle
-                    row = df.iloc[-1]
-                    ts = row["timestamp"]
-                    candle = Candle(
-                        timestamp=ts.to_pydatetime() if hasattr(ts, "to_pydatetime") else ts,
-                        open=float(row["open"]),
-                        high=float(row["high"]),
-                        low=float(row["low"]),
-                        close=float(row["close"]),
-                        volume=float(row["volume"]),
-                    )
-                    await cache_latest_price(symbol.upper(), candle)
-                    return {
-                        "symbol": symbol.upper(),
-                        "price": float(row["close"]),
-                        "high": float(row["high"]),
-                        "low": float(row["low"]),
-                        "volume": float(row["volume"]),
-                        "timestamp": ts.isoformat() if hasattr(ts, "isoformat") else str(ts),
-                    }
-        finally:
-            await adapter.disconnect()
     except Exception:
         pass
 

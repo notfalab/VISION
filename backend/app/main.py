@@ -20,12 +20,15 @@ FOREX_PAIRS = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDC
 
 async def _forex_price_refresh(logger):
     """
-    Lightweight loop: keep forex live prices in Redis cache.
-    Polls Massive API every 30s for latest 1m candle per pair.
-    This ensures the Header dropdown and chart update frequently.
+    Lightweight loop: keep forex + gold live prices in Redis cache.
+    Polls adapters every 30s for latest 1m candle per pair.
+    Uses per-pair routing so each pair uses its optimal adapter
+    (OANDA for gold, Massive for forex).
     """
     await asyncio.sleep(45)  # Let startup complete
     logger.info("forex_price_refresh_starting")
+
+    ALL_REFRESH_PAIRS = FOREX_PAIRS + ["XAUUSD", "XAGUSD"]
 
     while True:
         try:
@@ -33,29 +36,41 @@ async def _forex_price_refresh(logger):
             from backend.app.data.redis_pubsub import cache_latest_price
             from backend.app.data.base import Candle
 
-            # Reuse one HTTP client for all pairs
-            adapter = data_registry.route_symbol("EURUSD")
-            await adapter.connect()
-            try:
-                for pair in FOREX_PAIRS:
+            # Group pairs by adapter for efficient connection reuse
+            adapter_pairs: dict[str, list[str]] = {}
+            for pair in ALL_REFRESH_PAIRS:
+                try:
+                    adapter = data_registry.route_symbol(pair)
+                    adapter_pairs.setdefault(adapter.name, []).append(pair)
+                except Exception:
+                    pass
+
+            for adapter_name, pairs in adapter_pairs.items():
+                try:
+                    adapter = data_registry.get_adapter(adapter_name)
+                    await adapter.connect()
                     try:
-                        df = await adapter.fetch_ohlcv(pair, "1m", 1)
-                        if not df.empty:
-                            row = df.iloc[-1]
-                            ts = row["timestamp"]
-                            candle = Candle(
-                                timestamp=ts.to_pydatetime() if hasattr(ts, "to_pydatetime") else ts,
-                                open=float(row["open"]),
-                                high=float(row["high"]),
-                                low=float(row["low"]),
-                                close=float(row["close"]),
-                                volume=float(row["volume"]),
-                            )
-                            await cache_latest_price(pair, candle)
-                    except Exception:
-                        pass  # Don't spam logs every 60s
-            finally:
-                await adapter.disconnect()
+                        for pair in pairs:
+                            try:
+                                df = await adapter.fetch_ohlcv(pair, "1m", 1)
+                                if not df.empty:
+                                    row = df.iloc[-1]
+                                    ts = row["timestamp"]
+                                    candle = Candle(
+                                        timestamp=ts.to_pydatetime() if hasattr(ts, "to_pydatetime") else ts,
+                                        open=float(row["open"]),
+                                        high=float(row["high"]),
+                                        low=float(row["low"]),
+                                        close=float(row["close"]),
+                                        volume=float(row["volume"]),
+                                    )
+                                    await cache_latest_price(pair, candle)
+                            except Exception:
+                                pass  # Don't spam logs every 30s
+                    finally:
+                        await adapter.disconnect()
+                except Exception as e:
+                    logger.warning("price_refresh_adapter_error", adapter=adapter_name, error=str(e))
         except asyncio.CancelledError:
             logger.info("forex_price_refresh_cancelled")
             return
@@ -217,9 +232,10 @@ async def lifespan(app: FastAPI):
     data_registry.register(MassiveAdapter())
     data_registry.register(CryptoCompareAdapter())
 
-    # Route gold/silver to Massive (full historical + intraday data)
-    data_registry.set_route("XAUUSD", "massive")
-    data_registry.set_route("XAGUSD", "massive")
+    # Route gold/silver to OANDA (accurate intraday + real-time data)
+    # Massive API returns daily-level data even when 5m is requested for C:XAUUSD
+    data_registry.set_route("XAUUSD", "oanda")
+    data_registry.set_route("XAGUSD", "oanda")
 
     # Route crypto to CryptoCompare as primary (works from US/Railway).
     # Binance REST returns HTTP 451 from US servers.
