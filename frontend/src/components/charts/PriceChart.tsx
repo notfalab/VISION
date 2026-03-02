@@ -989,78 +989,65 @@ export default function PriceChart() {
     return data.slice(startIdx, Math.min(endIdx, data.length));
   }, [data, panOffset, getViewSlots]);
 
-  // Mouse drag to pan
-  const handleMouseDown = (e: React.MouseEvent) => {
+  // ── ALL mouse handlers registered natively for reliable drag ──
+  // (React synthetic events can be swallowed by canvas overlays)
+
+  const handleMouseDownNative = useCallback((e: MouseEvent) => {
     e.preventDefault(); // prevent text selection / browser drag
     isDragging.current = true;
     dragStartX.current = e.clientX;
-    dragStartOffset.current = panOffset;
+    // Read current panOffset via setter to avoid stale closure
+    setPanOffset((current) => { dragStartOffset.current = current; return current; });
     if (containerRef.current) containerRef.current.style.cursor = "grabbing";
-  };
-
-  // Global mouse move/up — registered on window so drag works even outside the chart
-  const handleGlobalMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDragging.current || !containerRef.current || data.length === 0) return;
-
-    const dx = e.clientX - dragStartX.current;
-    const geom = chartGeomRef.current;
-    const chartW = dimensions.width - geom.paddingLeft - geom.paddingRight;
-    if (chartW <= 0) return;
-    const VIEW_SLOTS = getViewSlots();
-    const candleW = chartW / VIEW_SLOTS;
-    const candleShift = Math.round(dx / candleW);
-    const MIN_OFFSET = -Math.round(VIEW_SLOTS * 0.9);
-    const maxOffset = Math.max(0, data.length - VIEW_SLOTS);
-    const newOffset = Math.max(MIN_OFFSET, Math.min(dragStartOffset.current + candleShift, maxOffset));
-    setPanOffset(newOffset);
-  }, [dimensions.width, getViewSlots, data.length]);
-
-  const handleGlobalMouseUp = useCallback(() => {
-    if (isDragging.current) {
-      isDragging.current = false;
-      if (containerRef.current) containerRef.current.style.cursor = "crosshair";
-    }
   }, []);
 
-  // Register global mouse listeners for robust drag tracking
-  useEffect(() => {
-    window.addEventListener("mousemove", handleGlobalMouseMove);
-    window.addEventListener("mouseup", handleGlobalMouseUp);
-    return () => {
-      window.removeEventListener("mousemove", handleGlobalMouseMove);
-      window.removeEventListener("mouseup", handleGlobalMouseUp);
-    };
-  }, [handleGlobalMouseMove, handleGlobalMouseUp]);
+  const handleMouseMoveNative = useCallback((e: MouseEvent) => {
+    const el = containerRef.current;
+    if (!el || data.length === 0) return;
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!containerRef.current || data.length === 0) return;
+    if (isDragging.current) {
+      // Drag to pan
+      const dx = e.clientX - dragStartX.current;
+      const geom = chartGeomRef.current;
+      const chartW = dimensions.width - geom.paddingLeft - geom.paddingRight;
+      if (chartW <= 0) return;
+      const VIEW_SLOTS = getViewSlots();
+      const candleW = chartW / VIEW_SLOTS;
+      const candleShift = Math.round(dx / candleW);
+      const MIN_OFFSET = -Math.round(VIEW_SLOTS * 0.9);
+      const maxOffset = Math.max(0, data.length - VIEW_SLOTS);
+      const newOffset = Math.max(MIN_OFFSET, Math.min(dragStartOffset.current + candleShift, maxOffset));
+      setPanOffset(newOffset);
+      return;
+    }
 
-    // Dragging is handled by global listener above
-    if (isDragging.current) return;
-
-    const rect = containerRef.current.getBoundingClientRect();
+    // Hover (not dragging)
+    const rect = el.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
     const geom = chartGeomRef.current;
-    const visibleData = getVisibleData();
+    const VIEW_SLOTS = getViewSlots();
+    const clampedOff = panOffset;
+    const emptyR = clampedOff < 0 ? -clampedOff : 0;
+    const dSlots = VIEW_SLOTS - emptyR;
+    const effOff = Math.max(0, clampedOff);
+    const sIdx = Math.max(0, data.length - dSlots - effOff);
+    const eIdx = sIdx + dSlots;
+    const visData = data.slice(sIdx, Math.min(eIdx, data.length));
     const chartW = dimensions.width - geom.paddingLeft - geom.paddingRight;
-    const candleW = chartW / Math.max(visibleData.length, 1);
+    const cW = chartW / Math.max(visData.length, 1);
 
-    // Candle hover
-    const idx = Math.floor((x - geom.paddingLeft) / candleW);
-    if (idx >= 0 && idx < visibleData.length) {
-      setHoveredCandle(visibleData[idx]);
+    const idx = Math.floor((x - geom.paddingLeft) / cW);
+    if (idx >= 0 && idx < visData.length) {
+      setHoveredCandle(visData[idx]);
     }
 
-    // Zone hover — check if mouse Y falls within any zone
     if (zones.length > 0 && geom.priceAreaH > 0) {
       const yToPrice = (yPos: number) =>
         geom.priceMax - ((yPos - geom.paddingTop) / geom.priceAreaH) * (geom.priceMax - geom.priceMin);
-
       const mousePrice = yToPrice(y);
       const hit = zones.find(z => mousePrice >= z.priceMin && mousePrice <= z.priceMax);
-
       if (hit) {
         setHoveredZone(hit);
         setTooltipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
@@ -1070,18 +1057,39 @@ export default function PriceChart() {
     } else {
       setHoveredZone(null);
     }
-  };
+  }, [dimensions.width, getViewSlots, data, panOffset, zones]);
 
-  const handleMouseUp = () => {
-    // Handled by global listener
-  };
+  const handleMouseUpNative = useCallback(() => {
+    if (isDragging.current) {
+      isDragging.current = false;
+      if (containerRef.current) containerRef.current.style.cursor = "crosshair";
+    }
+  }, []);
 
-  const handleMouseLeave = () => {
+  const handleMouseLeaveNative = useCallback(() => {
     if (!isDragging.current) {
       setHoveredCandle(null);
       setHoveredZone(null);
     }
-  };
+  }, []);
+
+  // Register native mouse listeners on container + window
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.addEventListener("mousedown", handleMouseDownNative);
+    el.addEventListener("mousemove", handleMouseMoveNative);
+    el.addEventListener("mouseleave", handleMouseLeaveNative);
+    window.addEventListener("mousemove", handleMouseMoveNative);
+    window.addEventListener("mouseup", handleMouseUpNative);
+    return () => {
+      el.removeEventListener("mousedown", handleMouseDownNative);
+      el.removeEventListener("mousemove", handleMouseMoveNative);
+      el.removeEventListener("mouseleave", handleMouseLeaveNative);
+      window.removeEventListener("mousemove", handleMouseMoveNative);
+      window.removeEventListener("mouseup", handleMouseUpNative);
+    };
+  }, [handleMouseDownNative, handleMouseMoveNative, handleMouseUpNative, handleMouseLeaveNative]);
 
   // ── Native non-passive event handlers (wheel + touch) ──
   // React 18 registers onWheel/onTouchMove as passive, so e.preventDefault()
@@ -1280,12 +1288,8 @@ export default function PriceChart() {
       {/* Chart area */}
       <div
         ref={containerRef}
-        className="flex-1 relative min-h-0 touch-none"
+        className="flex-1 relative min-h-0 touch-none select-none"
         style={{ cursor: "crosshair" }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
       >
         {loading ? (
           <div className="absolute inset-0 flex items-center justify-center">
