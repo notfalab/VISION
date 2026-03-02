@@ -96,48 +96,42 @@ function updateMAFromData(
   ema200: ISeriesApi<"Line"> | null,
 ) {
   if (data.length < 20) return;
+  const lastTime = toTime(data[data.length - 1].timestamp);
 
-  // SMA 20: average of last 20 closes
-  if (sma20 && data.length >= 20) {
-    let sum = 0;
-    for (let i = data.length - 20; i < data.length; i++) sum += data[i].close;
-    sma20.update({
-      time: toTime(data[data.length - 1].timestamp),
-      value: sum / 20,
-    });
-  }
-
-  // EMA 50: recalculate from scratch for accuracy (fast enough for update)
-  if (ema50 && data.length >= 50) {
-    const period = 50;
-    const alpha = 2 / (period + 1);
-    let ema = 0;
-    for (let i = 0; i < period; i++) ema += data[i].close;
-    ema /= period;
-    for (let i = period; i < data.length; i++) {
-      ema = data[i].close * alpha + ema * (1 - alpha);
+  try {
+    // SMA 20: average of last 20 closes
+    if (sma20 && data.length >= 20) {
+      let sum = 0;
+      for (let i = data.length - 20; i < data.length; i++) sum += data[i].close;
+      sma20.update({ time: lastTime, value: sum / 20 });
     }
-    ema50.update({
-      time: toTime(data[data.length - 1].timestamp),
-      value: ema,
-    });
-  }
 
-  // EMA 200: recalculate from scratch
-  if (ema200 && data.length >= 200) {
-    const period = 200;
-    const alpha = 2 / (period + 1);
-    let ema = 0;
-    for (let i = 0; i < period; i++) ema += data[i].close;
-    ema /= period;
-    for (let i = period; i < data.length; i++) {
-      ema = data[i].close * alpha + ema * (1 - alpha);
+    // EMA 50: recalculate from scratch for accuracy (fast enough for update)
+    if (ema50 && data.length >= 50) {
+      const period = 50;
+      const alpha = 2 / (period + 1);
+      let ema = 0;
+      for (let i = 0; i < period; i++) ema += data[i].close;
+      ema /= period;
+      for (let i = period; i < data.length; i++) {
+        ema = data[i].close * alpha + ema * (1 - alpha);
+      }
+      ema50.update({ time: lastTime, value: ema });
     }
-    ema200.update({
-      time: toTime(data[data.length - 1].timestamp),
-      value: ema,
-    });
-  }
+
+    // EMA 200: recalculate from scratch
+    if (ema200 && data.length >= 200) {
+      const period = 200;
+      const alpha = 2 / (period + 1);
+      let ema = 0;
+      for (let i = 0; i < period; i++) ema += data[i].close;
+      ema /= period;
+      for (let i = period; i < data.length; i++) {
+        ema = data[i].close * alpha + ema * (1 - alpha);
+      }
+      ema200.update({ time: lastTime, value: ema });
+    }
+  } catch { /* stale update during symbol switch — ignore */ }
 }
 
 /* ── Pattern Marker type ── */
@@ -536,8 +530,10 @@ export default function PriceChart() {
           };
           updated[updated.length - 1] = newCandle;
           // Update chart series in place
-          candleSeriesRef.current?.update(toChartData(newCandle));
-          volumeSeriesRef.current?.update(toVolumeData(newCandle, tc.bullAlpha, tc.bearAlpha));
+          try {
+            candleSeriesRef.current?.update(toChartData(newCandle));
+            volumeSeriesRef.current?.update(toVolumeData(newCandle, tc.bullAlpha, tc.bearAlpha));
+          } catch { /* stale update — ignore */ }
           // Update moving averages incrementally
           updateMAFromData(updated, sma20Ref.current, ema50Ref.current, ema200Ref.current);
           return updated;
@@ -584,8 +580,10 @@ export default function PriceChart() {
             close: candle.close,
             volume: candle.volume,
           };
-          candleSeriesRef.current?.update(toChartData(newOHLCV));
-          volumeSeriesRef.current?.update(toVolumeData(newOHLCV, tc.bullAlpha, tc.bearAlpha));
+          try {
+            candleSeriesRef.current?.update(toChartData(newOHLCV));
+            volumeSeriesRef.current?.update(toVolumeData(newOHLCV, tc.bullAlpha, tc.bearAlpha));
+          } catch { /* stale update — ignore */ }
           const appended = [...prev.slice(-499), newOHLCV];
           updateMAFromData(appended, sma20Ref.current, ema50Ref.current, ema200Ref.current);
           return appended;
@@ -606,15 +604,17 @@ export default function PriceChart() {
           const lastTs = prev[prev.length - 1].timestamp;
           const updated = [...prev];
           for (const c of sorted) {
-            if (c.timestamp === lastTs) {
-              updated[updated.length - 1] = c;
-              candleSeriesRef.current?.update(toChartData(c));
-              volumeSeriesRef.current?.update(toVolumeData(c, tc.bullAlpha, tc.bearAlpha));
-            } else if (c.timestamp > lastTs) {
-              updated.push(c);
-              candleSeriesRef.current?.update(toChartData(c));
-              volumeSeriesRef.current?.update(toVolumeData(c, tc.bullAlpha, tc.bearAlpha));
-            }
+            try {
+              if (c.timestamp === lastTs) {
+                updated[updated.length - 1] = c;
+                candleSeriesRef.current?.update(toChartData(c));
+                volumeSeriesRef.current?.update(toVolumeData(c, tc.bullAlpha, tc.bearAlpha));
+              } else if (c.timestamp > lastTs) {
+                updated.push(c);
+                candleSeriesRef.current?.update(toChartData(c));
+                volumeSeriesRef.current?.update(toVolumeData(c, tc.bullAlpha, tc.bearAlpha));
+              }
+            } catch { /* stale update — ignore */ }
           }
           const trimmed = updated.length > 2500 ? updated.slice(-2000) : updated;
           updateMAFromData(trimmed, sma20Ref.current, ema50Ref.current, ema200Ref.current);
@@ -643,13 +643,20 @@ export default function PriceChart() {
     const tf = activeTimeframe;
     const tc = THEME_CANVAS[theme];
 
+    // Safe wrapper: series.update() can throw if called with stale time after symbol switch
+    const safeUpdate = (series: ISeriesApi<"Candlestick"> | ISeriesApi<"Histogram"> | ISeriesApi<"Line"> | null, point: Parameters<ISeriesApi<"Candlestick">["update"]>[0]) => {
+      try { series?.update(point as never); } catch { /* stale update — ignore */ }
+    };
+
     // Fast poll: update last candle close price
     const quickPoll = async () => {
       if (cancelled) return;
       try {
         const res = await fetch(`/api/v1/prices/${sym}/latest`, { cache: "no-store" });
+        if (cancelled) return; // check again after await
         if (res.ok) {
           const d = await res.json();
+          if (cancelled) return;
           if (d.price) {
             setData((prev) => {
               if (prev.length === 0) return prev;
@@ -666,8 +673,8 @@ export default function PriceChart() {
                 low: Math.min(last.low, d.price),
               };
               updated[updated.length - 1] = newCandle;
-              candleSeriesRef.current?.update(toChartData(newCandle));
-              volumeSeriesRef.current?.update(toVolumeData(newCandle, tc.bullAlpha, tc.bearAlpha));
+              safeUpdate(candleSeriesRef.current, toChartData(newCandle));
+              safeUpdate(volumeSeriesRef.current, toVolumeData(newCandle, tc.bullAlpha, tc.bearAlpha) as never);
               updateMAFromData(updated, sma20Ref.current, ema50Ref.current, ema200Ref.current);
               return updated;
             });
@@ -681,6 +688,7 @@ export default function PriceChart() {
       if (cancelled) return;
       try {
         const prices = await api.prices(sym, tf, 10);
+        if (cancelled) return; // check again after await
         const newCandles = deduplicateAndSort(prices);
         if (newCandles.length === 0) return;
 
@@ -691,12 +699,12 @@ export default function PriceChart() {
           for (const c of newCandles) {
             if (c.timestamp === lastTs) {
               updated[updated.length - 1] = c;
-              candleSeriesRef.current?.update(toChartData(c));
-              volumeSeriesRef.current?.update(toVolumeData(c, tc.bullAlpha, tc.bearAlpha));
+              safeUpdate(candleSeriesRef.current, toChartData(c));
+              safeUpdate(volumeSeriesRef.current, toVolumeData(c, tc.bullAlpha, tc.bearAlpha) as never);
             } else if (c.timestamp > lastTs) {
               updated.push(c);
-              candleSeriesRef.current?.update(toChartData(c));
-              volumeSeriesRef.current?.update(toVolumeData(c, tc.bullAlpha, tc.bearAlpha));
+              safeUpdate(candleSeriesRef.current, toChartData(c));
+              safeUpdate(volumeSeriesRef.current, toVolumeData(c, tc.bullAlpha, tc.bearAlpha) as never);
             }
           }
           const trimmed = updated.length > 2500 ? updated.slice(-2000) : updated;
@@ -704,7 +712,7 @@ export default function PriceChart() {
           return trimmed;
         });
         // Trigger ingestion in background for fresh data
-        api.fetchPrices(sym, tf, 10).catch(() => {});
+        if (!cancelled) api.fetchPrices(sym, tf, 10).catch(() => {});
       } catch { /* ignore */ }
     };
 
