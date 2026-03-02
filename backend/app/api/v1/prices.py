@@ -136,12 +136,15 @@ async def get_latest_price(symbol: str):
     except Exception as e:
         log.warning("live_fetch_failed", symbol=symbol, error=str(e))
 
-    # ── 3. DB fallback (stale data, only if < 2 hours old) ──
+    # ── 3. DB fallback — get most recent data point across any timeframe ──
+    # Use 48h window to handle weekends (forex closes Fri 5pm → Sun 5pm ET).
+    # Daily candles are timestamped at midnight so a 2h cutoff rejects them
+    # by early morning; 48h covers full weekend gap.
     try:
         from sqlalchemy import select as sa_select
         from backend.app.database import async_session as db_session
 
-        staleness_cutoff = datetime.now(timezone.utc) - timedelta(hours=2)
+        staleness_cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
 
         async with db_session() as session:
             result = await session.execute(

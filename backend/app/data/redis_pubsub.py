@@ -76,12 +76,36 @@ async def cache_latest_price(symbol: str, candle: Candle) -> None:
 
 
 async def get_latest_price(symbol: str) -> dict | None:
-    """Get cached latest price for a symbol."""
+    """Get cached latest price for a symbol.
+
+    Returns None if cache is empty OR if the cached price is too old
+    (> 1 hour for crypto which trades 24/7, > 6 hours for forex
+    which has weekend gaps). This prevents the background refresh loop
+    from indefinitely serving stale prices from the cache.
+    """
     r = await get_redis()
     key = f"latest:{symbol.upper()}"
     data = await r.hgetall(key)
     if not data:
         return None
+
+    # Staleness check — don't serve old cached data
+    try:
+        from datetime import timedelta
+        cached_ts = datetime.fromisoformat(data["timestamp"])
+        if cached_ts.tzinfo is None:
+            cached_ts = cached_ts.replace(tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
+        age = now - cached_ts
+
+        # Crypto trades 24/7: 1h staleness. Forex: 6h (handles daily candles at midnight)
+        is_crypto = symbol.upper() in ("BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "ETHBTC")
+        max_age = timedelta(hours=1) if is_crypto else timedelta(hours=6)
+        if age > max_age:
+            return None  # Force live fetch
+    except Exception:
+        pass  # If timestamp parsing fails, serve cached data anyway
+
     return {
         "symbol": symbol.upper(),
         "price": float(data["price"]),
