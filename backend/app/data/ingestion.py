@@ -154,6 +154,51 @@ def _merge_dataframes(dfs: list[pd.DataFrame], limit: int) -> pd.DataFrame:
     return combined
 
 
+# Expected median time-delta per timeframe (with tolerance for weekend gaps)
+_EXPECTED_DELTAS = {
+    "1m": pd.Timedelta(minutes=1),
+    "5m": pd.Timedelta(minutes=5),
+    "15m": pd.Timedelta(minutes=15),
+    "30m": pd.Timedelta(minutes=30),
+    "1h": pd.Timedelta(hours=1),
+    "4h": pd.Timedelta(hours=4),
+    "1d": pd.Timedelta(days=1),
+    "1w": pd.Timedelta(days=7),
+}
+
+
+def _validate_timeframe_data(df: pd.DataFrame, timeframe: str) -> bool:
+    """Check that returned data actually matches the requested timeframe.
+
+    Prevents storing daily-level data as intraday (e.g. Massive API returning
+    daily candles when 5m is requested for C:XAUUSD).
+    """
+    if df.empty or len(df) < 3:
+        return True  # Can't validate with < 3 rows
+
+    expected = _EXPECTED_DELTAS.get(timeframe)
+    if expected is None:
+        return True
+
+    timestamps = df["timestamp"].sort_values()
+    deltas = timestamps.diff().dropna()
+    median_delta = deltas.median()
+
+    # Allow 5x tolerance (forex has weekend gaps, but daily data when
+    # 5m is requested would show ~288x the expected delta)
+    max_allowed = expected * 5
+    if median_delta > max_allowed:
+        logger.warning(
+            "timeframe_mismatch",
+            timeframe=timeframe,
+            expected=str(expected),
+            actual_median=str(median_delta),
+            rows=len(df),
+        )
+        return False
+    return True
+
+
 async def _fetch_with_fallback(symbol: str, timeframe: str, limit: int, since: datetime | None) -> pd.DataFrame:
     """Try the primary adapter, then fallbacks (OANDA, Alpha Vantage) until we have enough data."""
     min_rows = min(limit, 50)
@@ -171,6 +216,12 @@ async def _fetch_with_fallback(symbol: str, timeframe: str, limit: int, since: d
             await adapter.disconnect()
     except Exception as e:
         logger.warning("primary_adapter_failed", symbol=symbol, error=str(e))
+
+    # Validate that primary data matches requested timeframe
+    if not primary_df.empty and not _validate_timeframe_data(primary_df, timeframe):
+        logger.warning("primary_data_rejected", symbol=symbol, adapter=primary_name,
+                        timeframe=timeframe, rows=len(primary_df))
+        primary_df = pd.DataFrame()
 
     if not primary_df.empty and len(primary_df) >= min_rows:
         return primary_df
@@ -192,6 +243,12 @@ async def _fetch_with_fallback(symbol: str, timeframe: str, limit: int, since: d
 
         fb_df = await _try_adapter(fb_name, symbol, timeframe, limit, since)
         if fb_df.empty:
+            continue
+
+        # Validate fallback data matches requested timeframe
+        if not _validate_timeframe_data(fb_df, timeframe):
+            logger.warning("fallback_data_rejected", symbol=symbol, adapter=fb_name,
+                            timeframe=timeframe, rows=len(fb_df))
             continue
 
         # Merge fallback data with what we have
