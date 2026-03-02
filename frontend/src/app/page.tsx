@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Header from "@/components/layout/Header";
 import AuthGuard from "@/components/AuthGuard";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import CommunityModal from "@/components/CommunityModal";
 import PriceChart from "@/components/charts/PriceChart";
 import VolumeProfile from "@/components/charts/VolumeProfile";
 import TradeScore from "@/components/widgets/TradeScore";
@@ -21,15 +23,36 @@ import CurrencyHeatmap from "@/components/widgets/CurrencyHeatmap";
 import ZonesOverlay from "@/components/widgets/ZonesOverlay";
 import { useMarketStore, getMarketType } from "@/stores/market";
 
+const COMMUNITY_KEY = "vision_community_joined";
+
 function DashboardContent() {
   const activeSymbol = useMarketStore((s) => s.activeSymbol);
   const marketType = getMarketType(activeSymbol);
   const isGold = activeSymbol === "XAUUSD";
   const isCrypto = marketType === "crypto";
 
+  // Community modal — appears until user confirms they joined
+  const [showCommunity, setShowCommunity] = useState(false);
+  useEffect(() => {
+    if (typeof window !== "undefined" && localStorage.getItem(COMMUNITY_KEY) !== "true") {
+      setShowCommunity(true);
+    }
+  }, []);
+
   return (
     <div className="h-screen flex flex-col bg-[var(--color-bg-primary)] grid-pattern overflow-hidden lg:overflow-hidden">
       <Header />
+
+      {/* Community invite modal */}
+      {showCommunity && (
+        <CommunityModal
+          onJoined={() => {
+            localStorage.setItem(COMMUNITY_KEY, "true");
+            setShowCommunity(false);
+          }}
+          onSkip={() => setShowCommunity(false)}
+        />
+      )}
       <div className="flex-1 min-h-0 p-2 md:p-3 overflow-y-auto lg:overflow-hidden">
         <div className="flex flex-col lg:flex-row gap-2 md:gap-3 lg:h-full">
           {/* Left: Chart + Bottom row */}
