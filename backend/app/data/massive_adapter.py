@@ -105,23 +105,130 @@ class MassiveAdapter(DataSourceAdapter):
 
         multiplier, timespan = MASSIVE_TIMEFRAMES.get(timeframe, (1, "day"))
 
-        # Date range
+        # For intraday (hour/minute), paginate week-by-week backwards
+        # because free-tier Polygon returns limited data per request (~1 week)
+        if timespan in ("hour", "minute"):
+            return await self._fetch_intraday_paginated(
+                ticker, symbol, timeframe, multiplier, timespan, limit, since
+            )
+
+        # Daily/weekly/monthly: single request is sufficient
         to_date = datetime.now(timezone.utc)
         if since:
             from_date = since
         else:
-            # Calculate how far back we need based on timeframe and limit
             if timespan == "day":
                 from_date = to_date - timedelta(days=int(limit * 1.5))
             elif timespan == "week":
                 from_date = to_date - timedelta(weeks=int(limit * 1.5))
-            elif timespan == "month":
+            else:  # month
                 from_date = to_date - timedelta(days=int(limit * 45))
-            elif timespan == "hour":
-                from_date = to_date - timedelta(hours=int(limit * multiplier * 1.5))
-            else:  # minute — forex closes weekends, so add extra days
-                from_date = to_date - timedelta(days=max(7, int(limit * multiplier / 60 / 24 * 2)))
 
+        return await self._fetch_range(ticker, symbol, timeframe, multiplier, timespan,
+                                        from_date, to_date, limit)
+
+    async def _fetch_intraday_paginated(
+        self,
+        ticker: str,
+        symbol: str,
+        timeframe: str,
+        multiplier: int,
+        timespan: str,
+        limit: int,
+        since: datetime | None,
+    ) -> pd.DataFrame:
+        """Fetch intraday data by paginating week-by-week backwards.
+
+        Free-tier Polygon returns ~80-120 candles per weekly window.
+        Paginating 15+ weeks accumulates 1000+ candles.
+        """
+        all_rows: list[dict] = []
+        end = datetime.now(timezone.utc)
+        # Week step: 7 days for hour, 1 day for minute (to avoid huge responses)
+        step = timedelta(days=7) if timespan == "hour" else timedelta(days=1)
+        max_pages = 20 if timespan == "hour" else 30  # ~20 weeks for hourly, ~30 days for minute
+
+        for _ in range(max_pages):
+            start = end - step
+            if since and start < since:
+                start = since
+
+            from_str = start.strftime("%Y-%m-%d")
+            to_str = end.strftime("%Y-%m-%d")
+
+            url = f"{BASE_URL}/v2/aggs/ticker/{ticker}/range/{multiplier}/{timespan}/{from_str}/{to_str}"
+            params = {
+                "adjusted": "true",
+                "sort": "asc",
+                "limit": 50000,
+                "apiKey": self._api_key,
+            }
+
+            try:
+                resp = await self._client.get(url, params=params)
+                if resp.status_code != 200:
+                    logger.warning("massive_page_error", status=resp.status_code, symbol=symbol)
+                    break
+
+                data = resp.json()
+                status = data.get("status", "")
+                if status not in ("OK", "DELAYED"):
+                    break
+
+                results = data.get("results", [])
+                if not results:
+                    # No data in this window, keep going back
+                    end = start
+                    if since and end <= since:
+                        break
+                    continue
+
+                for r in results:
+                    all_rows.append({
+                        "timestamp": pd.Timestamp(r.get("t", 0), unit="ms", tz="UTC"),
+                        "open": float(r.get("o", 0)),
+                        "high": float(r.get("h", 0)),
+                        "low": float(r.get("l", 0)),
+                        "close": float(r.get("c", 0)),
+                        "volume": float(r.get("v", 0)),
+                    })
+
+            except Exception as e:
+                logger.warning("massive_page_failed", symbol=symbol, error=str(e))
+                break
+
+            end = start
+            if since and end <= since:
+                break
+            if len(all_rows) >= limit:
+                break
+
+        if not all_rows:
+            return pd.DataFrame()
+
+        df = (
+            pd.DataFrame(all_rows)
+            .drop_duplicates(subset="timestamp")
+            .sort_values("timestamp")
+            .tail(limit)
+            .reset_index(drop=True)
+        )
+        logger.info("fetched_paginated", symbol=symbol, timeframe=timeframe,
+                     rows=len(df), pages=_ + 1)
+        return df
+
+    async def _fetch_range(
+        self,
+        ticker: str,
+        symbol: str,
+        timeframe: str,
+        multiplier: int,
+        timespan: str,
+        from_date: datetime,
+        to_date: datetime,
+        limit: int,
+    ) -> pd.DataFrame:
+        """Fetch a single date range (for daily/weekly/monthly)."""
         from_str = from_date.strftime("%Y-%m-%d")
         to_str = to_date.strftime("%Y-%m-%d")
 
