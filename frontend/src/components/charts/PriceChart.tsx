@@ -84,6 +84,62 @@ function deduplicateAndSort(candles: OHLCV[]): OHLCV[] {
   );
 }
 
+/**
+ * Incrementally update MA overlay lines from the latest data.
+ * Recalculates the last point for each MA and calls update() to avoid
+ * a full setData() which would reset the viewport.
+ */
+function updateMAFromData(
+  data: OHLCV[],
+  sma20: ISeriesApi<"Line"> | null,
+  ema50: ISeriesApi<"Line"> | null,
+  ema200: ISeriesApi<"Line"> | null,
+) {
+  if (data.length < 20) return;
+
+  // SMA 20: average of last 20 closes
+  if (sma20 && data.length >= 20) {
+    let sum = 0;
+    for (let i = data.length - 20; i < data.length; i++) sum += data[i].close;
+    sma20.update({
+      time: toTime(data[data.length - 1].timestamp),
+      value: sum / 20,
+    });
+  }
+
+  // EMA 50: recalculate from scratch for accuracy (fast enough for update)
+  if (ema50 && data.length >= 50) {
+    const period = 50;
+    const alpha = 2 / (period + 1);
+    let ema = 0;
+    for (let i = 0; i < period; i++) ema += data[i].close;
+    ema /= period;
+    for (let i = period; i < data.length; i++) {
+      ema = data[i].close * alpha + ema * (1 - alpha);
+    }
+    ema50.update({
+      time: toTime(data[data.length - 1].timestamp),
+      value: ema,
+    });
+  }
+
+  // EMA 200: recalculate from scratch
+  if (ema200 && data.length >= 200) {
+    const period = 200;
+    const alpha = 2 / (period + 1);
+    let ema = 0;
+    for (let i = 0; i < period; i++) ema += data[i].close;
+    ema /= period;
+    for (let i = period; i < data.length; i++) {
+      ema = data[i].close * alpha + ema * (1 - alpha);
+    }
+    ema200.update({
+      time: toTime(data[data.length - 1].timestamp),
+      value: ema,
+    });
+  }
+}
+
 /* ── Pattern Marker type ── */
 interface PatternMarker {
   timestamp: string;
@@ -202,15 +258,17 @@ export default function PriceChart() {
     chart.subscribeCrosshairMove((param) => {
       if (param.time && param.seriesData) {
         const candleData = param.seriesData.get(candleSeries);
+        const volData = param.seriesData.get(volumeSeries);
         if (candleData && "open" in candleData) {
           const cd = candleData as { time: UTCTimestamp; open: number; high: number; low: number; close: number };
+          const vol = volData && "value" in volData ? (volData as { value: number }).value : 0;
           setHoveredCandle({
             timestamp: new Date((cd.time as number) * 1000).toISOString(),
             open: cd.open,
             high: cd.high,
             low: cd.low,
             close: cd.close,
-            volume: 0,
+            volume: vol,
           });
         }
       } else {
@@ -263,13 +321,17 @@ export default function PriceChart() {
     if (!chart) return;
     chart.applyOptions(getChartOptions(theme));
     candleSeriesRef.current?.applyOptions(getCandlestickOptions(theme));
-    // Re-set volume data with new colors (use ref to avoid data dep)
+    // Re-set volume data with new colors — save/restore viewport to avoid reset
     const currentData = dataRef.current;
     if (currentData.length > 0) {
       const tc = THEME_CANVAS[theme];
+      const savedRange = chart.timeScale().getVisibleLogicalRange();
       volumeSeriesRef.current?.setData(
         currentData.map((c) => toVolumeData(c, tc.bullAlpha, tc.bearAlpha))
       );
+      if (savedRange) {
+        chart.timeScale().setVisibleLogicalRange(savedRange);
+      }
     }
     accZonePrimRef.current?.setTheme(theme);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -476,10 +538,12 @@ export default function PriceChart() {
           // Update chart series in place
           candleSeriesRef.current?.update(toChartData(newCandle));
           volumeSeriesRef.current?.update(toVolumeData(newCandle, tc.bullAlpha, tc.bearAlpha));
+          // Update moving averages incrementally
+          updateMAFromData(updated, sma20Ref.current, ema50Ref.current, ema200Ref.current);
           return updated;
         }
 
-        // Gap detected — re-fetch missing candles (preserve viewport)
+        // Gap detected — re-fetch missing candles (use setData with viewport save/restore)
         if (gap > intervalMs * 2 && !gapRefetchDone.current) {
           gapRefetchDone.current = true;
           (async () => {
@@ -489,11 +553,19 @@ export default function PriceChart() {
                 const sorted = deduplicateAndSort(prices);
                 setData((existing) => {
                   const merged = deduplicateAndSort([...existing, ...sorted]);
-                  // Save viewport, push data, restore viewport
-                  const savedRange = chartRef.current?.timeScale().getVisibleLogicalRange();
-                  pushDataToChart(merged);
+                  const chart = chartRef.current;
+                  const savedRange = chart?.timeScale().getVisibleLogicalRange();
+                  // Update all series with merged data
+                  candleSeriesRef.current?.setData(merged.map(toChartData));
+                  volumeSeriesRef.current?.setData(
+                    merged.map((c) => toVolumeData(c, tc.bullAlpha, tc.bearAlpha))
+                  );
+                  sma20Ref.current?.setData(computeSMA(merged, 20));
+                  ema50Ref.current?.setData(computeEMA(merged, 50));
+                  ema200Ref.current?.setData(computeEMA(merged, 200));
+                  // Restore viewport position (no fitContent — keep user's scroll)
                   if (savedRange) {
-                    chartRef.current?.timeScale().setVisibleLogicalRange(savedRange);
+                    chart?.timeScale().setVisibleLogicalRange(savedRange);
                   }
                   return merged;
                 });
@@ -514,7 +586,9 @@ export default function PriceChart() {
           };
           candleSeriesRef.current?.update(toChartData(newOHLCV));
           volumeSeriesRef.current?.update(toVolumeData(newOHLCV, tc.bullAlpha, tc.bearAlpha));
-          return [...prev.slice(-499), newOHLCV];
+          const appended = [...prev.slice(-499), newOHLCV];
+          updateMAFromData(appended, sma20Ref.current, ema50Ref.current, ema200Ref.current);
+          return appended;
         }
 
         return prev;
@@ -542,7 +616,9 @@ export default function PriceChart() {
               volumeSeriesRef.current?.update(toVolumeData(c, tc.bullAlpha, tc.bearAlpha));
             }
           }
-          return updated.length > 2500 ? updated.slice(-2000) : updated;
+          const trimmed = updated.length > 2500 ? updated.slice(-2000) : updated;
+          updateMAFromData(trimmed, sma20Ref.current, ema50Ref.current, ema200Ref.current);
+          return trimmed;
         });
       } catch { /* ignore */ }
     }, 90_000);
@@ -592,6 +668,7 @@ export default function PriceChart() {
               updated[updated.length - 1] = newCandle;
               candleSeriesRef.current?.update(toChartData(newCandle));
               volumeSeriesRef.current?.update(toVolumeData(newCandle, tc.bullAlpha, tc.bearAlpha));
+              updateMAFromData(updated, sma20Ref.current, ema50Ref.current, ema200Ref.current);
               return updated;
             });
           }
@@ -622,7 +699,9 @@ export default function PriceChart() {
               volumeSeriesRef.current?.update(toVolumeData(c, tc.bullAlpha, tc.bearAlpha));
             }
           }
-          return updated.length > 2500 ? updated.slice(-2000) : updated;
+          const trimmed = updated.length > 2500 ? updated.slice(-2000) : updated;
+          updateMAFromData(trimmed, sma20Ref.current, ema50Ref.current, ema200Ref.current);
+          return trimmed;
         });
         // Trigger ingestion in background for fresh data
         api.fetchPrices(sym, tf, 10).catch(() => {});
@@ -698,7 +777,8 @@ export default function PriceChart() {
      Accumulation zones (order book — crypto only)
      ────────────────────────────────────────────────── */
   useEffect(() => {
-    const crypto = activeSymbol.endsWith("USDT") || activeSymbol.endsWith("USDC") || activeSymbol.endsWith("BTC");
+    const CRYPTO_SYMBOLS = new Set(["BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "ETHBTC"]);
+    const crypto = CRYPTO_SYMBOLS.has(activeSymbol);
     if (!crypto) {
       setZones([]);
       accZonePrimRef.current?.updateZones([], []);
@@ -804,6 +884,11 @@ export default function PriceChart() {
               <span className="text-[var(--color-text-muted)]">
                 C <span className="text-[var(--color-text-primary)]">{formatPrice(hoveredCandle.close, activeSymbol)}</span>
               </span>
+              {hoveredCandle.volume > 0 && (
+                <span className="text-[var(--color-text-muted)]">
+                  V <span className="text-[var(--color-text-secondary)]">{formatVolume(hoveredCandle.volume)}</span>
+                </span>
+              )}
             </div>
           )}
         </div>
