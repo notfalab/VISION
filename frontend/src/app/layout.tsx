@@ -6,6 +6,10 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "VISION — Smart Money Analytics",
   description: "Institutional flow detection for forex, gold, and crypto",
+  icons: {
+    icon: "/icon.svg",
+    apple: "/apple-icon.png",
+  },
 };
 
 export default function RootLayout({
