@@ -279,7 +279,8 @@ export default function PriceChart() {
      Symbol / Timeframe change — update chart config
      ────────────────────────────────────────────────── */
   useEffect(() => {
-    // Update price formatter
+    const chart = chartRef.current;
+    // Update price formatter for new symbol
     candleSeriesRef.current?.applyOptions({
       priceFormat: {
         type: "custom" as const,
@@ -291,6 +292,11 @@ export default function PriceChart() {
     setData([]);
     chartDataPushedRef.current = ""; // Allow new push for new symbol/tf
     pushDataToChart([]);
+    // Force price scale reset so old Y-axis range doesn't persist
+    if (chart) {
+      chart.priceScale("right").applyOptions({ autoScale: true });
+      chart.timeScale().fitContent();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSymbol, activeTimeframe]);
 
@@ -300,6 +306,7 @@ export default function PriceChart() {
      ────────────────────────────────────────────────── */
   const pushDataToChart = useCallback(
     (newData: OHLCV[]) => {
+      const chart = chartRef.current;
       if (newData.length === 0) {
         candleSeriesRef.current?.setData([]);
         volumeSeriesRef.current?.setData([]);
@@ -316,6 +323,11 @@ export default function PriceChart() {
       sma20Ref.current?.setData(computeSMA(newData, 20));
       ema50Ref.current?.setData(computeEMA(newData, 50));
       ema200Ref.current?.setData(computeEMA(newData, 200));
+      // Force chart to rescale Y-axis and fit all data after series update
+      if (chart) {
+        chart.priceScale("right").applyOptions({ autoScale: true });
+        chart.timeScale().fitContent();
+      }
     },
     [theme]
   );

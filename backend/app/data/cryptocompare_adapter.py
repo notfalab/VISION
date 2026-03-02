@@ -28,8 +28,9 @@ SYMBOL_MAP: dict[str, tuple[str, str]] = {
 
 SUPPORTED_SYMBOLS = set(SYMBOL_MAP.keys())
 
-# Timeframe -> (endpoint, aggregation_factor)
-# factor=1 means direct fetch, factor>1 means fetch finer data and aggregate
+# Timeframe -> (endpoint, aggregate_param)
+# CryptoCompare's native `aggregate` param groups candles server-side
+# with proper time-boundary alignment (e.g. 15m candles at :00, :15, :30, :45).
 TIMEFRAME_CONFIG: dict[str, tuple[str, int]] = {
     "1m": ("histominute", 1),
     "5m": ("histominute", 5),
@@ -96,20 +97,16 @@ class CryptoCompareAdapter(DataSourceAdapter):
             logger.warning("unsupported_timeframe", timeframe=timeframe)
             return pd.DataFrame()
 
-        endpoint, factor = config
+        endpoint, aggregate = config
 
-        # Fetch enough raw candles to produce `limit` aggregated candles
-        raw_limit = limit * factor
-        raw_candles = await self._fetch_raw(endpoint, fsym, tsym, raw_limit, since)
+        # Use CryptoCompare's native aggregate param for proper time-aligned candles
+        # e.g. aggregate=15 on histominute → 15m candles at :00, :15, :30, :45
+        raw_candles = await self._fetch_raw(endpoint, fsym, tsym, limit, since, aggregate=aggregate)
 
         if not raw_candles:
             return pd.DataFrame()
 
         df = pd.DataFrame(raw_candles)
-
-        if factor > 1:
-            df = self._aggregate_candles(df, factor)
-
         df = df.tail(limit).reset_index(drop=True)
         logger.info("fetched", symbol=symbol, timeframe=timeframe, rows=len(df))
         return df
@@ -121,8 +118,14 @@ class CryptoCompareAdapter(DataSourceAdapter):
         tsym: str,
         limit: int,
         since: datetime | None = None,
+        aggregate: int = 1,
     ) -> list[dict]:
-        """Fetch raw candle data with pagination (max 2000 per request)."""
+        """Fetch candle data with pagination (max 2000 per request).
+
+        Uses CryptoCompare's native `aggregate` parameter for proper
+        time-boundary alignment (e.g. aggregate=15 on histominute
+        produces 15m candles at :00, :15, :30, :45).
+        """
         all_rows: list[dict] = []
         remaining = limit
         to_ts: int | None = None
@@ -138,6 +141,7 @@ class CryptoCompareAdapter(DataSourceAdapter):
                 "fsym": fsym,
                 "tsym": tsym,
                 "limit": batch,
+                "aggregate": aggregate,
             }
             if to_ts:
                 params["toTs"] = to_ts

@@ -184,18 +184,32 @@ def _validate_timeframe_data(df: pd.DataFrame, timeframe: str) -> bool:
     deltas = timestamps.diff().dropna()
     median_delta = deltas.median()
 
-    # Allow 5x tolerance (forex has weekend gaps, but daily data when
-    # 5m is requested would show ~288x the expected delta)
+    # Allow 5x tolerance for too-coarse data (forex has weekend gaps,
+    # but daily data when 5m is requested would show ~288x the expected delta)
     max_allowed = expected * 5
     if median_delta > max_allowed:
         logger.warning(
-            "timeframe_mismatch",
+            "timeframe_mismatch_too_coarse",
             timeframe=timeframe,
             expected=str(expected),
             actual_median=str(median_delta),
             rows=len(df),
         )
         return False
+
+    # Also reject data that's too fine-grained (e.g. 1m data stored as 15m)
+    # Use 30% of expected as minimum — anything below means wrong granularity
+    min_allowed = expected * 0.3
+    if median_delta < min_allowed:
+        logger.warning(
+            "timeframe_mismatch_too_fine",
+            timeframe=timeframe,
+            expected=str(expected),
+            actual_median=str(median_delta),
+            rows=len(df),
+        )
+        return False
+
     return True
 
 
