@@ -1059,15 +1059,19 @@ export default function PriceChart() {
     setHoveredZone(null);
   };
 
-  // Scroll wheel: plain = pan, Ctrl/Cmd = zoom
-  const handleWheel = (e: React.WheelEvent) => {
+  // ── Native non-passive event handlers (wheel + touch) ──
+  // React 18 registers onWheel/onTouchMove as passive, so e.preventDefault()
+  // is ignored. We use native addEventListener with { passive: false } instead.
+
+  const handleWheelNative = useCallback((e: WheelEvent) => {
     e.preventDefault();
+    e.stopPropagation();
 
     if (e.ctrlKey || e.metaKey) {
       // Zoom: scroll up = zoom in, scroll down = zoom out
-      const delta = e.deltaY > 0 ? -0.15 : 0.15;
+      const d = e.deltaY > 0 ? -0.15 : 0.15;
       setZoomLevel((prev) => {
-        const next = Math.round((prev + delta) * 100) / 100;
+        const next = Math.round((prev + d) * 100) / 100;
         return Math.max(ZOOM_MIN, Math.min(next, ZOOM_MAX));
       });
       return;
@@ -1078,31 +1082,30 @@ export default function PriceChart() {
     const MIN_OFFSET = -Math.round(VIEW_SLOTS * 0.3);
     const delta = e.deltaX !== 0 ? e.deltaX : e.deltaY;
     const shift = delta > 0 ? -3 : 3;
-    const maxOffset = Math.max(0, data.length - VIEW_SLOTS);
-    setPanOffset((prev) => Math.max(MIN_OFFSET, Math.min(prev + shift, maxOffset)));
-  };
+    setPanOffset((prev) => {
+      const maxOff = Math.max(0, data.length - VIEW_SLOTS);
+      return Math.max(MIN_OFFSET, Math.min(prev + shift, maxOff));
+    });
+  }, [getViewSlots, data.length]);
 
-  // Touch handlers for mobile pinch-zoom and pan
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+  const handleTouchStartNative = useCallback((e: TouchEvent) => {
     if (e.touches.length === 1) {
-      // Single finger — pan
       isTouching.current = true;
       touchStartX.current = e.touches[0].clientX;
-      touchStartOffset.current = panOffset;
+      // Read panOffset from functional updater to avoid stale closure
+      setPanOffset((current) => { touchStartOffset.current = current; return current; });
     } else if (e.touches.length === 2) {
-      // Two fingers — pinch zoom
       isTouching.current = false;
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       pinchStartDist.current = Math.hypot(dx, dy);
-      pinchStartZoom.current = zoomLevel;
+      setZoomLevel((current) => { pinchStartZoom.current = current; return current; });
     }
-  }, [panOffset, zoomLevel]);
+  }, []);
 
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+  const handleTouchMoveNative = useCallback((e: TouchEvent) => {
     e.preventDefault();
     if (e.touches.length === 1 && isTouching.current) {
-      // Pan
       const dx = e.touches[0].clientX - touchStartX.current;
       const geom = chartGeomRef.current;
       const chartW = dimensions.width - geom.paddingLeft - geom.paddingRight;
@@ -1110,11 +1113,11 @@ export default function PriceChart() {
       const candleW = chartW / VIEW_SLOTS;
       const candleShift = Math.round(dx / candleW);
       const MIN_OFFSET = -Math.round(VIEW_SLOTS * 0.3);
-      const maxOffset = Math.max(0, data.length - VIEW_SLOTS);
-      const newOffset = Math.max(MIN_OFFSET, Math.min(touchStartOffset.current + candleShift, maxOffset));
-      setPanOffset(newOffset);
+      setPanOffset(() => {
+        const maxOff = Math.max(0, data.length - VIEW_SLOTS);
+        return Math.max(MIN_OFFSET, Math.min(touchStartOffset.current + candleShift, maxOff));
+      });
     } else if (e.touches.length === 2 && pinchStartDist.current > 0) {
-      // Pinch zoom
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const dist = Math.hypot(dx, dy);
@@ -1122,12 +1125,28 @@ export default function PriceChart() {
       const newZoom = Math.round(pinchStartZoom.current * scale * 100) / 100;
       setZoomLevel(Math.max(ZOOM_MIN, Math.min(newZoom, ZOOM_MAX)));
     }
-  }, [dimensions.width, getViewSlots, data.length, ZOOM_MIN, ZOOM_MAX]);
+  }, [dimensions.width, getViewSlots, data.length]);
 
-  const handleTouchEnd = useCallback(() => {
+  const handleTouchEndNative = useCallback(() => {
     isTouching.current = false;
     pinchStartDist.current = 0;
   }, []);
+
+  // Register non-passive wheel + touch listeners
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    el.addEventListener("wheel", handleWheelNative, { passive: false });
+    el.addEventListener("touchstart", handleTouchStartNative, { passive: false });
+    el.addEventListener("touchmove", handleTouchMoveNative, { passive: false });
+    el.addEventListener("touchend", handleTouchEndNative);
+    return () => {
+      el.removeEventListener("wheel", handleWheelNative);
+      el.removeEventListener("touchstart", handleTouchStartNative);
+      el.removeEventListener("touchmove", handleTouchMoveNative);
+      el.removeEventListener("touchend", handleTouchEndNative);
+    };
+  }, [handleWheelNative, handleTouchStartNative, handleTouchMoveNative, handleTouchEndNative]);
 
   const buyZoneCount = zones.filter((z) => z.type === "buy").length;
   const sellZoneCount = zones.filter((z) => z.type === "sell").length;
@@ -1243,10 +1262,6 @@ export default function PriceChart() {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
-        onWheel={handleWheel}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
       >
         {loading ? (
           <div className="absolute inset-0 flex items-center justify-center">
@@ -1256,6 +1271,22 @@ export default function PriceChart() {
           </div>
         ) : (
           <canvas ref={canvasRef} className="absolute inset-0" />
+        )}
+
+        {/* Snap to latest candle button */}
+        {panOffset > 0 && !loading && (
+          <button
+            onClick={() => setPanOffset(0)}
+            className="absolute bottom-14 right-20 z-40 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-mono font-semibold transition-all duration-200 shadow-lg hover:scale-105 active:scale-95"
+            style={{
+              backgroundColor: "var(--color-neon-blue)",
+              color: "#fff",
+              boxShadow: "0 2px 12px color-mix(in srgb, var(--color-neon-blue) 40%, transparent)",
+            }}
+            title="Scroll to latest candle"
+          >
+            Latest ▸
+          </button>
         )}
 
         {/* Zone hover tooltip */}

@@ -361,8 +361,9 @@ export default function PerformanceDashboard() {
                       borderRadius: 8,
                       fontSize: 11,
                       fontFamily: "JetBrains Mono",
-                      color: "var(--color-text-primary)",
                     }}
+                    labelStyle={{ color: "#e2e8f0" }}
+                    itemStyle={{ color: "#e2e8f0" }}
                     formatter={(value) => [`$${Number(value ?? 0).toFixed(2)}`, "P&L"]}
                   />
                   <Line
@@ -400,8 +401,9 @@ export default function PerformanceDashboard() {
                       borderRadius: 8,
                       fontSize: 11,
                       fontFamily: "JetBrains Mono",
-                      color: "var(--color-text-primary)",
                     }}
+                    labelStyle={{ color: "#e2e8f0" }}
+                    itemStyle={{ color: "#e2e8f0" }}
                     formatter={(value) => [`${Number(value ?? 0).toFixed(2)}%`, "Drawdown"]}
                   />
                   <Line
@@ -453,8 +455,9 @@ export default function PerformanceDashboard() {
                           borderRadius: 8,
                           fontSize: 10,
                           fontFamily: "JetBrains Mono",
-                          color: "var(--color-text-primary)",
                         }}
+                        labelStyle={{ color: "#e2e8f0" }}
+                        itemStyle={{ color: "#e2e8f0" }}
                       />
                     </PieChart>
                   </ResponsiveContainer>
@@ -508,8 +511,9 @@ export default function PerformanceDashboard() {
                             borderRadius: 8,
                             fontSize: 10,
                             fontFamily: "JetBrains Mono",
-                            color: "var(--color-text-primary)",
                           }}
+                          labelStyle={{ color: "#e2e8f0" }}
+                          itemStyle={{ color: "#e2e8f0" }}
                           formatter={(value) => [`${Number(value ?? 0)}%`, "Win Rate"]}
                         />
                         <Bar dataKey="winRate" radius={[3, 3, 0, 0]}>
