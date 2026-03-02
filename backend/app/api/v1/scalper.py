@@ -19,6 +19,10 @@ from backend.app.models.ohlcv import OHLCVData, Timeframe
 
 router = APIRouter(prefix="/scalper", tags=["scalper"])
 
+# Minimum confidence to broadcast signals to Discord/Telegram channels.
+# Signals below this are still saved for analytics but NOT sent to groups.
+MIN_NOTIFY_CONFIDENCE = 0.70
+
 # Valid scalper timeframes (1d included for assets without intraday data, e.g. gold on free tier)
 SCALPER_TIMEFRAMES = {"5m": Timeframe.M5, "15m": Timeframe.M15, "30m": Timeframe.M30, "1d": Timeframe.D1}
 
@@ -186,11 +190,15 @@ async def scan_and_save(
     # Scan all timeframes
     signals = scan_multi_timeframe(dataframes, symbol, loss_patterns)
 
-    # Save signals and notify via Telegram
+    # Save signals and notify via Telegram + Discord (only if confidence >= 70%)
     saved = []
     for sig in signals:
         saved_sig = save_signal(sig)
         saved.append(saved_sig)
+
+        # Only broadcast signals with >= 70% confidence to channels
+        if sig.get("confidence", 0) < MIN_NOTIFY_CONFIDENCE:
+            continue
 
         # Send Telegram notification for each signal
         try:
@@ -198,6 +206,13 @@ async def scan_and_save(
             await notify_signal(sig)
         except Exception:
             pass  # Don't fail scan if notification fails
+
+        # Send Discord notification
+        try:
+            from backend.app.notifications.discord import notify_signal as discord_notify_signal
+            await discord_notify_signal(sig)
+        except Exception:
+            pass
 
     # Update active signals against current price
     _check_active_signals(symbol, dataframes)

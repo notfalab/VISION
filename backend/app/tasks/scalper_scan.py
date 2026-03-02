@@ -13,6 +13,11 @@ from backend.app.logging_config import get_logger
 
 logger = get_logger("tasks.scalper_scan")
 
+# Minimum confidence to broadcast signals to Discord/Telegram channels.
+# Signals below this threshold are still saved for analytics/journal,
+# but NOT sent to public groups to avoid noisy low-quality alerts.
+MIN_NOTIFY_CONFIDENCE = 0.70
+
 
 def _run_async(coro):
     """Run an async coroutine from sync Celery context."""
@@ -148,9 +153,23 @@ async def _async_scan(symbol: str = "XAUUSD"):
 
     # 5. Save signals to Redis and notify via Telegram + Discord
     saved = 0
+    notified = 0
     for sig in signals:
         save_signal(sig)
         saved += 1
+
+        # Only broadcast signals with >= 70% confidence to channels
+        sig_confidence = sig.get("confidence", 0)
+        if sig_confidence < MIN_NOTIFY_CONFIDENCE:
+            logger.info(
+                "signal_below_notify_threshold",
+                symbol=symbol,
+                confidence=f"{sig_confidence:.1%}",
+                threshold=f"{MIN_NOTIFY_CONFIDENCE:.0%}",
+                direction=sig.get("direction"),
+                timeframe=sig.get("timeframe"),
+            )
+            continue
 
         # Send Telegram notification
         try:
@@ -163,6 +182,8 @@ async def _async_scan(symbol: str = "XAUUSD"):
             await discord_notify_signal(sig)
         except Exception as e:
             logger.warning("discord_notify_failed", error=str(e))
+
+        notified += 1
 
     # 6. Check active signals for SL/TP hits
     from backend.app.core.scalper.outcome_tracker import check_signal_outcome
@@ -213,6 +234,7 @@ async def _async_scan(symbol: str = "XAUUSD"):
         "scalper_scan_complete",
         symbol=symbol,
         signals_generated=saved,
+        signals_notified=notified,
         outcomes_resolved=outcomes,
         timeframes=list(dataframes.keys()),
         data_ingested=ingested,
@@ -221,6 +243,7 @@ async def _async_scan(symbol: str = "XAUUSD"):
     return {
         "symbol": symbol,
         "signals_generated": saved,
+        "signals_notified": notified,
         "outcomes_resolved": outcomes,
         "data_ingested": ingested,
         "timeframes_available": list(dataframes.keys()),
