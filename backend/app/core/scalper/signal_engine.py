@@ -30,27 +30,35 @@ SCALPER_WEIGHTS = {
     "candle_patterns": 1.5, # Pattern recognition
 }
 
-# Signal thresholds (per-timeframe)
+# Signal thresholds (per-timeframe) — tuned to reduce noise-driven stop-outs
+# Previous: min_confidence=0.55, min_confluence=4 → 16% win rate
+# Now: stricter filtering = fewer but higher-quality signals
 THRESHOLDS = {
-    "default": {"min_score": 60, "min_confidence": 0.55, "min_confluence": 4},
-    "1d":      {"min_score": 55, "min_confidence": 0.45, "min_confluence": 3},
-    "1w":      {"min_score": 55, "min_confidence": 0.40, "min_confluence": 3},
+    "default": {"min_score": 65, "min_confidence": 0.65, "min_confluence": 6},
+    "5m":      {"min_score": 68, "min_confidence": 0.68, "min_confluence": 7},
+    "15m":     {"min_score": 65, "min_confidence": 0.65, "min_confluence": 6},
+    "1h":      {"min_score": 62, "min_confidence": 0.60, "min_confluence": 5},
+    "1d":      {"min_score": 55, "min_confidence": 0.50, "min_confluence": 4},
+    "1w":      {"min_score": 55, "min_confidence": 0.45, "min_confluence": 3},
 }
 
 # Crypto needs stricter thresholds (higher volatility → more false signals)
 CRYPTO_THRESHOLDS = {
-    "default": {"min_score": 65, "min_confidence": 0.60, "min_confluence": 5},
-    "1h":      {"min_score": 62, "min_confidence": 0.58, "min_confluence": 5},
-    "1d":      {"min_score": 58, "min_confidence": 0.50, "min_confluence": 4},
+    "default": {"min_score": 70, "min_confidence": 0.68, "min_confluence": 6},
+    "5m":      {"min_score": 72, "min_confidence": 0.70, "min_confluence": 7},
+    "1h":      {"min_score": 65, "min_confidence": 0.62, "min_confluence": 6},
+    "1d":      {"min_score": 58, "min_confidence": 0.55, "min_confluence": 5},
 }
 
 CRYPTO_SYMBOLS = {"BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "ETHBTC"}
 
-# Forex thresholds — moderate volatility, slightly stricter on short timeframes
+# Forex thresholds — moderate volatility, stricter on short timeframes
 FOREX_THRESHOLDS = {
-    "default": {"min_score": 62, "min_confidence": 0.57, "min_confluence": 4},
-    "5m":      {"min_score": 65, "min_confidence": 0.60, "min_confluence": 5},
-    "1d":      {"min_score": 55, "min_confidence": 0.45, "min_confluence": 3},
+    "default": {"min_score": 65, "min_confidence": 0.65, "min_confluence": 6},
+    "5m":      {"min_score": 68, "min_confidence": 0.68, "min_confluence": 7},
+    "15m":     {"min_score": 65, "min_confidence": 0.65, "min_confluence": 6},
+    "1h":      {"min_score": 62, "min_confidence": 0.60, "min_confluence": 5},
+    "1d":      {"min_score": 55, "min_confidence": 0.50, "min_confluence": 4},
 }
 
 FOREX_SYMBOLS = {"EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDCHF",
@@ -65,18 +73,35 @@ def _get_thresholds(timeframe: str, symbol: str = "") -> dict:
     return THRESHOLDS.get(timeframe, THRESHOLDS["default"])
 
 
-# SL/TP ATR multipliers — crypto gets wider stops to avoid noise wicks
-SL_ATR_MULT = 1.5
-TP_ATR_MULT = 2.5
-CRYPTO_SL_ATR_MULT = 2.0    # Wider SL for crypto volatility
-CRYPTO_TP_ATR_MULT = 3.0    # Wider TP to match the wider SL
+# SL/TP ATR multipliers per timeframe — wider stops on fast TFs to survive noise
+# Previous: flat 1.5x SL on 5m = stopped out by normal wicks
+# Now: 5m gets 2.5x SL / 4.0x TP = room to breathe, good R:R
+ATR_MULT_BY_TF = {
+    "1m":  (2.0, 3.0),
+    "5m":  (2.5, 4.0),    # Was 1.5/2.5 → constant noise stop-outs
+    "15m": (2.0, 3.5),    # Was 1.5/2.5
+    "30m": (1.8, 3.0),
+    "1h":  (1.5, 2.5),    # Hourly is fine with original
+    "4h":  (1.5, 2.5),
+    "1d":  (1.5, 2.5),
+}
+
+CRYPTO_ATR_MULT_BY_TF = {
+    "1m":  (2.5, 4.0),
+    "5m":  (3.0, 5.0),    # Was 2.0/3.0 → crypto noise is extreme on 5m
+    "15m": (2.5, 4.0),
+    "30m": (2.0, 3.5),
+    "1h":  (2.0, 3.0),
+    "4h":  (1.8, 3.0),
+    "1d":  (1.5, 2.5),
+}
 
 
-def _get_atr_multipliers(symbol: str) -> tuple[float, float]:
-    """Return (SL_mult, TP_mult) based on asset type."""
+def _get_atr_multipliers(symbol: str, timeframe: str = "1h") -> tuple[float, float]:
+    """Return (SL_mult, TP_mult) based on asset type and timeframe."""
     if symbol.upper() in CRYPTO_SYMBOLS:
-        return CRYPTO_SL_ATR_MULT, CRYPTO_TP_ATR_MULT
-    return SL_ATR_MULT, TP_ATR_MULT
+        return CRYPTO_ATR_MULT_BY_TF.get(timeframe, (2.0, 3.0))
+    return ATR_MULT_BY_TF.get(timeframe, (1.5, 2.5))
 
 
 def _classify_signal(metadata: dict) -> str:
@@ -304,34 +329,44 @@ def generate_signals(
         confidence = confidence * 0.7 + ml_confidence * 0.3  # Blend with ML
 
     if not regime_compatible:
-        confidence *= 0.6  # Heavy penalty for regime mismatch
+        confidence *= 0.4  # Was 0.6 — trading against trend is extremely risky
 
     if confluence_count < min_confluence:
-        confidence *= 0.8  # Penalty for low confluence
+        confidence *= 0.7  # Was 0.8 — low confluence = weak setup
 
     confidence = round(min(max(confidence, 0), 1.0), 3)
 
-    # ── 10. Apply loss pattern filters ──
+    # ── 10. Block overextended entries (RSI extremes) ──
+    rsi_val = indicator_snapshot.get("rsi", {}).get("value", 50)
+    if direction == "long" and rsi_val > 72:
+        logger.info("signal_blocked_overbought", symbol=symbol, rsi=rsi_val, direction=direction)
+        return []  # Don't enter longs at overbought — historically lose 80%+
+    if direction == "short" and rsi_val < 28:
+        logger.info("signal_blocked_oversold", symbol=symbol, rsi=rsi_val, direction=direction)
+        return []  # Don't enter shorts at oversold — historically lose 80%+
+
+    # ── 11. Apply loss pattern filters (stronger penalties) ──
     loss_filter_applied = False
     if loss_patterns:
         for pattern in loss_patterns:
             conditions = pattern.get("conditions", {})
-            # Check if current setup matches a known loss pattern
+            # Known loss pattern for this regime+direction → heavy penalty
             if conditions.get("regime") == regime and conditions.get("direction") == direction:
-                confidence *= 0.7  # Reduce confidence for known loss pattern
+                confidence *= 0.5  # Was 0.7 (30% penalty) → now 50% penalty
                 loss_filter_applied = True
                 logger.info(
                     "loss_filter_applied",
                     pattern_id=pattern.get("id"),
                     category=pattern.get("category"),
+                    new_confidence=confidence,
                 )
+            # Overextended patterns with RSI near extremes → block entirely
             if conditions.get("category") == "overextended":
-                rsi_val = indicator_snapshot.get("rsi", {}).get("value", 50)
-                if (direction == "long" and rsi_val > 75) or (direction == "short" and rsi_val < 25):
-                    confidence *= 0.6
-                    loss_filter_applied = True
+                if (direction == "long" and rsi_val > 65) or (direction == "short" and rsi_val < 35):
+                    logger.info("signal_blocked_overextended_pattern", symbol=symbol, rsi=rsi_val)
+                    return []  # Skip trade entirely if known overextended loss pattern
 
-    # ── 11. Check minimum thresholds ──
+    # ── 12. Check minimum thresholds ──
     if confidence < min_confidence:
         logger.info(
             "signal_below_confidence",
@@ -342,7 +377,7 @@ def generate_signals(
         )
         return []
 
-    # ── 12. Calculate SL/TP from ATR ──
+    # ── 13. Calculate SL/TP from ATR ──
     atr_data = indicator_snapshot.get("atr", {})
     atr_value = atr_data.get("value", 0)
 
@@ -365,7 +400,7 @@ def generate_signals(
         atr_value = abs(df["close"].iloc[-1] * 0.002)  # 0.2% fallback
 
     current_price = float(df["close"].iloc[-1])
-    sl_mult, tp_mult = _get_atr_multipliers(symbol)
+    sl_mult, tp_mult = _get_atr_multipliers(symbol, timeframe)
 
     if direction == "long":
         entry_price = current_price
@@ -380,9 +415,9 @@ def generate_signals(
     reward = abs(take_profit - entry_price)
     risk_reward = round(reward / risk, 2) if risk > 0 else 0
 
-    # ── 13. Build signal ──
-    # Expiry: 5m → 30min, 15m → 1.5h, 30m → 3h
-    expiry_map = {"1m": 10, "5m": 30, "15m": 90, "30m": 180, "1h": 360, "4h": 720, "1d": 1440}
+    # ── 14. Build signal ──
+    # Expiry: give trades ~12 candles to develop (was only 6 → constant expiry)
+    expiry_map = {"1m": 15, "5m": 60, "15m": 180, "30m": 360, "1h": 600, "4h": 1440, "1d": 2880}
     expiry_minutes = expiry_map.get(timeframe, 120)
 
     signal = {
