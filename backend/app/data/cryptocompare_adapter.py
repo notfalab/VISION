@@ -100,16 +100,31 @@ class CryptoCompareAdapter(DataSourceAdapter):
 
         endpoint, aggregate = config
 
-        # Use CryptoCompare's native aggregate param for proper time-aligned candles
-        # e.g. aggregate=15 on histominute → 15m candles at :00, :15, :30, :45
-        raw_candles = await self._fetch_raw(endpoint, fsym, tsym, limit, since, aggregate=aggregate)
-
-        if not raw_candles:
-            return pd.DataFrame()
-
-        df = pd.DataFrame(raw_candles)
-        df = df.tail(limit).reset_index(drop=True)
-        logger.info("fetched", symbol=symbol, timeframe=timeframe, rows=len(df))
+        # For 4h/1w/1M: server-side aggregation limits total candle count.
+        # Fetch 1h/1d raw data and aggregate client-side for more history.
+        if timeframe == "4h":
+            raw_candles = await self._fetch_raw("histohour", fsym, tsym, limit * 4, since, aggregate=1)
+            if not raw_candles:
+                return pd.DataFrame()
+            df = self._aggregate_candles(pd.DataFrame(raw_candles), 4)
+            df = df.tail(limit).reset_index(drop=True)
+            logger.info("fetched", symbol=symbol, timeframe=timeframe, rows=len(df))
+        elif timeframe == "1w":
+            raw_candles = await self._fetch_raw("histoday", fsym, tsym, limit * 7, since, aggregate=1)
+            if not raw_candles:
+                return pd.DataFrame()
+            df = self._aggregate_candles(pd.DataFrame(raw_candles), 7)
+            df = df.tail(limit).reset_index(drop=True)
+            logger.info("fetched", symbol=symbol, timeframe=timeframe, rows=len(df))
+        else:
+            # Use CryptoCompare's native aggregate param for proper time-aligned candles
+            # e.g. aggregate=15 on histominute → 15m candles at :00, :15, :30, :45
+            raw_candles = await self._fetch_raw(endpoint, fsym, tsym, limit, since, aggregate=aggregate)
+            if not raw_candles:
+                return pd.DataFrame()
+            df = pd.DataFrame(raw_candles)
+            df = df.tail(limit).reset_index(drop=True)
+            logger.info("fetched", symbol=symbol, timeframe=timeframe, rows=len(df))
         return df
 
     async def _fetch_raw(
