@@ -92,7 +92,14 @@ class AlphaVantageAdapter(DataSourceAdapter):
                 df = pd.DataFrame()
         elif symbol in FOREX_SYMBOLS:
             from_sym, to_sym = FOREX_SYMBOLS[symbol]
-            if timeframe in AV_INTERVALS:
+            if timeframe == "4h":
+                # AV doesn't have native 4h — fetch 1h and aggregate
+                df_1h = await self._fetch_fx_intraday(from_sym, to_sym, "60min")
+                if not df_1h.empty:
+                    df = self._aggregate_to_4h(df_1h)
+                else:
+                    df = pd.DataFrame()
+            elif timeframe in AV_INTERVALS:
                 df = await self._fetch_fx_intraday(from_sym, to_sym, AV_INTERVALS[timeframe])
             else:
                 df = await self._fetch_fx_daily(from_sym, to_sym)
@@ -198,6 +205,25 @@ class AlphaVantageAdapter(DataSourceAdapter):
             raise ValueError(f"Alpha Vantage rate limited: {data['Note']}")
 
         return data
+
+    @staticmethod
+    def _aggregate_to_4h(df: pd.DataFrame) -> pd.DataFrame:
+        """Aggregate 1h candles into 4h candles."""
+        if df.empty or len(df) < 4:
+            return pd.DataFrame()
+        df = df.sort_values("timestamp").reset_index(drop=True)
+        # Align to 4h boundaries (0, 4, 8, 12, 16, 20 UTC)
+        df["bucket"] = df["timestamp"].dt.floor("4h")
+        grouped = df.groupby("bucket").agg(
+            open=("open", "first"),
+            high=("high", "max"),
+            low=("low", "min"),
+            close=("close", "last"),
+            volume=("volume", "sum"),
+        ).reset_index()
+        grouped = grouped.rename(columns={"bucket": "timestamp"})
+        # Drop incomplete buckets (< 4 candles in a bucket, except the last)
+        return grouped.sort_values("timestamp").reset_index(drop=True)
 
     def _parse_time_series(self, ts_data: dict) -> pd.DataFrame:
         """Parse standard AV time series format."""

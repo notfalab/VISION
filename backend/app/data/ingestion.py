@@ -215,7 +215,7 @@ def _validate_timeframe_data(df: pd.DataFrame, timeframe: str) -> bool:
 
 async def _fetch_with_fallback(symbol: str, timeframe: str, limit: int, since: datetime | None) -> pd.DataFrame:
     """Try the primary adapter, then fallbacks (OANDA, Alpha Vantage) until we have enough data."""
-    min_rows = min(limit, 50)
+    min_rows = min(limit, 500)
 
     # Primary adapter
     primary_name = None

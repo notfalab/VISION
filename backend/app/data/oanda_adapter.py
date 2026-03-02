@@ -1,7 +1,7 @@
 """OANDA adapter — real-time forex & gold prices via OANDA v20 REST API."""
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import httpx
 import pandas as pd
@@ -190,6 +190,12 @@ class OandaAdapter(DataSourceAdapter):
         all_rows: list[dict] = []
         remaining = limit
 
+        # Calculate explicit 'from' date for deep history
+        # Using count-only sometimes returns limited data on practice accounts
+        _TF_HOURS = {"1m": 1/60, "5m": 5/60, "15m": 0.25, "30m": 0.5,
+                      "1h": 1, "4h": 4, "1d": 24, "1w": 168, "1M": 720}
+        tf_hours = _TF_HOURS.get(timeframe, 1)
+
         # OANDA allows max 5000 candles per request
         while remaining > 0:
             batch_size = min(remaining, 5000)
@@ -201,8 +207,12 @@ class OandaAdapter(DataSourceAdapter):
 
             if since and not all_rows:
                 params["from"] = since.strftime("%Y-%m-%dT%H:%M:%SZ")
-                params.pop("count", None)
-                params["count"] = batch_size
+            elif not all_rows:
+                # Use explicit 'from' date for deeper history retrieval
+                # 3x multiplier accounts for weekends/holidays
+                hours_back = tf_hours * limit * 3
+                from_date = datetime.now(timezone.utc) - timedelta(hours=hours_back)
+                params["from"] = from_date.strftime("%Y-%m-%dT%H:%M:%SZ")
 
             if all_rows:
                 # Paginate: fetch candles before the earliest one

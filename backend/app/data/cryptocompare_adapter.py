@@ -24,6 +24,7 @@ SYMBOL_MAP: dict[str, tuple[str, str]] = {
     "SOLUSD": ("SOL", "USD"),
     "XRPUSD": ("XRP", "USD"),
     "ETHBTC": ("ETH", "BTC"),
+    "XAUUSD": ("XAU", "USD"),  # Gold — used as fallback when OANDA has limited history
 }
 
 SUPPORTED_SYMBOLS = set(SYMBOL_MAP.keys())
