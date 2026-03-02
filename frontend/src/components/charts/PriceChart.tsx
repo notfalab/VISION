@@ -587,8 +587,10 @@ export default function PriceChart() {
     const priceMax = Math.max(...allHighs) * 1.001;
     const volMax = Math.max(...allVols) * 1.1;
 
-    // Fit candles to actual data when fewer than VIEW_SLOTS
-    const effectiveSlots = Math.min(VIEW_SLOTS, visibleData.length);
+    // When panning past the latest candle (emptyRight > 0), keep candle width
+    // fixed at VIEW_SLOTS so empty space is visible on the right side.
+    // Only stretch candles when genuinely less data exists (not panning).
+    const effectiveSlots = emptyRight > 0 ? VIEW_SLOTS : Math.min(VIEW_SLOTS, visibleData.length);
     const candleW = chartW / effectiveSlots;
     const bodyW = Math.max(3, candleW * 0.6);
 
