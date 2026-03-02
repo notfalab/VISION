@@ -68,7 +68,7 @@ class MassiveAdapter(DataSourceAdapter):
         return MarketType.FOREX
 
     async def connect(self) -> None:
-        self._client = httpx.AsyncClient(timeout=30.0)
+        self._client = httpx.AsyncClient(timeout=60.0)
         if not self._api_key:
             logger.warning("no_api_key", adapter=self.name)
             return
@@ -214,8 +214,9 @@ class MassiveAdapter(DataSourceAdapter):
                 break
 
             # Rate limit: Polygon free tier allows 5 calls/minute
-            # Brief pause; 429 retry above handles actual rate limits
-            await asyncio.sleep(2)
+            # 13s between calls ensures we stay under the limit
+            if len(all_rows) < limit:
+                await asyncio.sleep(13)
 
         if not all_rows:
             return pd.DataFrame()
