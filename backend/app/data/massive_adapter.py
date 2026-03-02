@@ -150,6 +150,7 @@ class MassiveAdapter(DataSourceAdapter):
         max_pages = 20 if timespan == "hour" else 30  # ~20 weeks for hourly, ~30 days for minute
 
         page = 0
+        consecutive_empty = 0
         for _ in range(max_pages):
             start = end - step
             if since and start < since:
@@ -169,29 +170,45 @@ class MassiveAdapter(DataSourceAdapter):
             try:
                 resp = await self._client.get(url, params=params)
 
-                # Handle rate limiting (429) — wait and retry once
-                if resp.status_code == 429:
-                    logger.info("massive_rate_limited", symbol=symbol, page=page)
-                    await asyncio.sleep(13)
+                # Handle rate limiting (429) — wait and retry up to 3 times
+                retries = 0
+                while resp.status_code == 429 and retries < 3:
+                    retries += 1
+                    logger.info("massive_rate_limited", symbol=symbol, page=page, retry=retries)
+                    await asyncio.sleep(15)
                     resp = await self._client.get(url, params=params)
 
                 if resp.status_code != 200:
-                    logger.warning("massive_page_error", status=resp.status_code, symbol=symbol)
-                    break
+                    logger.warning("massive_page_error", status=resp.status_code,
+                                   symbol=symbol, page=page)
+                    # Don't break — skip this page and continue
+                    end = start
+                    consecutive_empty += 1
+                    if consecutive_empty >= 3:
+                        break
+                    await asyncio.sleep(2)
+                    continue
 
                 data = resp.json()
                 status = data.get("status", "")
                 if status not in ("OK", "DELAYED"):
-                    break
+                    end = start
+                    consecutive_empty += 1
+                    if consecutive_empty >= 3:
+                        break
+                    continue
 
                 results = data.get("results", [])
                 if not results:
-                    # No data in this window, keep going back
                     end = start
+                    consecutive_empty += 1
+                    if consecutive_empty >= 3:
+                        break
                     if since and end <= since:
                         break
                     continue
 
+                consecutive_empty = 0
                 for r in results:
                     all_rows.append({
                         "timestamp": pd.Timestamp(r.get("t", 0), unit="ms", tz="UTC"),
@@ -203,8 +220,12 @@ class MassiveAdapter(DataSourceAdapter):
                     })
 
             except Exception as e:
-                logger.warning("massive_page_failed", symbol=symbol, error=str(e))
-                break
+                logger.warning("massive_page_failed", symbol=symbol, page=page, error=str(e))
+                consecutive_empty += 1
+                if consecutive_empty >= 3:
+                    break
+                end = start
+                continue
 
             page += 1
             end = start
@@ -213,10 +234,8 @@ class MassiveAdapter(DataSourceAdapter):
             if len(all_rows) >= limit:
                 break
 
-            # Rate limit: Polygon free tier allows 5 calls/minute
-            # 13s between calls ensures we stay under the limit
-            if len(all_rows) < limit:
-                await asyncio.sleep(13)
+            # Brief pause between requests
+            await asyncio.sleep(1)
 
         if not all_rows:
             return pd.DataFrame()
