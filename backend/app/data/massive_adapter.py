@@ -46,6 +46,7 @@ SYMBOL_TO_MASSIVE = {
     "BTCUSD": "X:BTCUSD",
     "ETHUSD": "X:ETHUSD",
     "SOLUSD": "X:SOLUSD",
+    "XRPUSD": "X:XRPUSD",
 }
 
 SUPPORTED_SYMBOLS = set(SYMBOL_TO_MASSIVE.keys())
@@ -145,14 +146,18 @@ class MassiveAdapter(DataSourceAdapter):
         """
         all_rows: list[dict] = []
         end = datetime.now(timezone.utc)
-        # Week step: 7 days for hour, 1 day for minute (to avoid huge responses)
-        step = timedelta(days=7) if timespan == "hour" else timedelta(days=1)
-        # 4h candles need more pages (~35 per week vs ~144 for 1h)
+        # Step sizes tuned per timeframe:
+        # - 4h: 30 days per page (~180 candles/page, ~6 pages for 1000)
+        # - 1h: 7 days per page (~168 candles/page, ~6 pages for 1000)
+        # - minute: 1 day per page
         if multiplier >= 4:
+            step = timedelta(days=30)
             max_pages = 40
         elif timespan == "hour":
+            step = timedelta(days=7)
             max_pages = 20
         else:
+            step = timedelta(days=1)
             max_pages = 30
 
         page = 0
@@ -240,8 +245,9 @@ class MassiveAdapter(DataSourceAdapter):
             if len(all_rows) >= limit:
                 break
 
-            # Brief pause between requests
-            await asyncio.sleep(1)
+            # Respect Polygon free-tier rate limit (5 calls/min).
+            # 13s delay keeps us under the limit and avoids 429s.
+            await asyncio.sleep(13)
 
         if not all_rows:
             return pd.DataFrame()

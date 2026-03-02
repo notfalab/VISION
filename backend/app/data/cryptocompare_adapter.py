@@ -100,8 +100,8 @@ class CryptoCompareAdapter(DataSourceAdapter):
 
         endpoint, aggregate = config
 
-        # For 4h/1w/1M: server-side aggregation limits total candle count.
-        # Fetch 1h/1d raw data and aggregate client-side for more history.
+        # For 4h: fetch 1h raw data and aggregate client-side for more history.
+        # CryptoCompare's server-side 4h aggregation limits total candle count.
         if timeframe == "4h":
             raw_candles = await self._fetch_raw("histohour", fsym, tsym, limit * 4, since, aggregate=1)
             if not raw_candles:
@@ -110,10 +110,13 @@ class CryptoCompareAdapter(DataSourceAdapter):
             df = df.tail(limit).reset_index(drop=True)
             logger.info("fetched", symbol=symbol, timeframe=timeframe, rows=len(df))
         elif timeframe == "1w":
-            raw_candles = await self._fetch_raw("histoday", fsym, tsym, limit * 7, since, aggregate=1)
+            # Use server-side aggregate=7 on histoday for weekly candles.
+            # This avoids the pagination issue where 7000+ daily candles
+            # wouldn't fully paginate, capping at ~286 weekly candles.
+            raw_candles = await self._fetch_raw("histoday", fsym, tsym, limit, since, aggregate=7)
             if not raw_candles:
                 return pd.DataFrame()
-            df = self._aggregate_candles(pd.DataFrame(raw_candles), 7)
+            df = pd.DataFrame(raw_candles)
             df = df.tail(limit).reset_index(drop=True)
             logger.info("fetched", symbol=symbol, timeframe=timeframe, rows=len(df))
         else:
