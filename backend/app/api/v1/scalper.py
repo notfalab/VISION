@@ -12,6 +12,7 @@ from backend.app.core.scalper.signal_store import (
     get_signals,
     update_signal,
     get_signal_by_id,
+    clear_signals,
 )
 from backend.app.models.asset import Asset
 from backend.app.models.ohlcv import OHLCVData, Timeframe
@@ -234,6 +235,55 @@ async def list_signals(
         "total": total,
         "limit": limit,
         "offset": offset,
+    }
+
+
+@router.delete("/reset")
+async def reset_all_signals():
+    """
+    Clear ALL signal history across ALL symbols.
+    Performance, journal, and analytics will start fresh.
+    """
+    ALL_SYMBOLS = [
+        "XAUUSD", "BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD",
+        "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD",
+        "NZDUSD", "USDCHF", "EURGBP", "EURJPY", "GBPJPY", "ETHBTC",
+    ]
+    cleared = []
+    for sym in ALL_SYMBOLS:
+        try:
+            clear_signals(sym)
+            cleared.append(sym)
+        except Exception:
+            pass
+
+    # Also reset the ID counter
+    try:
+        import redis as redis_lib
+        from backend.app.config import get_settings
+        settings = get_settings()
+        r = redis_lib.from_url(settings.redis_url, decode_responses=True)
+        r.set("vision:scalper:id_counter", 0)
+    except Exception:
+        pass
+
+    return {
+        "status": "ok",
+        "message": f"Cleared all signals for {len(cleared)} symbols. Starting fresh.",
+        "symbols_cleared": cleared,
+        "reset_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.delete("/{symbol}/reset")
+async def reset_symbol_signals(symbol: str):
+    """Clear all signal history for a specific symbol."""
+    clear_signals(symbol)
+    return {
+        "status": "ok",
+        "symbol": symbol.upper(),
+        "message": f"Cleared all signals for {symbol.upper()}. Starting fresh.",
+        "reset_at": datetime.now(timezone.utc).isoformat(),
     }
 
 

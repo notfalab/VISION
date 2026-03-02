@@ -11,7 +11,6 @@ import type { OHLCV, Timeframe } from "@/types/market";
 import {
   createChart,
   createSeriesMarkers,
-  createTextWatermark,
   CandlestickSeries,
   HistogramSeries,
   LineSeries,
@@ -71,6 +70,20 @@ function toVolumeData(c: OHLCV, bullAlpha: string, bearAlpha: string) {
   };
 }
 
+/**
+ * Deduplicate by timestamp (keep last occurrence) and sort ascending.
+ * lightweight-charts requires strictly increasing time values.
+ */
+function deduplicateAndSort(candles: OHLCV[]): OHLCV[] {
+  const map = new Map<string, OHLCV>();
+  for (const c of candles) {
+    map.set(c.timestamp, c); // last wins
+  }
+  return Array.from(map.values()).sort(
+    (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+  );
+}
+
 /* ── Pattern Marker type ── */
 interface PatternMarker {
   timestamp: string;
@@ -92,8 +105,6 @@ export default function PriceChart() {
   const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const sessionPrimRef = useRef<SessionBandsPrimitive | null>(null);
   const accZonePrimRef = useRef<AccZonePrimitive | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const watermarkRef = useRef<any>(null);
 
   const { activeSymbol, activeTimeframe, setActiveTimeframe, setCandles, candles, livePrices } = useMarketStore();
   const theme = useThemeStore((s) => s.theme);
@@ -102,7 +113,8 @@ export default function PriceChart() {
   const [hoveredCandle, setHoveredCandle] = useState<OHLCV | null>(null);
   const [isLive, setIsLive] = useState(false);
   const [showSessions, setShowSessions] = useState(true);
-  const [isPannedAway, setIsPannedAway] = useState(false);
+  const [isPannedAway, _setIsPannedAway] = useState(false);
+  const isPannedRef = useRef(false);
 
   // Zone state
   const [zones, setZones] = useState<AccZone[]>([]);
@@ -183,21 +195,6 @@ export default function PriceChart() {
     const accZonePrim = new AccZonePrimitive(theme);
     candleSeries.attachPrimitive(accZonePrim);
 
-    // Watermark
-    const watermark = createTextWatermark(chart.panes()[0], {
-      horzAlign: "center",
-      vertAlign: "center",
-      lines: [
-        {
-          text: activeSymbol,
-          color: "rgba(100,116,139,0.07)",
-          fontSize: 48,
-          fontFamily: "JetBrains Mono",
-          fontStyle: "bold",
-        },
-      ],
-    });
-
     // Series markers plugin
     const markersPlugin = createSeriesMarkers(candleSeries, []);
 
@@ -221,11 +218,15 @@ export default function PriceChart() {
       }
     });
 
-    // Detect panning
+    // Detect panning (use ref to avoid re-renders during drag)
     chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
       if (!range) return;
       const d = dataRef.current;
-      setIsPannedAway(d.length > 0 && range.to < d.length - 2);
+      const panned = d.length > 0 && range.to < d.length - 2;
+      if (panned !== isPannedRef.current) {
+        isPannedRef.current = panned;
+        _setIsPannedAway(panned);
+      }
     });
 
     // Store refs
@@ -238,7 +239,6 @@ export default function PriceChart() {
     markersRef.current = markersPlugin;
     sessionPrimRef.current = sessionPrim;
     accZonePrimRef.current = accZonePrim;
-    watermarkRef.current = watermark;
 
     return () => {
       chart.remove();
@@ -251,7 +251,6 @@ export default function PriceChart() {
       markersRef.current = null;
       sessionPrimRef.current = null;
       accZonePrimRef.current = null;
-      watermarkRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -264,32 +263,22 @@ export default function PriceChart() {
     if (!chart) return;
     chart.applyOptions(getChartOptions(theme));
     candleSeriesRef.current?.applyOptions(getCandlestickOptions(theme));
-    // Re-set volume data with new colors
-    if (data.length > 0) {
+    // Re-set volume data with new colors (use ref to avoid data dep)
+    const currentData = dataRef.current;
+    if (currentData.length > 0) {
       const tc = THEME_CANVAS[theme];
       volumeSeriesRef.current?.setData(
-        data.map((c) => toVolumeData(c, tc.bullAlpha, tc.bearAlpha))
+        currentData.map((c) => toVolumeData(c, tc.bullAlpha, tc.bearAlpha))
       );
     }
     accZonePrimRef.current?.setTheme(theme);
-  }, [theme, data]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [theme]);
 
   /* ──────────────────────────────────────────────────
      Symbol / Timeframe change — update chart config
      ────────────────────────────────────────────────── */
   useEffect(() => {
-    // Update watermark
-    watermarkRef.current?.applyOptions({
-      lines: [
-        {
-          text: activeSymbol,
-          color: "rgba(100,116,139,0.07)",
-          fontSize: 48,
-          fontFamily: "JetBrains Mono",
-          fontStyle: "bold",
-        },
-      ],
-    });
     // Update price formatter
     candleSeriesRef.current?.applyOptions({
       priceFormat: {
@@ -298,13 +287,16 @@ export default function PriceChart() {
         minMove: 0.00001,
       },
     });
-    // Load from cache synchronously, or clear
-    const cached = candles[`${activeSymbol}_${activeTimeframe}`];
-    setData(cached || []);
-  }, [activeSymbol, activeTimeframe, candles]);
+    // Clear chart data immediately (fresh load in the fetch effect)
+    setData([]);
+    chartDataPushedRef.current = ""; // Allow new push for new symbol/tf
+    pushDataToChart([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSymbol, activeTimeframe]);
 
   /* ──────────────────────────────────────────────────
-     Push data to chart series whenever data changes
+     Push data to chart series (full reset — resets viewport!)
+     Only call when you INTENTIONALLY want to reset scroll.
      ────────────────────────────────────────────────── */
   const pushDataToChart = useCallback(
     (newData: OHLCV[]) => {
@@ -328,56 +320,108 @@ export default function PriceChart() {
     [theme]
   );
 
+  // Track whether we've already pushed data for the current symbol/timeframe
+  // to avoid calling setData() again (which resets the viewport).
+  const chartDataPushedRef = useRef("");
+
   /* ──────────────────────────────────────────────────
      Fetch historical data
      ────────────────────────────────────────────────── */
   const cacheTimestamps = useRef<Record<string, number>>({});
 
   useEffect(() => {
+    let cancelled = false;
+    const sym = activeSymbol;
+    const tf = activeTimeframe;
+    const key = `${sym}_${tf}`;
+
+    /**
+     * Push data to chart ONLY if it hasn't been pushed yet for this key.
+     * This prevents the viewport from resetting when the API response
+     * arrives after cached data was already displayed.
+     */
+    const pushOnce = (d: OHLCV[]) => {
+      if (chartDataPushedRef.current === key) return; // Already pushed
+      chartDataPushedRef.current = key;
+      pushDataToChart(d);
+    };
+
     const load = async () => {
-      const cached = candles[cacheKey];
-      const cacheAge = Date.now() - (cacheTimestamps.current[cacheKey] || 0);
+      // 1. Check Zustand cache first (instant)
+      const cached = candles[key];
+      const cacheAge = Date.now() - (cacheTimestamps.current[key] || 0);
       const CACHE_TTL = 2 * 60 * 1000;
 
-      if (cached && cacheAge < CACHE_TTL) {
+      if (cached && cached.length > 0 && cacheAge < CACHE_TTL) {
+        if (cancelled) return;
         setData(cached);
-        pushDataToChart(cached);
+        pushOnce(cached);
         return;
       }
-      if (cached) {
+
+      // 2. Show cached data immediately if available (even if stale)
+      if (cached && cached.length > 0) {
+        if (cancelled) return;
         setData(cached);
-        pushDataToChart(cached);
+        pushOnce(cached);
       } else {
         setLoading(true);
       }
+
+      // 3. Try fast GET first (reads already-cached data from backend)
       try {
-        await api.fetchPrices(activeSymbol, activeTimeframe, 2000);
-        const prices = await api.prices(activeSymbol, activeTimeframe, 2000);
-        const sorted = [...prices].reverse();
+        const prices = await api.prices(sym, tf, 2000);
+        if (cancelled) return;
+        if (prices && prices.length > 0) {
+          const sorted = deduplicateAndSort(prices);
+          setData(sorted);
+          setCandles(key, sorted);
+          cacheTimestamps.current[key] = Date.now();
+          pushOnce(sorted); // Only pushes if cached data wasn't already shown
+          setLoading(false);
+          // Trigger ingestion in background for fresh data next time
+          api.fetchPrices(sym, tf, 2000).catch(() => {});
+          return;
+        }
+      } catch {
+        // GET failed, try with ingestion
+      }
+
+      // 4. Fallback: trigger ingestion then fetch
+      try {
+        await api.fetchPrices(sym, tf, 2000);
+        if (cancelled) return;
+        const prices = await api.prices(sym, tf, 2000);
+        if (cancelled) return;
+        const sorted = deduplicateAndSort(prices);
         setData(sorted);
-        setCandles(cacheKey, sorted);
-        cacheTimestamps.current[cacheKey] = Date.now();
-        pushDataToChart(sorted);
+        setCandles(key, sorted);
+        cacheTimestamps.current[key] = Date.now();
+        pushOnce(sorted);
       } catch (err) {
         console.error("Failed to load prices:", err);
+        // Last resort: try smaller batch
         try {
-          await api.fetchPrices(activeSymbol, activeTimeframe, 500);
-          const prices = await api.prices(activeSymbol, activeTimeframe, 500);
-          const sorted = [...prices].reverse();
+          await api.fetchPrices(sym, tf, 500);
+          if (cancelled) return;
+          const prices = await api.prices(sym, tf, 500);
+          if (cancelled) return;
+          const sorted = deduplicateAndSort(prices);
           setData(sorted);
-          setCandles(cacheKey, sorted);
-          cacheTimestamps.current[cacheKey] = Date.now();
-          pushDataToChart(sorted);
+          setCandles(key, sorted);
+          cacheTimestamps.current[key] = Date.now();
+          pushOnce(sorted);
         } catch {
           // Data source may be unavailable
         }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     load();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeSymbol, activeTimeframe, cacheKey]);
+  }, [activeSymbol, activeTimeframe]);
 
   /* ──────────────────────────────────────────────────
      Real-time WebSocket (Binance crypto)
@@ -423,16 +467,25 @@ export default function PriceChart() {
           return updated;
         }
 
-        // Gap detected — re-fetch
+        // Gap detected — re-fetch missing candles (preserve viewport)
         if (gap > intervalMs * 2 && !gapRefetchDone.current) {
           gapRefetchDone.current = true;
           (async () => {
             try {
-              await api.fetchPrices(activeSymbol, activeTimeframe, 200);
               const prices = await api.prices(activeSymbol, activeTimeframe, 200);
-              const sorted = [...prices].reverse();
-              setData(sorted);
-              pushDataToChart(sorted);
+              if (prices.length > 0) {
+                const sorted = deduplicateAndSort(prices);
+                setData((existing) => {
+                  const merged = deduplicateAndSort([...existing, ...sorted]);
+                  // Save viewport, push data, restore viewport
+                  const savedRange = chartRef.current?.timeScale().getVisibleLogicalRange();
+                  pushDataToChart(merged);
+                  if (savedRange) {
+                    chartRef.current?.timeScale().setVisibleLogicalRange(savedRange);
+                  }
+                  return merged;
+                });
+              }
             } catch { /* ignore */ }
           })();
         }
@@ -456,11 +509,11 @@ export default function PriceChart() {
       });
     });
 
-    // Periodic background candle refresh
+    // Periodic background candle refresh (uses update() to preserve viewport)
     const bgRefresh = setInterval(async () => {
       try {
         const prices = await api.prices(activeSymbol, activeTimeframe, 10);
-        const sorted = [...prices].reverse();
+        const sorted = deduplicateAndSort(prices);
         if (sorted.length === 0) return;
         setData((prev) => {
           if (prev.length === 0) return sorted;
@@ -534,13 +587,12 @@ export default function PriceChart() {
       } catch { /* ignore */ }
     };
 
-    // Slow poll: fetch recent candles
+    // Slow poll: fetch recent candles (use GET only, trigger ingestion in background)
     const candleRefresh = async () => {
       if (cancelled) return;
       try {
-        await api.fetchPrices(sym, tf, 10);
         const prices = await api.prices(sym, tf, 10);
-        const newCandles = [...prices].reverse();
+        const newCandles = deduplicateAndSort(prices);
         if (newCandles.length === 0) return;
 
         setData((prev) => {
@@ -560,6 +612,8 @@ export default function PriceChart() {
           }
           return updated.length > 2500 ? updated.slice(-2000) : updated;
         });
+        // Trigger ingestion in background for fresh data
+        api.fetchPrices(sym, tf, 10).catch(() => {});
       } catch { /* ignore */ }
     };
 
