@@ -65,25 +65,30 @@ export default function PerformanceDashboard() {
   const [error, setError] = useState(false);
   const [viewMode, setViewMode] = useState<"symbol" | "global">("global");
 
-  // Fetch analytics for active symbol
+  // Fetch analytics for active symbol (with periodic refresh)
   useEffect(() => {
+    let cancelled = false;
     const load = async () => {
-      setLoading(true);
-      setError(false);
+      if (!cancelled) setLoading(true);
+      if (!cancelled) setError(false);
       try {
         const result = await api.scalperAnalytics(activeSymbol);
-        setData(result as Analytics);
+        if (!cancelled) setData(result as Analytics);
       } catch {
-        setError(true);
+        if (!cancelled) setError(true);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
     load();
+    // Refresh every 60s to pick up new signal results
+    const interval = setInterval(load, 60_000);
+    return () => { cancelled = true; clearInterval(interval); };
   }, [activeSymbol]);
 
-  // Fetch global analytics (all symbols combined)
+  // Fetch global analytics (all symbols combined, with periodic refresh)
   useEffect(() => {
+    let cancelled = false;
     const loadGlobal = async () => {
       try {
         const results = await Promise.allSettled(
@@ -182,12 +187,15 @@ export default function PerformanceDashboard() {
         // Sort equity curve by date
         merged.equity_curve.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-        setGlobalData(merged);
+        if (!cancelled) setGlobalData(merged);
       } catch {
         // Silently fail for global
       }
     };
     loadGlobal();
+    // Refresh every 60s
+    const interval = setInterval(loadGlobal, 60_000);
+    return () => { cancelled = true; clearInterval(interval); };
   }, []);
 
   const analytics = viewMode === "global" ? globalData : data;

@@ -1,6 +1,7 @@
 /**
  * Binance WebSocket client for real-time price + kline streaming.
- * Streams gold (XAUUSD) via PAXG token proxy.
+ * Only used for crypto pairs that trade natively on Binance.
+ * Gold (XAUUSD) and forex use REST polling for accurate prices.
  */
 
 export interface LivePrice {
@@ -25,7 +26,6 @@ type PriceCallback = (symbol: string, data: LivePrice) => void;
 type KlineCallback = (symbol: string, candle: LiveCandle) => void;
 
 const SYMBOL_MAP: Record<string, string> = {
-  XAUUSD: "paxgusdt",
   BTCUSD: "btcusdt",
   ETHUSD: "ethusdt",
   SOLUSD: "solusdt",

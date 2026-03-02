@@ -559,7 +559,7 @@ export default function PriceChart() {
     const quickPoll = async () => {
       if (cancelled) return;
       try {
-        const res = await fetch(`/api/v1/prices/${sym}/latest`);
+        const res = await fetch(`/api/v1/prices/${sym}/latest`, { cache: "no-store" });
         if (res.ok) {
           const d = await res.json();
           if (d.price) {
