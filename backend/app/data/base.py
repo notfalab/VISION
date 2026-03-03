@@ -71,6 +71,23 @@ class OrderBook:
         return (self.bid_volume - self.ask_volume) / total if total > 0 else 0
 
 
+@dataclass
+class LiquidationLevel:
+    """A price level with estimated liquidation volume."""
+    price: float
+    long_liq_usd: float    # USD notional of long positions liquidated at this price
+    short_liq_usd: float   # USD notional of short positions liquidated at this price
+
+
+@dataclass
+class LiquidationMap:
+    """Aggregated liquidation heatmap data for a crypto asset."""
+    symbol: str
+    timestamp: datetime
+    levels: list[LiquidationLevel]
+    current_price: float
+
+
 class DataSourceAdapter(ABC):
     """
     Unified interface for any data source (exchange, broker, data provider).

@@ -92,6 +92,12 @@ export interface CanvasColors {
   shiftGrowing: [number, number, number];
   shiftShrinking: [number, number, number];
   shiftGone: [number, number, number];
+  // TP/SL heatmap colors
+  tpZone: [number, number, number];     // green — take profit clusters
+  slZone: [number, number, number];     // orange — stop loss clusters
+  // Liquidation heatmap colors
+  liqLong: [number, number, number];    // red — long liquidation levels
+  liqShort: [number, number, number];   // green — short liquidation levels
 }
 
 export const THEME_CANVAS: Record<ThemeName, CanvasColors> = {
@@ -112,6 +118,10 @@ export const THEME_CANVAS: Record<ThemeName, CanvasColors> = {
     shiftGrowing: [16, 185, 129],
     shiftShrinking: [239, 68, 68],
     shiftGone: [148, 163, 184],
+    tpZone: [0, 230, 118],       // bright green
+    slZone: [255, 152, 0],       // amber/orange
+    liqLong: [239, 68, 68],      // red
+    liqShort: [16, 185, 129],    // green
   },
   dark: {
     bull: "#10b981",
@@ -130,5 +140,9 @@ export const THEME_CANVAS: Record<ThemeName, CanvasColors> = {
     shiftGrowing: [16, 185, 129],
     shiftShrinking: [139, 92, 246],
     shiftGone: [148, 163, 184],
+    tpZone: [0, 230, 118],       // bright green
+    slZone: [255, 171, 0],       // amber
+    liqLong: [139, 92, 246],     // purple (matches bear)
+    liqShort: [16, 185, 129],    // green
   },
 };

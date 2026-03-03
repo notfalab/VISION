@@ -150,4 +150,20 @@ export const api = {
   // AI Market Brief
   aiBrief: () =>
     fetchAPI<any>(`/api/v1/scalper/ai-brief`),
+
+  // ── TP/SL Heatmap, Liquidation, Deep Order Book ──
+  tpslHeatmap: (symbol: string, depth = 500) =>
+    fetchAPISafe<any>(`/api/v1/prices/${symbol}/tpsl-heatmap?depth=${depth}`, {
+      tp_clusters: [], sl_clusters: [], round_levels: [], current_price: 0,
+    }),
+
+  liquidationMap: (symbol: string) =>
+    fetchAPISafe<any>(`/api/v1/prices/${symbol}/liquidation-map`, {
+      levels: [], current_price: 0, symbol,
+    }),
+
+  deepOrderBook: (symbol: string, depth = 1000) =>
+    fetchAPISafe<any>(`/api/v1/prices/${symbol}/orderbook-deep?depth=${depth}`, {
+      bids: [], asks: [], stats: {},
+    }),
 };

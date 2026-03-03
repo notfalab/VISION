@@ -87,6 +87,7 @@ class Settings(BaseSettings):
     goldapi_api_key: str = ""
     massive_api_key: str = ""
     cryptocompare_api_key: str = ""
+    coinglass_api_key: str = ""  # Liquidation heatmaps (free tier available)
 
     # Alerts
     sendgrid_api_key: str = ""

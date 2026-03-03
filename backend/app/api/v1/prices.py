@@ -241,3 +241,209 @@ async def cleanup_stale_data(
     result = await db.execute(stmt)
     await db.commit()
     return {"symbol": symbol.upper(), "timeframe": timeframe, "rows_deleted": result.rowcount}
+
+
+# ── TP/SL Heatmap ───────────────────────────────────────────────
+
+@router.get("/{symbol}/tpsl-heatmap")
+async def get_tpsl_heatmap(
+    symbol: str,
+    depth: int = Query(500, ge=50, le=1000),
+):
+    """
+    Estimated TP/SL order clusters from order book analysis.
+
+    Works for all pairs with order book data:
+    - Crypto: via Binance order book
+    - Forex/Gold: via OANDA order book
+
+    Returns estimated take-profit and stop-loss zones based on
+    order book volume patterns, round number proximity, and
+    liquidity gap analysis.
+    """
+    from backend.app.data.registry import data_registry
+    from backend.app.core.orderbook.tpsl_analyzer import analyze_tpsl_heatmap
+
+    try:
+        adapter = data_registry.route_symbol(symbol)
+        await adapter.connect()
+        try:
+            ob = await adapter.fetch_orderbook(symbol, depth)
+            if ob is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Order book not available for {symbol}. TP/SL estimation requires order book data.",
+                )
+
+            bids = [{"price": l.price, "quantity": l.quantity} for l in ob.bids]
+            asks = [{"price": l.price, "quantity": l.quantity} for l in ob.asks]
+
+            # Get current mid price
+            if bids and asks:
+                current_price = (bids[0]["price"] + asks[0]["price"]) / 2
+            elif bids:
+                current_price = bids[0]["price"]
+            elif asks:
+                current_price = asks[0]["price"]
+            else:
+                raise HTTPException(status_code=404, detail="Empty order book")
+
+            result = analyze_tpsl_heatmap(bids, asks, current_price)
+            result["symbol"] = symbol.upper()
+            result["timestamp"] = ob.timestamp.isoformat()
+            return result
+
+        finally:
+            await adapter.disconnect()
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"TP/SL heatmap failed: {str(e)}")
+
+
+# ── Liquidation Map ─────────────────────────────────────────────
+
+CRYPTO_SYMBOLS = {"BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "ETHBTC"}
+
+
+@router.get("/{symbol}/liquidation-map")
+async def get_liquidation_map(symbol: str):
+    """
+    Liquidation level heatmap — crypto only.
+
+    Primary: CoinGlass API for accurate liquidation map data.
+    Fallback: DIY estimation from Binance Futures open interest + funding rate.
+
+    Returns price levels with estimated long/short liquidation volumes.
+    Non-crypto symbols return HTTP 400.
+    """
+    if symbol.upper() not in CRYPTO_SYMBOLS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Liquidation data only available for crypto. {symbol} is not a supported crypto pair.",
+        )
+
+    from backend.app.data.coinglass_adapter import CoinglassAdapter
+
+    adapter = CoinglassAdapter()
+    await adapter.connect()
+    try:
+        liq_map = await adapter.fetch_liquidation_map(symbol)
+        if liq_map is None:
+            raise HTTPException(
+                status_code=502,
+                detail="Failed to fetch liquidation data from both CoinGlass and Binance Futures.",
+            )
+
+        return {
+            "symbol": liq_map.symbol,
+            "timestamp": liq_map.timestamp.isoformat(),
+            "current_price": liq_map.current_price,
+            "levels": [
+                {
+                    "price": l.price,
+                    "long_liq_usd": l.long_liq_usd,
+                    "short_liq_usd": l.short_liq_usd,
+                }
+                for l in liq_map.levels
+            ],
+            "total_long_liq_usd": sum(l.long_liq_usd for l in liq_map.levels),
+            "total_short_liq_usd": sum(l.short_liq_usd for l in liq_map.levels),
+        }
+    finally:
+        await adapter.disconnect()
+
+
+# ── Deep Order Book (MBO Level 4) ───────────────────────────────
+
+@router.get("/{symbol}/orderbook-deep")
+async def get_deep_orderbook(
+    symbol: str,
+    depth: int = Query(1000, ge=100, le=5000),
+):
+    """
+    Deep order book with MBO Level 4 estimated data.
+
+    Returns full-depth order book with:
+    - Estimated order count per price level
+    - Volume concentration metrics
+    - Bid/ask statistics
+
+    Binance REST /depth returns aggregated levels; order count is estimated
+    from quantity distribution analysis.
+    """
+    from backend.app.data.registry import data_registry
+    from backend.app.core.orderbook.tpsl_analyzer import estimate_order_count
+
+    try:
+        adapter = data_registry.route_symbol(symbol)
+        await adapter.connect()
+        try:
+            ob = await adapter.fetch_orderbook(symbol, min(depth, 1000))
+            if ob is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Order book not available for {symbol}",
+                )
+
+            # Calculate average order sizes for estimation
+            avg_bid_size = (
+                sum(l.quantity for l in ob.bids) / max(len(ob.bids), 1)
+            )
+            avg_ask_size = (
+                sum(l.quantity for l in ob.asks) / max(len(ob.asks), 1)
+            )
+
+            total_bid_vol = sum(l.quantity for l in ob.bids)
+            total_ask_vol = sum(l.quantity for l in ob.asks)
+            total_vol = total_bid_vol + total_ask_vol
+
+            bids = []
+            for l in ob.bids:
+                pct = l.quantity / total_vol * 100 if total_vol > 0 else 0
+                bids.append({
+                    "price": l.price,
+                    "quantity": l.quantity,
+                    "orders_count": l.orders_count or estimate_order_count(l.quantity, avg_bid_size),
+                    "pct_of_total": round(pct, 4),
+                })
+
+            asks = []
+            for l in ob.asks:
+                pct = l.quantity / total_vol * 100 if total_vol > 0 else 0
+                asks.append({
+                    "price": l.price,
+                    "quantity": l.quantity,
+                    "orders_count": l.orders_count or estimate_order_count(l.quantity, avg_ask_size),
+                    "pct_of_total": round(pct, 4),
+                })
+
+            # Statistics
+            spread = asks[0]["price"] - bids[0]["price"] if bids and asks else 0
+            spread_pct = spread / bids[0]["price"] * 100 if bids and bids[0]["price"] > 0 else 0
+
+            return {
+                "symbol": symbol.upper(),
+                "timestamp": ob.timestamp.isoformat(),
+                "bids": bids,
+                "asks": asks,
+                "stats": {
+                    "total_bid_volume": round(total_bid_vol, 4),
+                    "total_ask_volume": round(total_ask_vol, 4),
+                    "bid_ask_ratio": round(total_bid_vol / max(total_ask_vol, 1e-10), 3),
+                    "bid_levels": len(bids),
+                    "ask_levels": len(asks),
+                    "spread": round(spread, 6),
+                    "spread_pct": round(spread_pct, 4),
+                    "total_estimated_orders": (
+                        sum(b["orders_count"] for b in bids)
+                        + sum(a["orders_count"] for a in asks)
+                    ),
+                },
+            }
+        finally:
+            await adapter.disconnect()
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Deep order book failed: {str(e)}")

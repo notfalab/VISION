@@ -36,6 +36,9 @@ import {
   type AccZone,
   type ZoneShift,
 } from "./primitives/AccZonePrimitive";
+import { TPSLHeatmapPrimitive } from "./primitives/TPSLHeatmapPrimitive";
+import { LiquidationHeatmapPrimitive } from "./primitives/LiquidationHeatmapPrimitive";
+import { getMarketType } from "@/stores/market";
 
 const TIMEFRAMES: { label: string; value: Timeframe }[] = [
   { label: "1m", value: "1m" },
@@ -155,6 +158,8 @@ export default function PriceChart() {
   const markersRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
   const sessionPrimRef = useRef<SessionBandsPrimitive | null>(null);
   const accZonePrimRef = useRef<AccZonePrimitive | null>(null);
+  const tpslPrimRef = useRef<TPSLHeatmapPrimitive | null>(null);
+  const liqPrimRef = useRef<LiquidationHeatmapPrimitive | null>(null);
 
   const { activeSymbol, activeTimeframe, setActiveTimeframe, setCandles, candles, livePrices } = useMarketStore();
   const theme = useThemeStore((s) => s.theme);
@@ -163,6 +168,8 @@ export default function PriceChart() {
   const [hoveredCandle, setHoveredCandle] = useState<OHLCV | null>(null);
   const [isLive, setIsLive] = useState(false);
   const [showSessions, setShowSessions] = useState(true);
+  const [showTPSL, setShowTPSL] = useState(false);
+  const [showLiq, setShowLiq] = useState(false);
   const [isPannedAway, _setIsPannedAway] = useState(false);
   const isPannedRef = useRef(false);
 
@@ -176,6 +183,7 @@ export default function PriceChart() {
   const cacheKey = `${activeSymbol}_${activeTimeframe}`;
   const canStream = isBinanceSymbol(activeSymbol);
   const isIntraday = ["1m", "5m", "15m", "1h", "4h"].includes(activeTimeframe);
+  const isCrypto = getMarketType(activeSymbol) === "crypto";
 
   // Refs to avoid stale closures in data effects
   const dataRef = useRef<OHLCV[]>([]);
@@ -245,6 +253,14 @@ export default function PriceChart() {
     const accZonePrim = new AccZonePrimitive(theme);
     candleSeries.attachPrimitive(accZonePrim);
 
+    // TP/SL heatmap primitive
+    const tpslPrim = new TPSLHeatmapPrimitive(theme);
+    candleSeries.attachPrimitive(tpslPrim);
+
+    // Liquidation heatmap primitive
+    const liqPrim = new LiquidationHeatmapPrimitive(theme);
+    candleSeries.attachPrimitive(liqPrim);
+
     // Series markers plugin
     const markersPlugin = createSeriesMarkers(candleSeries, []);
 
@@ -291,6 +307,8 @@ export default function PriceChart() {
     markersRef.current = markersPlugin;
     sessionPrimRef.current = sessionPrim;
     accZonePrimRef.current = accZonePrim;
+    tpslPrimRef.current = tpslPrim;
+    liqPrimRef.current = liqPrim;
 
     return () => {
       chart.remove();
@@ -303,6 +321,8 @@ export default function PriceChart() {
       markersRef.current = null;
       sessionPrimRef.current = null;
       accZonePrimRef.current = null;
+      tpslPrimRef.current = null;
+      liqPrimRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -328,6 +348,8 @@ export default function PriceChart() {
       }
     }
     accZonePrimRef.current?.setTheme(theme);
+    tpslPrimRef.current?.setTheme(theme);
+    liqPrimRef.current?.setTheme(theme);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [theme]);
 
@@ -845,6 +867,52 @@ export default function PriceChart() {
   }, [showSessions, isIntraday]);
 
   /* ──────────────────────────────────────────────────
+     TP/SL Heatmap overlay
+     ────────────────────────────────────────────────── */
+  useEffect(() => {
+    tpslPrimRef.current?.setVisible(showTPSL);
+    if (!showTPSL) return;
+
+    const fetchTPSL = async () => {
+      try {
+        const result = await api.tpslHeatmap(activeSymbol, 500);
+        if (result.current_price > 0) {
+          tpslPrimRef.current?.updateData(
+            result.tp_clusters || [],
+            result.sl_clusters || [],
+            result.round_levels || [],
+          );
+        }
+      } catch { /* ignore */ }
+    };
+
+    fetchTPSL();
+    const interval = setInterval(fetchTPSL, 60000);
+    return () => clearInterval(interval);
+  }, [showTPSL, activeSymbol]);
+
+  /* ──────────────────────────────────────────────────
+     Liquidation Heatmap overlay (crypto only)
+     ────────────────────────────────────────────────── */
+  useEffect(() => {
+    liqPrimRef.current?.setVisible(showLiq && isCrypto);
+    if (!showLiq || !isCrypto) return;
+
+    const fetchLiq = async () => {
+      try {
+        const result = await api.liquidationMap(activeSymbol);
+        if (result.current_price > 0 && result.levels?.length > 0) {
+          liqPrimRef.current?.updateLevels(result.levels, result.current_price);
+        }
+      } catch { /* ignore */ }
+    };
+
+    fetchLiq();
+    const interval = setInterval(fetchLiq, 120000);
+    return () => clearInterval(interval);
+  }, [showLiq, activeSymbol, isCrypto]);
+
+  /* ──────────────────────────────────────────────────
      JSX
      ────────────────────────────────────────────────── */
   const buyZoneCount = zones.filter((z) => z.type === "buy").length;
@@ -915,6 +983,34 @@ export default function PriceChart() {
               `}
             >
               Sessions
+            </button>
+          )}
+          {/* TP/SL overlay toggle */}
+          <button
+            onClick={() => setShowTPSL(!showTPSL)}
+            className={`
+              px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[32px]
+              ${showTPSL
+                ? "border-[var(--color-bull)]/30 text-[var(--color-bull)] bg-[var(--color-bull)]/10"
+                : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
+              }
+            `}
+          >
+            TP/SL
+          </button>
+          {/* Liquidation overlay toggle (crypto only) */}
+          {isCrypto && (
+            <button
+              onClick={() => setShowLiq(!showLiq)}
+              className={`
+                px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[32px]
+                ${showLiq
+                  ? "border-orange-500/30 text-orange-500 bg-orange-500/10"
+                  : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
+                }
+              `}
+            >
+              Liq
             </button>
           )}
           {/* Timeframe selector */}

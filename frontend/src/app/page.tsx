@@ -21,6 +21,9 @@ import WhaleTracker from "@/components/widgets/WhaleTracker";
 import PerformanceDashboard from "@/components/widgets/PerformanceDashboard";
 import CurrencyHeatmap from "@/components/widgets/CurrencyHeatmap";
 import ZonesOverlay from "@/components/widgets/ZonesOverlay";
+import TPSLWidget from "@/components/widgets/TPSLWidget";
+import LiquidationWidget from "@/components/widgets/LiquidationWidget";
+import DeepOrderBookWidget from "@/components/widgets/DeepOrderBookWidget";
 import { useMarketStore, getMarketType } from "@/stores/market";
 
 const COMMUNITY_KEY = "vision_community_joined";
@@ -99,6 +102,11 @@ function DashboardContent() {
               <ErrorBoundary><CurrencyHeatmap /></ErrorBoundary>
               <ErrorBoundary><MLPrediction /></ErrorBoundary>
               <ErrorBoundary><OrderFlow /></ErrorBoundary>
+              <ErrorBoundary><TPSLWidget /></ErrorBoundary>
+              <ErrorBoundary><DeepOrderBookWidget /></ErrorBoundary>
+              {isCrypto && (
+                <ErrorBoundary><LiquidationWidget /></ErrorBoundary>
+              )}
               <ErrorBoundary><MTFConfluence /></ErrorBoundary>
               <ErrorBoundary><SmartMoney /></ErrorBoundary>
               {isCrypto && (
