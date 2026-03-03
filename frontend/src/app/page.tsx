@@ -18,7 +18,6 @@ import OrderFlow from "@/components/widgets/OrderFlow";
 import Correlations from "@/components/widgets/Correlations";
 import ScalperMode from "@/components/widgets/ScalperMode";
 import WhaleTracker from "@/components/widgets/WhaleTracker";
-import PerformanceDashboard from "@/components/widgets/PerformanceDashboard";
 import CurrencyHeatmap from "@/components/widgets/CurrencyHeatmap";
 import ZonesOverlay from "@/components/widgets/ZonesOverlay";
 import TPSLWidget from "@/components/widgets/TPSLWidget";
@@ -95,7 +94,6 @@ function DashboardContent() {
           {/* Right panel — scrollable on desktop, inline on mobile */}
           <div className="w-full lg:w-[440px] lg:shrink-0 lg:overflow-y-auto lg:min-h-0">
             <div className="space-y-3">
-              <ErrorBoundary><PerformanceDashboard /></ErrorBoundary>
               <ErrorBoundary><ScalperMode /></ErrorBoundary>
               <ErrorBoundary><ZonesOverlay /></ErrorBoundary>
               <ErrorBoundary><TradeScore /></ErrorBoundary>

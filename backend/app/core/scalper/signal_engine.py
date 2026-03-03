@@ -3,6 +3,13 @@ Signal Engine — combines all indicators, ML prediction, regime detection,
 and order flow to generate scalper trade signals with SL/TP levels.
 
 Designed for 5m, 15m, 30m timeframes on gold (XAUUSD).
+
+v2 improvements:
+- Structure-based SL placement (swing highs/lows instead of flat ATR)
+- Minimum R:R filter (reject weak setups)
+- Volatility regime filter (skip choppy markets)
+- Trend alignment filter (trade with higher-TF EMA)
+- Tighter BTC-specific thresholds
 """
 
 import numpy as np
@@ -44,13 +51,24 @@ THRESHOLDS = {
 
 # Crypto needs stricter thresholds (higher volatility → more false signals)
 CRYPTO_THRESHOLDS = {
-    "default": {"min_score": 70, "min_confidence": 0.68, "min_confluence": 6},
-    "5m":      {"min_score": 72, "min_confidence": 0.70, "min_confluence": 7},
-    "1h":      {"min_score": 65, "min_confidence": 0.62, "min_confluence": 6},
-    "1d":      {"min_score": 58, "min_confidence": 0.55, "min_confluence": 5},
+    "default": {"min_score": 72, "min_confidence": 0.70, "min_confluence": 7},
+    "5m":      {"min_score": 75, "min_confidence": 0.73, "min_confluence": 8},
+    "15m":     {"min_score": 72, "min_confidence": 0.70, "min_confluence": 7},
+    "1h":      {"min_score": 68, "min_confidence": 0.65, "min_confluence": 6},
+    "1d":      {"min_score": 60, "min_confidence": 0.58, "min_confluence": 5},
+}
+
+# BTC is the noisiest — needs even stricter thresholds
+BTC_THRESHOLDS = {
+    "default": {"min_score": 75, "min_confidence": 0.73, "min_confluence": 8},
+    "5m":      {"min_score": 78, "min_confidence": 0.76, "min_confluence": 9},
+    "15m":     {"min_score": 75, "min_confidence": 0.73, "min_confluence": 8},
+    "1h":      {"min_score": 70, "min_confidence": 0.68, "min_confluence": 7},
+    "1d":      {"min_score": 62, "min_confidence": 0.60, "min_confluence": 5},
 }
 
 CRYPTO_SYMBOLS = {"BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "ETHBTC"}
+BTC_SYMBOLS = {"BTCUSD"}
 
 # Forex thresholds — moderate volatility, stricter on short timeframes
 FOREX_THRESHOLDS = {
@@ -66,6 +84,8 @@ FOREX_SYMBOLS = {"EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "US
 
 
 def _get_thresholds(timeframe: str, symbol: str = "") -> dict:
+    if symbol.upper() in BTC_SYMBOLS:
+        return BTC_THRESHOLDS.get(timeframe, BTC_THRESHOLDS["default"])
     if symbol.upper() in CRYPTO_SYMBOLS:
         return CRYPTO_THRESHOLDS.get(timeframe, CRYPTO_THRESHOLDS["default"])
     if symbol.upper() in FOREX_SYMBOLS:
@@ -96,12 +116,150 @@ CRYPTO_ATR_MULT_BY_TF = {
     "1d":  (1.5, 2.5),
 }
 
+# BTC has extreme wicks — even wider SL needed to survive noise
+BTC_ATR_MULT_BY_TF = {
+    "1m":  (3.0, 4.5),
+    "5m":  (3.5, 5.5),    # BTC 5m wicks are brutal
+    "15m": (3.0, 5.0),
+    "30m": (2.5, 4.0),
+    "1h":  (2.5, 3.5),
+    "4h":  (2.0, 3.0),
+    "1d":  (1.8, 2.8),
+}
+
+# Minimum R:R ratio required per asset class
+MIN_RR_RATIO = {
+    "btc":     1.8,   # BTC needs high R:R to compensate for lower win rate
+    "crypto":  1.5,   # Other crypto
+    "forex":   1.3,   # Forex is more predictable
+    "default": 1.5,
+}
+
 
 def _get_atr_multipliers(symbol: str, timeframe: str = "1h") -> tuple[float, float]:
     """Return (SL_mult, TP_mult) based on asset type and timeframe."""
+    if symbol.upper() in BTC_SYMBOLS:
+        return BTC_ATR_MULT_BY_TF.get(timeframe, (2.5, 3.5))
     if symbol.upper() in CRYPTO_SYMBOLS:
         return CRYPTO_ATR_MULT_BY_TF.get(timeframe, (2.0, 3.0))
     return ATR_MULT_BY_TF.get(timeframe, (1.5, 2.5))
+
+
+def _get_min_rr(symbol: str) -> float:
+    """Return minimum required R:R ratio for this asset."""
+    if symbol.upper() in BTC_SYMBOLS:
+        return MIN_RR_RATIO["btc"]
+    if symbol.upper() in CRYPTO_SYMBOLS:
+        return MIN_RR_RATIO["crypto"]
+    if symbol.upper() in FOREX_SYMBOLS:
+        return MIN_RR_RATIO["forex"]
+    return MIN_RR_RATIO["default"]
+
+
+def _find_swing_high(df: pd.DataFrame, lookback: int = 20) -> float:
+    """Find the most recent swing high (local maximum) in the last N candles."""
+    if len(df) < lookback:
+        lookback = len(df)
+    recent = df.tail(lookback)
+    highs = recent["high"].values
+    # Find the highest point that has lower highs on both sides (or is at edge)
+    best = float(highs.max())
+    for i in range(1, len(highs) - 1):
+        if highs[i] > highs[i - 1] and highs[i] > highs[i + 1]:
+            best = max(best, float(highs[i]))
+    return best
+
+
+def _find_swing_low(df: pd.DataFrame, lookback: int = 20) -> float:
+    """Find the most recent swing low (local minimum) in the last N candles."""
+    if len(df) < lookback:
+        lookback = len(df)
+    recent = df.tail(lookback)
+    lows = recent["low"].values
+    best = float(lows.min())
+    for i in range(1, len(lows) - 1):
+        if lows[i] < lows[i - 1] and lows[i] < lows[i + 1]:
+            best = min(best, float(lows[i]))
+    return best
+
+
+def _is_choppy_market(df: pd.DataFrame, lookback: int = 20) -> bool:
+    """
+    Detect choppy / range-bound conditions where signals fail most often.
+    Uses ATR expansion ratio + directional consistency check.
+    """
+    if len(df) < lookback + 10:
+        return False
+
+    recent = df.tail(lookback)
+    older = df.iloc[-(lookback + 10):-lookback]
+
+    # ATR expansion: if recent ATR >> older ATR, market is volatile/choppy
+    def _atr(segment: pd.DataFrame) -> float:
+        h = segment["high"].values
+        l = segment["low"].values
+        c = segment["close"].values
+        tr = np.maximum(h - l, np.maximum(np.abs(h - np.roll(c, 1)), np.abs(l - np.roll(c, 1))))
+        return float(np.mean(tr[1:]))
+
+    recent_atr = _atr(recent)
+    older_atr = _atr(older)
+    if older_atr > 0 and recent_atr / older_atr > 2.0:
+        return True  # ATR doubled → volatile/choppy
+
+    # Directional consistency: count how many candles flip direction
+    closes = recent["close"].values
+    changes = np.diff(closes)
+    if len(changes) == 0:
+        return False
+    direction_changes = np.sum(np.diff(np.sign(changes)) != 0)
+    flip_ratio = direction_changes / len(changes)
+    if flip_ratio > 0.65:  # >65% of candles reverse direction → choppy
+        return True
+
+    return False
+
+
+def _ema(series: np.ndarray, period: int) -> float:
+    """Calculate the latest EMA value for a numpy array of prices."""
+    if len(series) < period:
+        return float(np.mean(series))
+    alpha = 2.0 / (period + 1)
+    ema_val = float(series[0])
+    for price in series[1:]:
+        ema_val = alpha * float(price) + (1 - alpha) * ema_val
+    return ema_val
+
+
+def _check_trend_alignment(df: pd.DataFrame, direction: str) -> bool:
+    """
+    Check if the signal direction aligns with the higher-timeframe trend.
+    Uses 50-EMA and 200-EMA on the current data as a proxy.
+    Returns True if direction aligns with trend (or if insufficient data).
+    """
+    if len(df) < 50:
+        return True  # Not enough data — allow signal
+
+    closes = df["close"].values
+    ema50 = _ema(closes, 50)
+
+    # Use 200-EMA if enough data, otherwise just 50-EMA vs price
+    if len(df) >= 200:
+        ema200 = _ema(closes, 200)
+        # Trend is up if 50-EMA > 200-EMA AND price > 50-EMA
+        trend_up = ema50 > ema200 and closes[-1] > ema50
+        trend_down = ema50 < ema200 and closes[-1] < ema50
+    else:
+        # Just use price vs 50-EMA
+        trend_up = closes[-1] > ema50
+        trend_down = closes[-1] < ema50
+
+    if direction == "long" and trend_down:
+        return False  # Counter-trend long
+    if direction == "short" and trend_up:
+        return False  # Counter-trend short
+
+    return True
 
 
 def _classify_signal(metadata: dict) -> str:
@@ -345,6 +503,32 @@ def generate_signals(
         logger.info("signal_blocked_oversold", symbol=symbol, rsi=rsi_val, direction=direction)
         return []  # Don't enter shorts at oversold — historically lose 80%+
 
+    # ── 10b. Volatility / choppy market filter ──
+    if _is_choppy_market(df):
+        logger.info(
+            "signal_blocked_choppy",
+            symbol=symbol, timeframe=timeframe, direction=direction,
+            composite_score=composite_score,
+        )
+        return []  # Choppy markets eat stop losses alive — skip entirely
+
+    # ── 10c. Trend alignment filter ──
+    # Only allow signals that align with the higher-TF trend (50/200 EMA)
+    if not _check_trend_alignment(df, direction):
+        # Counter-trend trades CAN work, but need much higher confidence
+        counter_trend_min_conf = min_confidence + 0.10  # +10% confidence required
+        if confidence < counter_trend_min_conf:
+            logger.info(
+                "signal_blocked_counter_trend",
+                symbol=symbol, timeframe=timeframe, direction=direction,
+                confidence=confidence, threshold=counter_trend_min_conf,
+            )
+            return []
+        else:
+            # Allow but penalize
+            confidence *= 0.85
+            logger.info("signal_counter_trend_penalty", symbol=symbol, direction=direction)
+
     # ── 11. Apply loss pattern filters (stronger penalties) ──
     loss_filter_applied = False
     if loss_patterns:
@@ -377,7 +561,7 @@ def generate_signals(
         )
         return []
 
-    # ── 13. Calculate SL/TP from ATR ──
+    # ── 13. Calculate SL/TP — structure-based with ATR fallback ──
     atr_data = indicator_snapshot.get("atr", {})
     atr_value = atr_data.get("value", 0)
 
@@ -402,18 +586,53 @@ def generate_signals(
     current_price = float(df["close"].iloc[-1])
     sl_mult, tp_mult = _get_atr_multipliers(symbol, timeframe)
 
+    # Structure-based SL: use swing high/low as the SL anchor,
+    # then add ATR buffer. This places SL beyond market structure
+    # instead of an arbitrary ATR distance.
+    atr_sl = sl_mult * atr_value
+    atr_tp = tp_mult * atr_value
+
     if direction == "long":
         entry_price = current_price
-        stop_loss = round(entry_price - (sl_mult * atr_value), 2)
-        take_profit = round(entry_price + (tp_mult * atr_value), 2)
+        # SL below recent swing low (with small ATR buffer)
+        swing_low = _find_swing_low(df, lookback=20)
+        structure_sl = swing_low - (0.5 * atr_value)  # Buffer below swing
+        atr_based_sl = entry_price - atr_sl
+        # Use the WIDER of the two (more protective)
+        stop_loss = round(min(structure_sl, atr_based_sl), 2)
+        # But cap SL distance to max 2x the ATR-based SL (avoid absurd distances)
+        max_sl_dist = atr_sl * 2.0
+        if entry_price - stop_loss > max_sl_dist:
+            stop_loss = round(entry_price - max_sl_dist, 2)
+        take_profit = round(entry_price + atr_tp, 2)
     else:
         entry_price = current_price
-        stop_loss = round(entry_price + (sl_mult * atr_value), 2)
-        take_profit = round(entry_price - (tp_mult * atr_value), 2)
+        # SL above recent swing high (with small ATR buffer)
+        swing_high = _find_swing_high(df, lookback=20)
+        structure_sl = swing_high + (0.5 * atr_value)  # Buffer above swing
+        atr_based_sl = entry_price + atr_sl
+        # Use the WIDER of the two (more protective)
+        stop_loss = round(max(structure_sl, atr_based_sl), 2)
+        # Cap SL distance
+        max_sl_dist = atr_sl * 2.0
+        if stop_loss - entry_price > max_sl_dist:
+            stop_loss = round(entry_price + max_sl_dist, 2)
+        take_profit = round(entry_price - atr_tp, 2)
 
     risk = abs(entry_price - stop_loss)
     reward = abs(take_profit - entry_price)
     risk_reward = round(reward / risk, 2) if risk > 0 else 0
+
+    # ── 13b. Minimum R:R filter — reject weak risk/reward setups ──
+    min_rr = _get_min_rr(symbol)
+    if risk_reward < min_rr:
+        logger.info(
+            "signal_blocked_low_rr",
+            symbol=symbol, timeframe=timeframe, direction=direction,
+            risk_reward=risk_reward, min_rr=min_rr,
+            entry=entry_price, sl=stop_loss, tp=take_profit,
+        )
+        return []
 
     # ── 14. Build signal ──
     # Expiry: give trades ~12 candles to develop (was only 6 → constant expiry)
@@ -442,6 +661,8 @@ def generate_signals(
             "regime_compatible": regime_compatible,
             "loss_filter_applied": loss_filter_applied,
             "atr_value": round(atr_value, 4),
+            "sl_type": "structure+atr",
+            "min_rr_required": min_rr,
         },
         "indicator_snapshot": indicator_snapshot,
         "mtf_confluence": False,
