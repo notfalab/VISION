@@ -844,7 +844,7 @@ async def get_mbo_profile(
         await adapter.connect()
         try:
             ob = await adapter.fetch_orderbook(symbol, min(depth, 1000))
-            if ob is not None:
+            if ob is not None and ob.bids and ob.asks:
                 raw_bids = [{"price": l.price, "quantity": l.quantity} for l in ob.bids]
                 raw_asks = [{"price": l.price, "quantity": l.quantity} for l in ob.asks]
                 current_price = (raw_bids[0]["price"] + raw_asks[0]["price"]) / 2 if raw_bids and raw_asks else 0
