@@ -892,25 +892,25 @@ export default function PriceChart() {
   }, [showTPSL, activeSymbol]);
 
   /* ──────────────────────────────────────────────────
-     Liquidation Heatmap overlay (crypto only)
+     Liquidation Heatmap overlay (2D thermal)
      ────────────────────────────────────────────────── */
   useEffect(() => {
-    liqPrimRef.current?.setVisible(showLiq && isCrypto);
-    if (!showLiq || !isCrypto) return;
+    liqPrimRef.current?.setVisible(showLiq);
+    if (!showLiq) return;
 
     const fetchLiq = async () => {
       try {
-        const result = await api.liquidationMap(activeSymbol);
-        if (result.current_price > 0 && result.levels?.length > 0) {
-          liqPrimRef.current?.updateLevels(result.levels, result.current_price);
+        const result = await api.liquidationHeatmap(activeSymbol, activeTimeframe, 200);
+        if (result.columns?.length > 0) {
+          liqPrimRef.current?.updateGrid(result);
         }
       } catch { /* ignore */ }
     };
 
     fetchLiq();
-    const interval = setInterval(fetchLiq, 120000);
+    const interval = setInterval(fetchLiq, 120_000);
     return () => clearInterval(interval);
-  }, [showLiq, activeSymbol, isCrypto]);
+  }, [showLiq, activeSymbol, activeTimeframe]);
 
   /* ──────────────────────────────────────────────────
      JSX
@@ -998,21 +998,19 @@ export default function PriceChart() {
           >
             TP/SL
           </button>
-          {/* Liquidation overlay toggle (crypto only) */}
-          {isCrypto && (
-            <button
-              onClick={() => setShowLiq(!showLiq)}
-              className={`
-                px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[32px]
-                ${showLiq
-                  ? "border-orange-500/30 text-orange-500 bg-orange-500/10"
-                  : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
-                }
-              `}
-            >
-              Liq
-            </button>
-          )}
+          {/* Liquidation heatmap overlay */}
+          <button
+            onClick={() => setShowLiq(!showLiq)}
+            className={`
+              px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[32px]
+              ${showLiq
+                ? "border-orange-500/30 text-orange-500 bg-orange-500/10"
+                : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
+              }
+            `}
+          >
+            Liq
+          </button>
           {/* Timeframe selector */}
           <div className="flex items-center gap-0.5 md:gap-1">
             {TIMEFRAMES.map((tf) => (

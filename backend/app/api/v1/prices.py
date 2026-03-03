@@ -1,5 +1,6 @@
 """Price data endpoints — OHLCV queries, ingestion trigger, and live prices."""
 
+import math
 import random
 from datetime import datetime, timezone, timedelta
 
@@ -552,3 +553,216 @@ async def get_deep_orderbook(
         raise
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Deep order book failed: {str(e)}")
+
+
+# ── Liquidation Heatmap 2D (time × price grid) ────────────────
+
+
+def _ts_to_utc(dt) -> int:
+    """Convert datetime to Unix timestamp (UTC seconds)."""
+    if hasattr(dt, "timestamp"):
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return int(dt.timestamp())
+    return 0
+
+
+def _compute_liq_heatmap_grid(candles: list[dict]) -> dict:
+    """Compute a 2D liquidation-intensity grid from OHLCV candle data.
+
+    For each candle estimates positions opened (proportional to volume)
+    and calculates liquidation prices at common leverage tiers.
+    Intensities accumulate with time-decay and are cleared when price
+    sweeps through a level (simulating actual liquidation).
+
+    Returns a compact grid: price axis + one intensity column per candle.
+    """
+    if len(candles) < 5:
+        return {"columns": [], "price_min": 0, "price_max": 0,
+                "price_step": 0, "n_levels": 0}
+
+    # ── Price axis ──────────────────────────────────────────
+    lows = [c["low"] for c in candles]
+    highs = [c["high"] for c in candles]
+    p_min, p_max = min(lows), max(highs)
+    rng = p_max - p_min
+    # Extend ±30 % for liquidation levels beyond visible prices
+    p_min -= rng * 0.30
+    p_max += rng * 0.30
+    rng = p_max - p_min
+
+    # Aim for ~160 price levels
+    step = rng / 160
+    mag = 10 ** math.floor(math.log10(max(step, 1e-10)))
+    step = max(round(step / mag) * mag, mag)
+
+    prices: list[float] = []
+    p = p_min
+    while p <= p_max:
+        prices.append(round(p, 6))
+        p += step
+    n = len(prices)
+    if n < 3:
+        return {"columns": [], "price_min": 0, "price_max": 0,
+                "price_step": 0, "n_levels": 0}
+
+    # ── Leverage tiers ──────────────────────────────────────
+    leverage_tiers = [
+        (3, 0.04), (5, 0.12), (10, 0.28),
+        (25, 0.28), (50, 0.18), (100, 0.10),
+    ]
+
+    # ── Normalize volumes ───────────────────────────────────
+    max_vol = max((c["volume"] for c in candles), default=1) or 1
+
+    sigma_pct = 0.004   # 0.4 % of close — controls band width
+    decay = 0.97        # 3 % decay per candle
+    sweep_keep = 0.12   # keep 12 % when price sweeps a level
+
+    cumulative = [0.0] * n
+    columns: list[dict] = []
+    p0 = prices[0]
+
+    for c in candles:
+        close = c["close"]
+        vol = c["volume"] / max_vol
+        low, high = c["low"], c["high"]
+        ts = c["time"]
+
+        if close <= 0:
+            continue
+
+        # Decay
+        cumulative = [v * decay for v in cumulative]
+
+        # Clear levels that price swept through (positions liquidated)
+        i_lo = max(0, int((low - p0) / step))
+        i_hi = min(n, int((high - p0) / step) + 1)
+        for i in range(i_lo, i_hi):
+            cumulative[i] *= sweep_keep
+
+        # Add new liquidation intensity
+        sigma = close * sigma_pct
+        sigma_sq_2 = 2 * sigma * sigma
+        cutoff = 4 * sigma
+
+        for lev, weight in leverage_tiers:
+            long_liq = close * (1 - 1 / lev)
+            short_liq = close * (1 + 1 / lev)
+            intensity = vol * weight
+
+            # Long liquidation
+            il_start = max(0, int((long_liq - cutoff - p0) / step))
+            il_end = min(n, int((long_liq + cutoff - p0) / step) + 1)
+            for i in range(il_start, il_end):
+                d = prices[i] - long_liq
+                cumulative[i] += intensity * math.exp(-(d * d) / sigma_sq_2)
+
+            # Short liquidation
+            is_start = max(0, int((short_liq - cutoff - p0) / step))
+            is_end = min(n, int((short_liq + cutoff - p0) / step) + 1)
+            for i in range(is_start, is_end):
+                d = prices[i] - short_liq
+                cumulative[i] += intensity * math.exp(-(d * d) / sigma_sq_2)
+
+        columns.append({"time": ts, "v": list(cumulative)})
+
+    # ── Normalize to 0-1 ────────────────────────────────────
+    max_val = 0.0
+    for col in columns:
+        m = max(col["v"]) if col["v"] else 0
+        if m > max_val:
+            max_val = m
+
+    if max_val > 0:
+        inv = 1.0 / max_val
+        for col in columns:
+            col["v"] = [round(v * inv, 3) for v in col["v"]]
+
+    return {
+        "price_min": prices[0] if prices else 0,
+        "price_max": prices[-1] if prices else 0,
+        "price_step": round(step, 6),
+        "n_levels": n,
+        "columns": columns,
+    }
+
+
+@router.get("/{symbol}/liquidation-heatmap")
+async def get_liquidation_heatmap(
+    symbol: str,
+    timeframe: str = Query("1h"),
+    limit: int = Query(200, ge=50, le=500),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    2D liquidation heatmap — time × price grid of estimated liquidation
+    intensities.  Uses historical OHLCV data to estimate where leveraged
+    positions opened at each candle would be liquidated.
+
+    Returns a grid compatible with a thermal-colormap chart overlay.
+    """
+    candles: list[dict] = []
+
+    # ── 1. Try DB first ──────────────────────────────────────
+    result = await db.execute(select(Asset).where(Asset.symbol == symbol.upper()))
+    asset = result.scalar_one_or_none()
+
+    if asset:
+        try:
+            tf = Timeframe(timeframe)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid timeframe: {timeframe}")
+
+        result = await db.execute(
+            select(OHLCVData)
+            .where(OHLCVData.asset_id == asset.id, OHLCVData.timeframe == tf)
+            .order_by(OHLCVData.timestamp.desc())
+            .limit(limit)
+        )
+        rows = list(result.scalars().all())
+        rows.reverse()
+
+        candles = [
+            {
+                "time": _ts_to_utc(r.timestamp),
+                "open": float(r.open), "high": float(r.high),
+                "low": float(r.low), "close": float(r.close),
+                "volume": float(r.volume),
+            }
+            for r in rows
+        ]
+
+    # ── 2. Fallback: adapter (live fetch) ────────────────────
+    if len(candles) < 10:
+        try:
+            from backend.app.data.registry import data_registry
+
+            adapter = data_registry.route_symbol(symbol)
+            await adapter.connect()
+            try:
+                raw = await adapter.fetch_ohlcv(symbol, timeframe, limit)
+                candles = [
+                    {
+                        "time": _ts_to_utc(c.timestamp),
+                        "open": float(c.open), "high": float(c.high),
+                        "low": float(c.low), "close": float(c.close),
+                        "volume": float(c.volume),
+                    }
+                    for c in (raw or [])
+                ]
+            finally:
+                await adapter.disconnect()
+        except Exception:
+            pass
+
+    if len(candles) < 10:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Not enough OHLCV data for {symbol} {timeframe}. Fetch data first.",
+        )
+
+    grid = _compute_liq_heatmap_grid(candles)
+    grid["symbol"] = symbol.upper()
+    grid["timeframe"] = timeframe
+    return grid

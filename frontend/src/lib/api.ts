@@ -162,6 +162,11 @@ export const api = {
       levels: [], current_price: 0, symbol,
     }),
 
+  liquidationHeatmap: (symbol: string, timeframe = "1h", limit = 200) =>
+    fetchAPISafe<any>(`/api/v1/prices/${symbol}/liquidation-heatmap?timeframe=${timeframe}&limit=${limit}`, {
+      columns: [], price_min: 0, price_max: 0, price_step: 0, n_levels: 0,
+    }),
+
   deepOrderBook: (symbol: string, depth = 1000) =>
     fetchAPISafe<any>(`/api/v1/prices/${symbol}/orderbook-deep?depth=${depth}`, {
       bids: [], asks: [], stats: {},
