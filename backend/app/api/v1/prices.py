@@ -555,6 +555,372 @@ async def get_deep_orderbook(
         raise HTTPException(status_code=502, detail=f"Deep order book failed: {str(e)}")
 
 
+# ── Stop Heatmap 2D (time × price grid) ───────────────────────
+
+
+def _compute_rolling_atr(candles: list[dict], period: int = 14) -> list[float]:
+    """Compute rolling ATR for each candle.  Returns list same length as candles."""
+    atrs = [0.0] * len(candles)
+    for i in range(len(candles)):
+        if i == 0:
+            atrs[i] = candles[i]["high"] - candles[i]["low"]
+            continue
+        tr = max(
+            candles[i]["high"] - candles[i]["low"],
+            abs(candles[i]["high"] - candles[i - 1]["close"]),
+            abs(candles[i]["low"] - candles[i - 1]["close"]),
+        )
+        if i < period:
+            atrs[i] = tr
+        else:
+            atrs[i] = atrs[i - 1] * (period - 1) / period + tr / period
+    return atrs
+
+
+def _nearest_round_number(price: float, direction: str) -> float:
+    """Find the nearest psychologically significant round number above or below price."""
+    if price <= 0:
+        return price
+    mag = 10 ** max(0, math.floor(math.log10(price)) - 1)
+    if direction == "below":
+        return math.floor(price / mag) * mag
+    else:
+        return math.ceil(price / mag) * mag
+
+
+def _compute_stop_heatmap_grid(candles: list[dict]) -> dict:
+    """Compute a 2D stop-loss density grid from OHLCV candle data.
+
+    For each candle estimates positions opened (proportional to volume)
+    and calculates common stop-loss placement prices using ATR multiples,
+    swing levels, and round numbers.  Intensities accumulate with time-decay
+    and are cleared when price sweeps through a level (stops get hit).
+
+    Returns a compact grid: price axis + one intensity column per candle.
+    """
+    if len(candles) < 5:
+        return {"columns": [], "price_min": 0, "price_max": 0,
+                "price_step": 0, "n_levels": 0}
+
+    # ── Price axis ──────────────────────────────────────────
+    lows = [c["low"] for c in candles]
+    highs = [c["high"] for c in candles]
+    p_min, p_max = min(lows), max(highs)
+    rng = p_max - p_min
+    p_min -= rng * 0.20
+    p_max += rng * 0.20
+    rng = p_max - p_min
+
+    step = rng / 160
+    mag = 10 ** math.floor(math.log10(max(step, 1e-10)))
+    step = max(round(step / mag) * mag, mag)
+
+    prices: list[float] = []
+    p = p_min
+    while p <= p_max:
+        prices.append(round(p, 6))
+        p += step
+    n = len(prices)
+    if n < 3:
+        return {"columns": [], "price_min": 0, "price_max": 0,
+                "price_step": 0, "n_levels": 0}
+
+    # ── Pre-compute ATR ──────────────────────────────────────
+    atrs = _compute_rolling_atr(candles, 14)
+
+    # ── Pre-detect swing highs / lows (5-bar lookback) ───────
+    swing_lows: list[float] = []
+    swing_highs: list[float] = []
+
+    # ── Normalize volumes ────────────────────────────────────
+    max_vol = max((c["volume"] for c in candles), default=1) or 1
+
+    # Stop level weights: ATR 1x(0.30), ATR 1.5x(0.25), ATR 2x(0.15),
+    #                     swing(0.20), round number(0.10)
+    atr_tiers = [(1.0, 0.30), (1.5, 0.25), (2.0, 0.15)]
+    swing_weight = 0.20
+    round_weight = 0.10
+
+    sigma_pct = 0.003   # 0.3 % of close — narrower than liquidation
+    decay = 0.97        # 3 % decay per candle
+    sweep_keep = 0.08   # 8 % kept when price hits SL level (aggressive clear)
+
+    cumulative = [0.0] * n
+    columns: list[dict] = []
+    p0 = prices[0]
+
+    for idx, c in enumerate(candles):
+        close = c["close"]
+        vol = c["volume"] / max_vol
+        low, high = c["low"], c["high"]
+        ts = c["time"]
+        atr = atrs[idx]
+
+        if close <= 0 or atr <= 0:
+            columns.append({"time": ts, "v": list(cumulative)})
+            continue
+
+        # Update swing points (5-bar lookback)
+        if idx >= 4:
+            mid = idx - 2
+            segment_lows = [candles[j]["low"] for j in range(mid - 2, mid + 3)]
+            segment_highs = [candles[j]["high"] for j in range(mid - 2, mid + 3)]
+            if candles[mid]["low"] == min(segment_lows):
+                swing_lows.append(candles[mid]["low"])
+                if len(swing_lows) > 10:
+                    swing_lows.pop(0)
+            if candles[mid]["high"] == max(segment_highs):
+                swing_highs.append(candles[mid]["high"])
+                if len(swing_highs) > 10:
+                    swing_highs.pop(0)
+
+        # Decay
+        cumulative = [v * decay for v in cumulative]
+
+        # Clear levels that price swept through (stops triggered)
+        i_lo = max(0, int((low - p0) / step))
+        i_hi = min(n, int((high - p0) / step) + 1)
+        for i in range(i_lo, i_hi):
+            cumulative[i] *= sweep_keep
+
+        # Bullish candle → more longs opened → more long SLs below
+        if close >= c["open"]:
+            long_bias, short_bias = 0.60, 0.40
+        else:
+            long_bias, short_bias = 0.40, 0.60
+
+        sigma = close * sigma_pct
+        sigma_sq_2 = 2 * sigma * sigma
+        cutoff = 4 * sigma
+
+        def _add_gaussian(center_price: float, intensity: float):
+            """Add Gaussian-distributed intensity around a price level."""
+            il_start = max(0, int((center_price - cutoff - p0) / step))
+            il_end = min(n, int((center_price + cutoff - p0) / step) + 1)
+            for i in range(il_start, il_end):
+                d = prices[i] - center_price
+                cumulative[i] += intensity * math.exp(-(d * d) / sigma_sq_2)
+
+        # ATR-based stops
+        for mult, weight in atr_tiers:
+            # Long SL below entry
+            _add_gaussian(close - mult * atr, vol * weight * long_bias)
+            # Short SL above entry
+            _add_gaussian(close + mult * atr, vol * weight * short_bias)
+
+        # Swing-based stops
+        if swing_lows:
+            nearest_low = min(swing_lows, key=lambda sl: abs(sl - close))
+            _add_gaussian(nearest_low * 0.997, vol * swing_weight * long_bias)
+        if swing_highs:
+            nearest_high = min(swing_highs, key=lambda sh: abs(sh - close))
+            _add_gaussian(nearest_high * 1.003, vol * swing_weight * short_bias)
+
+        # Round number stops
+        round_below = _nearest_round_number(close, "below")
+        round_above = _nearest_round_number(close, "above")
+        _add_gaussian(round_below * 0.999, vol * round_weight * long_bias)
+        _add_gaussian(round_above * 1.001, vol * round_weight * short_bias)
+
+        columns.append({"time": ts, "v": list(cumulative)})
+
+    # ── Normalize to 0-1 ────────────────────────────────────
+    max_val = 0.0
+    for col in columns:
+        m = max(col["v"]) if col["v"] else 0
+        if m > max_val:
+            max_val = m
+
+    if max_val > 0:
+        inv = 1.0 / max_val
+        for col in columns:
+            col["v"] = [round(v * inv, 3) for v in col["v"]]
+
+    return {
+        "price_min": prices[0] if prices else 0,
+        "price_max": prices[-1] if prices else 0,
+        "price_step": round(step, 6),
+        "n_levels": n,
+        "columns": columns,
+    }
+
+
+@router.get("/{symbol}/stop-heatmap")
+async def get_stop_heatmap(
+    symbol: str,
+    timeframe: str = Query("1h"),
+    limit: int = Query(200, ge=50, le=500),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    2D stop-loss heatmap — time × price grid of estimated SL density.
+    Uses historical OHLCV data to estimate where stop-loss orders are
+    concentrated based on ATR, swing levels, and round numbers.
+    """
+    candles: list[dict] = []
+
+    # Try DB first
+    result = await db.execute(select(Asset).where(Asset.symbol == symbol.upper()))
+    asset = result.scalar_one_or_none()
+
+    if asset:
+        try:
+            tf = Timeframe(timeframe)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid timeframe: {timeframe}")
+
+        result = await db.execute(
+            select(OHLCVData)
+            .where(OHLCVData.asset_id == asset.id, OHLCVData.timeframe == tf)
+            .order_by(OHLCVData.timestamp.desc())
+            .limit(limit)
+        )
+        rows = list(result.scalars().all())
+        rows.reverse()
+        candles = [
+            {
+                "time": _ts_to_utc(r.timestamp),
+                "open": float(r.open), "high": float(r.high),
+                "low": float(r.low), "close": float(r.close),
+                "volume": float(r.volume),
+            }
+            for r in rows
+        ]
+
+    # Fallback: adapter (live fetch)
+    if len(candles) < 10:
+        try:
+            from backend.app.data.registry import data_registry
+            adapter = data_registry.route_symbol(symbol)
+            await adapter.connect()
+            try:
+                raw = await adapter.fetch_ohlcv(symbol, timeframe, limit)
+                candles = [
+                    {
+                        "time": _ts_to_utc(c.timestamp),
+                        "open": float(c.open), "high": float(c.high),
+                        "low": float(c.low), "close": float(c.close),
+                        "volume": float(c.volume),
+                    }
+                    for c in (raw or [])
+                ]
+            finally:
+                await adapter.disconnect()
+        except Exception:
+            pass
+
+    if len(candles) < 10:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Not enough OHLCV data for {symbol} {timeframe}.",
+        )
+
+    grid = _compute_stop_heatmap_grid(candles)
+    grid["symbol"] = symbol.upper()
+    grid["timeframe"] = timeframe
+    return grid
+
+
+# ── MBO Profile (Market by Order segmentation) ───────────────
+
+
+@router.get("/{symbol}/mbo-profile")
+async def get_mbo_profile(
+    symbol: str,
+    depth: int = Query(500, ge=50, le=2000),
+):
+    """
+    MBO (Market by Order) profile — orderbook depth segmented by order size.
+
+    Groups nearby price levels into buckets and classifies each bucket as
+    institutional, large, medium, or small based on volume relative to average.
+    Returns data suitable for a right-edge bar profile overlay.
+    """
+    from backend.app.data.registry import data_registry
+    from backend.app.core.orderbook.tpsl_analyzer import estimate_order_count
+
+    try:
+        adapter = data_registry.route_symbol(symbol)
+        await adapter.connect()
+        try:
+            ob = await adapter.fetch_orderbook(symbol, min(depth, 1000))
+            if ob is not None:
+                raw_bids = [{"price": l.price, "quantity": l.quantity} for l in ob.bids]
+                raw_asks = [{"price": l.price, "quantity": l.quantity} for l in ob.asks]
+                current_price = (raw_bids[0]["price"] + raw_asks[0]["price"]) / 2 if raw_bids and raw_asks else 0
+            else:
+                synthetic = await _synthetic_orderbook(adapter, symbol, min(depth, 1000))
+                raw_bids = synthetic["bids"]
+                raw_asks = synthetic["asks"]
+                current_price = synthetic["current_price"]
+        finally:
+            await adapter.disconnect()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"MBO profile failed: {str(e)}")
+
+    if not raw_bids or not raw_asks or current_price <= 0:
+        raise HTTPException(status_code=404, detail=f"No orderbook data for {symbol}")
+
+    # Bucket size: adaptive to price magnitude (~0.02% of price)
+    bucket_size = current_price * 0.0002
+    mag = 10 ** math.floor(math.log10(max(bucket_size, 1e-10)))
+    bucket_size = max(round(bucket_size / mag) * mag, mag)
+
+    def _bucket_levels(levels: list[dict], side: str) -> list[dict]:
+        if not levels:
+            return []
+
+        avg_qty = sum(l["quantity"] for l in levels) / len(levels)
+        avg_order_size = avg_qty / 3  # assume ~3 orders per level on average
+
+        # Group into buckets
+        buckets: dict[float, dict] = {}
+        for l in levels:
+            bucket_key = round(math.floor(l["price"] / bucket_size) * bucket_size, 6)
+            if bucket_key not in buckets:
+                buckets[bucket_key] = {"price": bucket_key, "volume": 0.0, "orders": 0, "side": side}
+            buckets[bucket_key]["volume"] += l["quantity"]
+            buckets[bucket_key]["orders"] += estimate_order_count(l["quantity"], avg_order_size)
+
+        # Classify segments
+        result = list(buckets.values())
+        if not result:
+            return []
+
+        avg_bucket_vol = sum(b["volume"] for b in result) / len(result)
+        for b in result:
+            ratio = b["volume"] / avg_bucket_vol if avg_bucket_vol > 0 else 1
+            if ratio > 10:
+                b["segment"] = "institutional"
+            elif ratio > 3:
+                b["segment"] = "large"
+            elif ratio > 1:
+                b["segment"] = "medium"
+            else:
+                b["segment"] = "small"
+            b["volume"] = round(b["volume"], 4)
+
+        return sorted(result, key=lambda x: x["price"], reverse=(side == "bid"))
+
+    bid_buckets = _bucket_levels(raw_bids, "bid")
+    ask_buckets = _bucket_levels(raw_asks, "ask")
+
+    max_volume = max(
+        max((b["volume"] for b in bid_buckets), default=0),
+        max((b["volume"] for b in ask_buckets), default=0),
+    ) or 1
+
+    return {
+        "symbol": symbol.upper(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "current_price": round(current_price, 6),
+        "bids": bid_buckets,
+        "asks": ask_buckets,
+        "max_volume": round(max_volume, 4),
+        "bucket_size": round(bucket_size, 6),
+    }
+
+
 # ── Liquidation Heatmap 2D (time × price grid) ────────────────
 
 

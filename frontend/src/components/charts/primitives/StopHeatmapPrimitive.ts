@@ -1,13 +1,13 @@
 /**
- * Liquidation Heatmap 2D — thermal color overlay on the candlestick chart.
+ * Stop Heatmap 2D — warm color overlay on the candlestick chart.
  *
- * Renders a time × price grid of estimated liquidation intensities using a
- * cool-to-hot colormap (dark → blue → cyan → green → yellow → red).
+ * Renders a time × price grid of estimated stop-loss density using a
+ * warm colormap (dark → purple → red → orange → yellow).
  *
- * Data arrives from `/api/v1/prices/{symbol}/liquidation-heatmap` as a
+ * Shows numbers inside cells when zoomed in (cell width > 30px).
+ *
+ * Data arrives from `/api/v1/prices/{symbol}/stop-heatmap` as a
  * compact grid: { price_min, price_max, price_step, n_levels, columns }.
- *
- * Follows the same ISeriesPrimitive<Time> pattern as AccZonePrimitive / TPSLHeatmapPrimitive.
  */
 
 import type {
@@ -22,10 +22,10 @@ import type {
 import type { CanvasRenderingTarget2D } from "fancy-canvas";
 import type { ThemeName } from "@/stores/theme";
 
-/* ── Types ── */
+/* ── Types (same grid format as LiquidationHeatmap) ── */
 export interface HeatmapColumn {
-  time: number;   // UTC timestamp (seconds)
-  v: number[];    // Intensity values 0-1 for each price level
+  time: number;
+  v: number[];
 }
 
 export interface HeatmapGrid {
@@ -38,10 +38,9 @@ export interface HeatmapGrid {
   columns: HeatmapColumn[];
 }
 
-/* ── Color mapping — thermal / inferno-like ── */
+/* ── Warm color palette: dark → purple → red → orange → yellow ── */
 
-/** Pre-compute 256-entry color LUT for fast lookup. */
-const COLOR_LUT: string[] = (() => {
+const STOP_COLOR_LUT: string[] = (() => {
   const lut: string[] = new Array(256);
   for (let i = 0; i < 256; i++) {
     const t = i / 255;
@@ -49,46 +48,34 @@ const COLOR_LUT: string[] = (() => {
     const a = Math.min(t * 0.88, 0.82);
 
     if (t < 0.12) {
-      // Transparent → dark purple
-      r = Math.floor((t / 0.12) * 25);
+      // Transparent → dark
+      r = Math.floor((t / 0.12) * 30);
       g = 0;
-      b = Math.floor((t / 0.12) * 80);
-    } else if (t < 0.25) {
-      // Dark purple → blue
-      const s = (t - 0.12) / 0.13;
-      r = Math.floor(25 - s * 25);
+      b = Math.floor((t / 0.12) * 20);
+    } else if (t < 0.30) {
+      // Dark → purple
+      const s = (t - 0.12) / 0.18;
+      r = Math.floor(30 + s * 100);
       g = 0;
-      b = Math.floor(80 + s * 175);
-    } else if (t < 0.40) {
-      // Blue → cyan
-      const s = (t - 0.25) / 0.15;
-      r = 0;
-      g = Math.floor(s * 220);
-      b = 255;
-    } else if (t < 0.55) {
-      // Cyan → green
-      const s = (t - 0.40) / 0.15;
-      r = 0;
-      g = Math.floor(220 + s * 35);
-      b = Math.floor(255 * (1 - s));
+      b = Math.floor(20 + s * 120);
+    } else if (t < 0.50) {
+      // Purple → red
+      const s = (t - 0.30) / 0.20;
+      r = Math.floor(130 + s * 125);
+      g = 0;
+      b = Math.floor(140 * (1 - s));
     } else if (t < 0.70) {
-      // Green → yellow
-      const s = (t - 0.55) / 0.15;
-      r = Math.floor(s * 255);
-      g = 255;
-      b = 0;
-    } else if (t < 0.85) {
-      // Yellow → orange
-      const s = (t - 0.70) / 0.15;
+      // Red → orange
+      const s = (t - 0.50) / 0.20;
       r = 255;
-      g = Math.floor(255 - s * 110);
+      g = Math.floor(s * 165);
       b = 0;
     } else {
-      // Orange → red/white
-      const s = (t - 0.85) / 0.15;
+      // Orange → yellow
+      const s = (t - 0.70) / 0.30;
       r = 255;
-      g = Math.floor(145 - s * 90);
-      b = Math.floor(s * 70);
+      g = Math.floor(165 + s * 90);
+      b = Math.floor(s * 50);
     }
 
     lut[i] = `rgba(${r},${g},${b},${a.toFixed(3)})`;
@@ -96,22 +83,17 @@ const COLOR_LUT: string[] = (() => {
   return lut;
 })();
 
-function heatColor(intensity: number): string {
-  const idx = Math.min(255, Math.max(0, Math.round(intensity * 255)));
-  return COLOR_LUT[idx];
-}
-
-/* ── Render cell ── */
+/* ── Cell ── */
 interface Cell {
   x: number;
   y: number;
   w: number;
   h: number;
-  colorIdx: number; // 0-255
+  colorIdx: number;
 }
 
 /* ── Renderer ── */
-class LiqHeatmapRenderer implements IPrimitivePaneRenderer {
+class StopHeatmapRenderer implements IPrimitivePaneRenderer {
   private _cells: Cell[] = [];
 
   setCells(cells: Cell[]): void {
@@ -124,11 +106,11 @@ class LiqHeatmapRenderer implements IPrimitivePaneRenderer {
     target.useMediaCoordinateSpace(({ context: ctx }) => {
       // Pass 1: fill cells
       for (const cell of this._cells) {
-        ctx.fillStyle = COLOR_LUT[cell.colorIdx];
+        ctx.fillStyle = STOP_COLOR_LUT[cell.colorIdx];
         ctx.fillRect(cell.x, cell.y, cell.w + 0.5, cell.h + 0.5);
       }
 
-      // Pass 2: numbers when zoomed in (cell width > 30px)
+      // Pass 2: numbers when zoomed in
       if (this._cells.length > 0 && this._cells[0].w > 30) {
         ctx.font = "bold 9px JetBrains Mono, monospace";
         ctx.textAlign = "center";
@@ -147,16 +129,16 @@ class LiqHeatmapRenderer implements IPrimitivePaneRenderer {
   }
 
   draw(_target: CanvasRenderingTarget2D): void {
-    // No foreground drawing needed — heatmap renders behind candles
+    // No foreground drawing
   }
 }
 
 /* ── View ── */
-class LiqHeatmapView implements IPrimitivePaneView {
-  private _source: LiquidationHeatmapPrimitive;
-  private _renderer = new LiqHeatmapRenderer();
+class StopHeatmapView implements IPrimitivePaneView {
+  private _source: StopHeatmapPrimitive;
+  private _renderer = new StopHeatmapRenderer();
 
-  constructor(source: LiquidationHeatmapPrimitive) {
+  constructor(source: StopHeatmapPrimitive) {
     this._source = source;
   }
 
@@ -174,7 +156,7 @@ class LiqHeatmapView implements IPrimitivePaneView {
     const timeScale = _chart.timeScale();
     const cells: Cell[] = [];
 
-    // Calculate cell width from adjacent columns
+    // Cell width from adjacent columns
     let cellWidth = 6;
     const cols = _grid.columns;
     if (cols.length >= 2) {
@@ -185,7 +167,7 @@ class LiqHeatmapView implements IPrimitivePaneView {
       }
     }
 
-    // Calculate cell height from price step
+    // Cell height from price step
     let cellHeight = 2;
     const y1 = _series.priceToCoordinate(_grid.price_min);
     const y2 = _series.priceToCoordinate(_grid.price_min + _grid.price_step);
@@ -195,7 +177,7 @@ class LiqHeatmapView implements IPrimitivePaneView {
 
     const halfW = cellWidth / 2;
     const halfH = cellHeight / 2;
-    const minIntensity = 0.03; // Skip very dim cells
+    const minIntensity = 0.03;
 
     for (const col of cols) {
       const x = timeScale.timeToCoordinate(col.time as unknown as Time);
@@ -228,20 +210,17 @@ class LiqHeatmapView implements IPrimitivePaneView {
 }
 
 /* ── Primitive ── */
-export class LiquidationHeatmapPrimitive implements ISeriesPrimitive<Time> {
+export class StopHeatmapPrimitive implements ISeriesPrimitive<Time> {
   _series: ISeriesApi<SeriesType, Time> | null = null;
-  _chart: any = null; // IChartApi — typed as any to avoid import issues
+  _chart: any = null;
   _grid: HeatmapGrid | null = null;
   _visible = false;
 
   private _requestUpdate: (() => void) | null = null;
-  private _view = new LiqHeatmapView(this);
+  private _view = new StopHeatmapView(this);
   private _paneViews: readonly IPrimitivePaneView[] = [this._view];
 
-  constructor(_theme: ThemeName) {
-    // Theme is not used for heatmap colors (we use the fixed thermal LUT)
-    // but we keep the constructor signature for API compatibility.
-  }
+  constructor(_theme: ThemeName) {}
 
   attached(param: SeriesAttachedParameter<Time, SeriesType>): void {
     this._series = param.series;
@@ -255,9 +234,7 @@ export class LiquidationHeatmapPrimitive implements ISeriesPrimitive<Time> {
     this._requestUpdate = null;
   }
 
-  updateAllViews(): void {
-    // Views are stateless — they read from _source directly
-  }
+  updateAllViews(): void {}
 
   paneViews(): readonly IPrimitivePaneView[] {
     return this._paneViews;
@@ -278,12 +255,6 @@ export class LiquidationHeatmapPrimitive implements ISeriesPrimitive<Time> {
   }
 
   setTheme(_theme: ThemeName): void {
-    // Thermal colors are theme-independent but trigger redraw
     this._requestUpdate?.();
-  }
-
-  // Backward-compatible stubs (old API used by sidebar widget)
-  updateLevels(_levels: any[], _currentPrice: number): void {
-    // Ignored — use updateGrid() for the 2D heatmap
   }
 }

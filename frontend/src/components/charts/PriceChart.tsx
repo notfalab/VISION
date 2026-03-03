@@ -38,6 +38,8 @@ import {
 } from "./primitives/AccZonePrimitive";
 import { TPSLHeatmapPrimitive } from "./primitives/TPSLHeatmapPrimitive";
 import { LiquidationHeatmapPrimitive } from "./primitives/LiquidationHeatmapPrimitive";
+import { StopHeatmapPrimitive } from "./primitives/StopHeatmapPrimitive";
+import { MBOProfilePrimitive } from "./primitives/MBOProfilePrimitive";
 import { getMarketType } from "@/stores/market";
 
 const TIMEFRAMES: { label: string; value: Timeframe }[] = [
@@ -160,6 +162,8 @@ export default function PriceChart() {
   const accZonePrimRef = useRef<AccZonePrimitive | null>(null);
   const tpslPrimRef = useRef<TPSLHeatmapPrimitive | null>(null);
   const liqPrimRef = useRef<LiquidationHeatmapPrimitive | null>(null);
+  const stopPrimRef = useRef<StopHeatmapPrimitive | null>(null);
+  const mboPrimRef = useRef<MBOProfilePrimitive | null>(null);
 
   const { activeSymbol, activeTimeframe, setActiveTimeframe, setCandles, candles, livePrices } = useMarketStore();
   const theme = useThemeStore((s) => s.theme);
@@ -170,6 +174,8 @@ export default function PriceChart() {
   const [showSessions, setShowSessions] = useState(true);
   const [showTPSL, setShowTPSL] = useState(false);
   const [showLiq, setShowLiq] = useState(false);
+  const [showStops, setShowStops] = useState(false);
+  const [showMBO, setShowMBO] = useState(false);
   const [isPannedAway, _setIsPannedAway] = useState(false);
   const isPannedRef = useRef(false);
 
@@ -261,6 +267,14 @@ export default function PriceChart() {
     const liqPrim = new LiquidationHeatmapPrimitive(theme);
     candleSeries.attachPrimitive(liqPrim);
 
+    // Stop heatmap primitive
+    const stopPrim = new StopHeatmapPrimitive(theme);
+    candleSeries.attachPrimitive(stopPrim);
+
+    // MBO profile primitive
+    const mboPrim = new MBOProfilePrimitive(theme);
+    candleSeries.attachPrimitive(mboPrim);
+
     // Series markers plugin
     const markersPlugin = createSeriesMarkers(candleSeries, []);
 
@@ -309,6 +323,8 @@ export default function PriceChart() {
     accZonePrimRef.current = accZonePrim;
     tpslPrimRef.current = tpslPrim;
     liqPrimRef.current = liqPrim;
+    stopPrimRef.current = stopPrim;
+    mboPrimRef.current = mboPrim;
 
     return () => {
       chart.remove();
@@ -323,6 +339,8 @@ export default function PriceChart() {
       accZonePrimRef.current = null;
       tpslPrimRef.current = null;
       liqPrimRef.current = null;
+      stopPrimRef.current = null;
+      mboPrimRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -350,6 +368,8 @@ export default function PriceChart() {
     accZonePrimRef.current?.setTheme(theme);
     tpslPrimRef.current?.setTheme(theme);
     liqPrimRef.current?.setTheme(theme);
+    stopPrimRef.current?.setTheme(theme);
+    mboPrimRef.current?.setTheme(theme);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [theme]);
 
@@ -913,6 +933,48 @@ export default function PriceChart() {
   }, [showLiq, activeSymbol, activeTimeframe]);
 
   /* ──────────────────────────────────────────────────
+     Stop Heatmap overlay (2D thermal — warm colors)
+     ────────────────────────────────────────────────── */
+  useEffect(() => {
+    stopPrimRef.current?.setVisible(showStops);
+    if (!showStops) return;
+
+    const fetchStops = async () => {
+      try {
+        const result = await api.stopHeatmap(activeSymbol, activeTimeframe, 200);
+        if (result.columns?.length > 0) {
+          stopPrimRef.current?.updateGrid(result);
+        }
+      } catch { /* ignore */ }
+    };
+
+    fetchStops();
+    const interval = setInterval(fetchStops, 120_000);
+    return () => clearInterval(interval);
+  }, [showStops, activeSymbol, activeTimeframe]);
+
+  /* ──────────────────────────────────────────────────
+     MBO Profile overlay (orderbook depth bars)
+     ────────────────────────────────────────────────── */
+  useEffect(() => {
+    mboPrimRef.current?.setVisible(showMBO);
+    if (!showMBO) return;
+
+    const fetchMBO = async () => {
+      try {
+        const result = await api.mboProfile(activeSymbol, 500);
+        if (result.current_price > 0) {
+          mboPrimRef.current?.updateProfile(result);
+        }
+      } catch { /* ignore */ }
+    };
+
+    fetchMBO();
+    const interval = setInterval(fetchMBO, 30_000);
+    return () => clearInterval(interval);
+  }, [showMBO, activeSymbol]);
+
+  /* ──────────────────────────────────────────────────
      JSX
      ────────────────────────────────────────────────── */
   const buyZoneCount = zones.filter((z) => z.type === "buy").length;
@@ -1010,6 +1072,32 @@ export default function PriceChart() {
             `}
           >
             Liq
+          </button>
+          {/* Stop Heatmap overlay */}
+          <button
+            onClick={() => setShowStops(!showStops)}
+            className={`
+              px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[32px]
+              ${showStops
+                ? "border-rose-500/30 text-rose-500 bg-rose-500/10"
+                : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
+              }
+            `}
+          >
+            Stops
+          </button>
+          {/* MBO Profile overlay */}
+          <button
+            onClick={() => setShowMBO(!showMBO)}
+            className={`
+              px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[32px]
+              ${showMBO
+                ? "border-pink-500/30 text-pink-500 bg-pink-500/10"
+                : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
+              }
+            `}
+          >
+            MBO
           </button>
           {/* Timeframe selector */}
           <div className="flex items-center gap-0.5 md:gap-1">

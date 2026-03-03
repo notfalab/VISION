@@ -171,4 +171,16 @@ export const api = {
     fetchAPISafe<any>(`/api/v1/prices/${symbol}/orderbook-deep?depth=${depth}`, {
       bids: [], asks: [], stats: {},
     }),
+
+  // Stop Heatmap (2D stop-loss density grid)
+  stopHeatmap: (symbol: string, timeframe = "1h", limit = 200) =>
+    fetchAPISafe<any>(`/api/v1/prices/${symbol}/stop-heatmap?timeframe=${timeframe}&limit=${limit}`, {
+      columns: [], price_min: 0, price_max: 0, price_step: 0, n_levels: 0,
+    }),
+
+  // MBO Profile (orderbook depth segmentation)
+  mboProfile: (symbol: string, depth = 500) =>
+    fetchAPISafe<any>(`/api/v1/prices/${symbol}/mbo-profile?depth=${depth}`, {
+      bids: [], asks: [], current_price: 0, max_volume: 0, bucket_size: 0,
+    }),
 };
