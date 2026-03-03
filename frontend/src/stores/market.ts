@@ -39,6 +39,10 @@ interface MarketState {
   addToWatchlist: (symbol: string) => void;
   removeFromWatchlist: (symbol: string) => void;
 
+  // Chart expanded mode
+  chartExpanded: boolean;
+  toggleChartExpanded: () => void;
+
   // Loading / error
   loading: boolean;
   setLoading: (v: boolean) => void;
@@ -77,6 +81,9 @@ export const useMarketStore = create<MarketState>((set) => ({
     set((state) => ({
       watchlist: state.watchlist.filter((s) => s !== symbol),
     })),
+
+  chartExpanded: false,
+  toggleChartExpanded: () => set((state) => ({ chartExpanded: !state.chartExpanded })),
 
   loading: false,
   setLoading: (v) => set({ loading: v }),

@@ -120,3 +120,14 @@ def clear_signals(symbol: str):
     r = _get_redis()
     key = _SIGNALS_KEY.format(symbol=symbol.upper())
     r.delete(key)
+
+
+def clear_all_signals():
+    """Clear ALL signals across all symbols and reset the counter."""
+    r = _get_redis()
+    count = 0
+    for k in r.scan_iter("vision:scalper:signals:*"):
+        r.delete(k)
+        count += 1
+    r.set(_COUNTER_KEY, 0)
+    logger.info("all_signals_cleared", keys_deleted=count)

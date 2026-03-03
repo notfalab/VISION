@@ -117,8 +117,26 @@ async def scan_signals(
     existing_signals = get_signals(symbol=symbol)
     loss_patterns = get_active_loss_filters(existing_signals)
 
+    # Fetch orderbook for smart money analysis
+    orderbook_dict = None
+    try:
+        from backend.app.data.registry import data_registry
+        adapter = data_registry.route_symbol(symbol)
+        await adapter.connect()
+        try:
+            ob = await adapter.fetch_orderbook(symbol, depth=500)
+            if ob is not None and ob.bids and ob.asks:
+                orderbook_dict = {
+                    "bids": [{"price": b.price, "quantity": b.quantity} for b in ob.bids],
+                    "asks": [{"price": a.price, "quantity": a.quantity} for a in ob.asks],
+                }
+        finally:
+            await adapter.disconnect()
+    except Exception:
+        pass  # Orderbook is optional — signal engine works without it
+
     # Generate signals
-    signals = generate_signals(df, symbol, actual_timeframe, loss_patterns)
+    signals = generate_signals(df, symbol, actual_timeframe, loss_patterns, orderbook=orderbook_dict)
 
     response = {
         "symbol": symbol.upper(),
@@ -187,8 +205,26 @@ async def scan_and_save(
     existing = get_signals(symbol=symbol)
     loss_patterns = get_active_loss_filters(existing)
 
+    # Fetch orderbook for smart money analysis
+    orderbook_dict = None
+    try:
+        from backend.app.data.registry import data_registry
+        adapter = data_registry.route_symbol(symbol)
+        await adapter.connect()
+        try:
+            ob = await adapter.fetch_orderbook(symbol, depth=500)
+            if ob is not None and ob.bids and ob.asks:
+                orderbook_dict = {
+                    "bids": [{"price": b.price, "quantity": b.quantity} for b in ob.bids],
+                    "asks": [{"price": a.price, "quantity": a.quantity} for a in ob.asks],
+                }
+        finally:
+            await adapter.disconnect()
+    except Exception:
+        pass
+
     # Scan all timeframes
-    signals = scan_multi_timeframe(dataframes, symbol, loss_patterns)
+    signals = scan_multi_timeframe(dataframes, symbol, loss_patterns, orderbook=orderbook_dict)
 
     # Save signals and notify via Telegram + Discord (only if confidence >= 70%)
     saved = []

@@ -1,10 +1,18 @@
 """
 Signal Engine — combines all indicators, ML prediction, regime detection,
-and order flow to generate scalper trade signals with SL/TP levels.
+order flow, and smart money analysis to generate scalper trade signals.
 
-Designed for 5m, 15m, 30m timeframes on gold (XAUUSD).
+Designed for 5m, 15m, 30m timeframes on gold (XAUUSD), crypto, forex.
 
-v2 improvements:
+v3 improvements:
+- Smart money integration: order flow, institutional heat score, TP/SL clusters
+- Block signals contradicted by strong order flow (e.g. long vs strong sell pressure)
+- Block signals contradicted by institutional positioning
+- SL placement avoids stop-loss clusters (dodge stop hunts)
+- TP targeting uses buy/sell walls from order book
+- Order flow + institutional heat scored as high-weight indicators
+
+v2 improvements (retained):
 - Structure-based SL placement (swing highs/lows instead of flat ATR)
 - Minimum R:R filter (reject weak setups)
 - Volatility regime filter (skip choppy markets)
@@ -301,20 +309,86 @@ def _classify_signal(metadata: dict) -> str:
     return "neutral"
 
 
+def _analyze_smart_money(orderbook: dict | None, current_price: float, symbol: str) -> dict:
+    """
+    Analyze order book with smart money tools: order flow, heat score, TP/SL clusters.
+    Returns a dict with all smart money signals for the signal engine.
+    """
+    result = {
+        "order_flow": None,
+        "heat_score": None,
+        "tpsl": None,
+        "flow_signal": "neutral",
+        "flow_delta_pct": 0.0,
+        "institutional_score": 50,
+        "institutional_signal": "neutral",
+        "sl_danger_zones": [],   # Price levels where stop clusters exist
+        "support_walls": [],     # Large bid walls (support)
+        "resistance_walls": [],  # Large ask walls (resistance)
+    }
+    if not orderbook:
+        return result
+
+    bids = orderbook.get("bids", [])
+    asks = orderbook.get("asks", [])
+    if not bids or not asks:
+        return result
+
+    try:
+        from backend.app.core.orderbook.flow_analyzer import analyze_order_flow
+        flow = analyze_order_flow(orderbook)
+        if "error" not in flow:
+            result["order_flow"] = flow
+            result["flow_signal"] = flow.get("signal", "neutral")
+            result["flow_delta_pct"] = flow.get("delta_pct", 0.0)
+            result["support_walls"] = flow.get("buy_walls", [])
+            result["resistance_walls"] = flow.get("sell_walls", [])
+
+            try:
+                from backend.app.core.institutional.heat_score import compute_heat_score
+                heat = compute_heat_score(orderflow=flow)
+                result["heat_score"] = heat
+                result["institutional_score"] = heat.get("score", 50)
+                result["institutional_signal"] = heat.get("signal", "neutral")
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    try:
+        from backend.app.core.orderbook.tpsl_analyzer import analyze_tpsl_heatmap
+        tpsl = analyze_tpsl_heatmap(bids, asks, current_price)
+        result["tpsl"] = tpsl
+        for cluster in tpsl.get("sl_clusters", []):
+            if cluster.get("strength", 0) >= 0.5:
+                result["sl_danger_zones"].append({
+                    "price_min": cluster["price_min"],
+                    "price_max": cluster["price_max"],
+                    "strength": cluster["strength"],
+                    "type": cluster.get("type", ""),
+                })
+    except Exception:
+        pass
+
+    return result
+
+
 def generate_signals(
     df: pd.DataFrame,
     symbol: str,
     timeframe: str,
     loss_patterns: list[dict] | None = None,
+    orderbook: dict | None = None,
 ) -> list[dict]:
     """
-    Generate scalper signals from OHLCV data.
+    Generate scalper signals from OHLCV data + smart money analysis.
 
     Args:
         df: OHLCV DataFrame with columns [timestamp, open, high, low, close, volume]
         symbol: Trading symbol (e.g., "XAUUSD")
         timeframe: Candle timeframe (e.g., "5m", "15m", "30m")
         loss_patterns: Active loss patterns to filter against
+        orderbook: Optional order book dict with 'bids'/'asks' for smart money analysis
 
     Returns:
         List of signal dicts ready to be stored as ScalperSignal records
@@ -383,6 +457,56 @@ def generate_signals(
 
     if total_weight == 0:
         return []
+
+    # ── 2b. Smart Money Analysis (order flow, institutional heat, TP/SL clusters) ──
+    current_price = float(df["close"].iloc[-1])
+    sm = _analyze_smart_money(orderbook, current_price, symbol)
+
+    # Incorporate order flow into scoring
+    flow_weight = 3.0  # High weight — order flow is direct institutional signal
+    flow_delta = sm["flow_delta_pct"]
+    flow_sig = sm["flow_signal"]
+
+    if flow_sig in ("strong_buy_pressure", "buy_pressure"):
+        bullish_weight += flow_weight
+        bullish_reasons.append("order_flow")
+        total_weight += flow_weight
+    elif flow_sig in ("strong_sell_pressure", "sell_pressure"):
+        bearish_weight += flow_weight
+        bearish_reasons.append("order_flow")
+        total_weight += flow_weight
+    elif sm["order_flow"] is not None:
+        total_weight += flow_weight  # Neutral still counts toward total
+
+    # Incorporate institutional heat score
+    inst_score = sm["institutional_score"]
+    inst_signal = sm["institutional_signal"]
+    inst_weight = 2.5
+
+    if "accumulation" in inst_signal:
+        bullish_weight += inst_weight
+        bullish_reasons.append("institutional_heat")
+        total_weight += inst_weight
+    elif "distribution" in inst_signal:
+        bearish_weight += inst_weight
+        bearish_reasons.append("institutional_heat")
+        total_weight += inst_weight
+    elif sm["heat_score"] is not None:
+        total_weight += inst_weight
+
+    # Log smart money data for snapshot
+    if sm["order_flow"] is not None:
+        indicator_snapshot["order_flow"] = {
+            "delta_pct": round(flow_delta, 2),
+            "signal": flow_sig,
+            "classification": flow_sig,
+        }
+    if sm["heat_score"] is not None:
+        indicator_snapshot["institutional_heat"] = {
+            "score": inst_score,
+            "signal": inst_signal,
+            "classification": inst_signal,
+        }
 
     thresholds = _get_thresholds(timeframe, symbol)
     min_composite_score = thresholds["min_score"]
@@ -465,20 +589,50 @@ def generate_signals(
     elif direction == "short" and regime == "trending_up":
         regime_compatible = False
 
+    # ── 8b. Validate order flow alignment ──
+    # Block signals where order flow strongly contradicts our direction
+    flow_contradicts = False
+    if sm["order_flow"] is not None:
+        if direction == "long" and flow_sig in ("strong_sell_pressure",):
+            flow_contradicts = True
+            logger.info(
+                "signal_blocked_flow_contradiction",
+                symbol=symbol, timeframe=timeframe, direction=direction,
+                flow_signal=flow_sig, delta_pct=flow_delta,
+            )
+            return []
+        if direction == "short" and flow_sig in ("strong_buy_pressure",):
+            flow_contradicts = True
+            logger.info(
+                "signal_blocked_flow_contradiction",
+                symbol=symbol, timeframe=timeframe, direction=direction,
+                flow_signal=flow_sig, delta_pct=flow_delta,
+            )
+            return []
+
+    # ── 8c. Block if institutional positioning contradicts direction ──
+    if sm["heat_score"] is not None:
+        if direction == "long" and inst_signal in ("institutional_distribution", "mild_distribution"):
+            if inst_score < 35:
+                logger.info(
+                    "signal_blocked_institutional_contra",
+                    symbol=symbol, direction=direction, inst_signal=inst_signal, inst_score=inst_score,
+                )
+                return []
+        if direction == "short" and inst_signal in ("institutional_accumulation", "mild_accumulation"):
+            if inst_score > 65:
+                logger.info(
+                    "signal_blocked_institutional_contra",
+                    symbol=symbol, direction=direction, inst_signal=inst_signal, inst_score=inst_score,
+                )
+                return []
+
     # ── 9. Calculate confidence ──
-    # Base confidence from composite score
-    if direction == "long":
-        base_confidence = min((composite_score - 50) / 50, 1.0)
-    else:
-        base_confidence = min((50 - composite_score) / 50, 1.0) if composite_score < 50 else min((composite_score - 50) / 50, 1.0)
-        base_confidence = min((100 - composite_score - 50) / 50, 1.0) if composite_score <= 40 else base_confidence
-
-    # Recalculate for short: use bearish strength
-    if direction == "short":
-        base_confidence = bearish_pct
-
+    # Base confidence from indicator strength
     if direction == "long":
         base_confidence = bullish_pct
+    else:
+        base_confidence = bearish_pct
 
     # Boost/penalize confidence
     confidence = base_confidence
@@ -487,10 +641,30 @@ def generate_signals(
         confidence = confidence * 0.7 + ml_confidence * 0.3  # Blend with ML
 
     if not regime_compatible:
-        confidence *= 0.4  # Was 0.6 — trading against trend is extremely risky
+        confidence *= 0.4  # Trading against trend is extremely risky
 
     if confluence_count < min_confluence:
-        confidence *= 0.7  # Was 0.8 — low confluence = weak setup
+        confidence *= 0.7  # Low confluence = weak setup
+
+    # Smart money confidence adjustments
+    if sm["order_flow"] is not None:
+        # Flow alignment boost
+        if direction == "long" and flow_sig in ("strong_buy_pressure", "buy_pressure"):
+            confidence *= 1.12  # Order flow confirms direction
+        elif direction == "short" and flow_sig in ("strong_sell_pressure", "sell_pressure"):
+            confidence *= 1.12
+        # Mild contradiction penalty (not enough to block, but penalize)
+        elif direction == "long" and "sell" in flow_sig:
+            confidence *= 0.80
+        elif direction == "short" and "buy" in flow_sig:
+            confidence *= 0.80
+
+    if sm["heat_score"] is not None:
+        # Institutional alignment boost
+        if direction == "long" and "accumulation" in inst_signal:
+            confidence *= 1.10
+        elif direction == "short" and "distribution" in inst_signal:
+            confidence *= 1.10
 
     confidence = round(min(max(confidence, 0), 1.0), 3)
 
@@ -619,6 +793,53 @@ def generate_signals(
             stop_loss = round(entry_price + max_sl_dist, 2)
         take_profit = round(entry_price - atr_tp, 2)
 
+    # ── 13a. Smart money SL/TP adjustment ──
+    # Move SL beyond stop-loss clusters to avoid stop hunts
+    if sm["sl_danger_zones"]:
+        for zone in sm["sl_danger_zones"]:
+            zone_min = zone["price_min"]
+            zone_max = zone["price_max"]
+            zone_buffer = (zone_max - zone_min) * 0.3  # 30% buffer past the zone
+
+            if direction == "long" and zone_min <= stop_loss <= zone_max:
+                # Our SL is inside a stop cluster — move it below the cluster
+                new_sl = zone_min - zone_buffer
+                if entry_price - new_sl <= max_sl_dist:
+                    stop_loss = round(new_sl, 2)
+                    logger.info("sl_adjusted_below_stop_cluster", symbol=symbol, old_sl=stop_loss, new_sl=new_sl)
+
+            elif direction == "short" and zone_min <= stop_loss <= zone_max:
+                # Our SL is inside a stop cluster — move it above the cluster
+                new_sl = zone_max + zone_buffer
+                if new_sl - entry_price <= max_sl_dist:
+                    stop_loss = round(new_sl, 2)
+                    logger.info("sl_adjusted_above_stop_cluster", symbol=symbol, old_sl=stop_loss, new_sl=new_sl)
+
+    # Use buy/sell walls for better TP targeting
+    if sm["support_walls"] and direction == "short":
+        # For shorts, strong buy walls are potential bounce points — use as TP
+        nearest_wall = min(
+            (w for w in sm["support_walls"] if w["price"] < entry_price),
+            key=lambda w: entry_price - w["price"],
+            default=None,
+        )
+        if nearest_wall and nearest_wall["strength"] >= 3.0:
+            wall_tp = nearest_wall["price"] + (0.3 * atr_value)  # TP just above the wall
+            if abs(entry_price - wall_tp) > abs(entry_price - take_profit) * 0.5:
+                take_profit = round(wall_tp, 2)
+
+    if sm["resistance_walls"] and direction == "long":
+        # For longs, strong sell walls are potential resistance — use as TP
+        nearest_wall = min(
+            (w for w in sm["resistance_walls"] if w["price"] > entry_price),
+            key=lambda w: w["price"] - entry_price,
+            default=None,
+        )
+        if nearest_wall and nearest_wall["strength"] >= 3.0:
+            wall_tp = nearest_wall["price"] - (0.3 * atr_value)  # TP just below the wall
+            if abs(wall_tp - entry_price) > abs(take_profit - entry_price) * 0.5:
+                take_profit = round(wall_tp, 2)
+
     risk = abs(entry_price - stop_loss)
     reward = abs(take_profit - entry_price)
     risk_reward = round(reward / risk, 2) if risk > 0 else 0
@@ -661,8 +882,13 @@ def generate_signals(
             "regime_compatible": regime_compatible,
             "loss_filter_applied": loss_filter_applied,
             "atr_value": round(atr_value, 4),
-            "sl_type": "structure+atr",
+            "sl_type": "structure+atr+smart_money",
             "min_rr_required": min_rr,
+            "order_flow": flow_sig if sm["order_flow"] else "unavailable",
+            "flow_delta_pct": round(flow_delta, 2) if sm["order_flow"] else None,
+            "institutional_score": inst_score if sm["heat_score"] else None,
+            "institutional_signal": inst_signal if sm["heat_score"] else "unavailable",
+            "sl_danger_zones_count": len(sm["sl_danger_zones"]),
         },
         "indicator_snapshot": indicator_snapshot,
         "mtf_confluence": False,
@@ -691,6 +917,7 @@ def scan_multi_timeframe(
     dataframes: dict[str, pd.DataFrame],
     symbol: str,
     loss_patterns: list[dict] | None = None,
+    orderbook: dict | None = None,
 ) -> list[dict]:
     """
     Scan multiple timeframes (5m, 15m, 30m) and flag confluence.
@@ -699,6 +926,7 @@ def scan_multi_timeframe(
         dataframes: {"5m": df_5m, "15m": df_15m, "30m": df_30m}
         symbol: Trading symbol
         loss_patterns: Active loss patterns
+        orderbook: Optional order book dict for smart money analysis
 
     Returns:
         List of signals with MTF confluence flags
@@ -709,7 +937,7 @@ def scan_multi_timeframe(
     for tf, df in dataframes.items():
         if df is None or len(df) < 50:
             continue
-        signals = generate_signals(df, symbol, tf, loss_patterns)
+        signals = generate_signals(df, symbol, tf, loss_patterns, orderbook=orderbook)
         for sig in signals:
             directions_by_tf[tf] = sig["direction"]
             all_signals.append(sig)

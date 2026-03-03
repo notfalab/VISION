@@ -23,12 +23,14 @@ import ZonesOverlay from "@/components/widgets/ZonesOverlay";
 import TPSLWidget from "@/components/widgets/TPSLWidget";
 import LiquidationWidget from "@/components/widgets/LiquidationWidget";
 import DeepOrderBookWidget from "@/components/widgets/DeepOrderBookWidget";
+import PerformanceDashboard from "@/components/widgets/PerformanceDashboard";
 import { useMarketStore, getMarketType } from "@/stores/market";
 
 const COMMUNITY_KEY = "vision_community_joined";
 
 function DashboardContent() {
   const activeSymbol = useMarketStore((s) => s.activeSymbol);
+  const chartExpanded = useMarketStore((s) => s.chartExpanded);
   const marketType = getMarketType(activeSymbol);
   const isGold = activeSymbol === "XAUUSD";
   const isCrypto = marketType === "crypto";
@@ -62,39 +64,44 @@ function DashboardContent() {
         <div className="flex flex-col lg:flex-row gap-2 md:gap-3 lg:h-full">
           {/* Left: Chart + Bottom row */}
           <div className="lg:flex-1 flex flex-col gap-2 min-w-0 lg:min-h-0">
-            {/* Chart — capped height so widgets get more space */}
-            <div className="h-[350px] md:h-[380px] lg:h-[45%] lg:min-h-[200px] shrink-0">
+            {/* Chart — expanded mode takes full height, otherwise capped */}
+            <div className={chartExpanded ? "flex-1 min-h-0" : "h-[350px] md:h-[380px] lg:h-[45%] lg:min-h-[200px] shrink-0"}>
               <ErrorBoundary>
                 <PriceChart />
               </ErrorBoundary>
             </div>
 
             {/* Volume Profile — mobile (horizontal scroll) */}
-            <div className="lg:hidden h-[200px] shrink-0">
-              <ErrorBoundary>
-                <VolumeProfile />
-              </ErrorBoundary>
-            </div>
-
-            {/* Bottom row: Volume Profile + Indicators (desktop only) */}
-            <div className="hidden lg:flex gap-2 flex-1 min-h-0">
-              <div className="w-52 shrink-0 h-full">
+            {!chartExpanded && (
+              <div className="lg:hidden h-[200px] shrink-0">
                 <ErrorBoundary>
                   <VolumeProfile />
                 </ErrorBoundary>
               </div>
-              <div className="flex-1 min-w-0 h-full">
-                <ErrorBoundary>
-                  <IndicatorPanel />
-                </ErrorBoundary>
+            )}
+
+            {/* Bottom row: Volume Profile + Indicators (desktop only) */}
+            {!chartExpanded && (
+              <div className="hidden lg:flex gap-2 flex-1 min-h-0">
+                <div className="w-52 shrink-0 h-full">
+                  <ErrorBoundary>
+                    <VolumeProfile />
+                  </ErrorBoundary>
+                </div>
+                <div className="flex-1 min-w-0 h-full">
+                  <ErrorBoundary>
+                    <IndicatorPanel />
+                  </ErrorBoundary>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
-          {/* Right panel — scrollable on desktop, inline on mobile */}
-          <div className="w-full lg:w-[440px] lg:shrink-0 lg:overflow-y-auto lg:min-h-0">
+          {/* Right panel — scrollable on desktop, inline on mobile — hidden when chart expanded */}
+          <div className={`w-full lg:w-[440px] lg:shrink-0 lg:overflow-y-auto lg:min-h-0 ${chartExpanded ? "hidden" : ""}`}>
             <div className="space-y-3">
               <ErrorBoundary><ScalperMode /></ErrorBoundary>
+              <ErrorBoundary><PerformanceDashboard /></ErrorBoundary>
               <ErrorBoundary><ZonesOverlay /></ErrorBoundary>
               <ErrorBoundary><TradeScore /></ErrorBoundary>
               <ErrorBoundary><CurrencyHeatmap /></ErrorBoundary>

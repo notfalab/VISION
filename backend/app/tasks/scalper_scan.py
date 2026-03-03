@@ -148,8 +148,27 @@ async def _async_scan(symbol: str = "XAUUSD"):
     existing = get_signals(symbol=symbol)
     loss_patterns = get_active_loss_filters(existing)
 
+    # 3b. Fetch orderbook for smart money analysis
+    orderbook_dict = None
+    try:
+        from backend.app.data.registry import data_registry
+        adapter = data_registry.route_symbol(symbol)
+        await adapter.connect()
+        try:
+            ob = await adapter.fetch_orderbook(symbol, depth=500)
+            if ob is not None and ob.bids and ob.asks:
+                orderbook_dict = {
+                    "bids": [{"price": b.price, "quantity": b.quantity} for b in ob.bids],
+                    "asks": [{"price": a.price, "quantity": a.quantity} for a in ob.asks],
+                }
+                logger.info("orderbook_fetched_for_scan", symbol=symbol, bids=len(ob.bids), asks=len(ob.asks))
+        finally:
+            await adapter.disconnect()
+    except Exception as e:
+        logger.debug("orderbook_fetch_failed_for_scan", symbol=symbol, error=str(e))
+
     # 4. Run multi-timeframe scan
-    signals = scan_multi_timeframe(dataframes, symbol, loss_patterns)
+    signals = scan_multi_timeframe(dataframes, symbol, loss_patterns, orderbook=orderbook_dict)
 
     # 5. Save signals to Redis and notify via Telegram + Discord
     saved = 0

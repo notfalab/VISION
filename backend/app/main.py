@@ -253,6 +253,18 @@ async def lifespan(app: FastAPI):
 
     logger.info("adapters_registered", adapters=data_registry.list_adapters())
 
+    # 3b. One-time signal reset (v2 engine upgrade — clears old bad signals)
+    try:
+        from backend.app.core.scalper.signal_store import clear_all_signals, _get_redis
+        _r = _get_redis()
+        _reset_flag = "vision:signals_reset_v2"
+        if not _r.exists(_reset_flag):
+            clear_all_signals()
+            _r.set(_reset_flag, "1")
+            logger.info("one_time_signal_reset_complete")
+    except Exception as e:
+        logger.warning("signal_reset_skipped", error=str(e))
+
     # 4. Start background tasks (replaces Celery beat + worker)
     bg_tasks: list[asyncio.Task] = []
     if settings.app_env != "development":

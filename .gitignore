@@ -65,3 +65,5 @@ alembic/versions/__pycache__/
 
 # Jupyter
 .ipynb_checkpoints/
+.vercel
+.env*.local

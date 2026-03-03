@@ -165,7 +165,7 @@ export default function PriceChart() {
   const stopPrimRef = useRef<StopHeatmapPrimitive | null>(null);
   const mboPrimRef = useRef<MBOProfilePrimitive | null>(null);
 
-  const { activeSymbol, activeTimeframe, setActiveTimeframe, setCandles, candles, livePrices } = useMarketStore();
+  const { activeSymbol, activeTimeframe, setActiveTimeframe, setCandles, candles, livePrices, chartExpanded, toggleChartExpanded } = useMarketStore();
   const theme = useThemeStore((s) => s.theme);
   const [data, setData] = useState<OHLCV[]>([]);
   const [loading, setLoading] = useState(false);
@@ -786,8 +786,13 @@ export default function PriceChart() {
       try {
         const result = await api.patternHistory(activeSymbol, activeTimeframe, Math.min(data.length, 50));
         if (result?.patterns?.length > 0) {
+          // Only show patterns from the last 8 candles
+          const last8Times = new Set(
+            data.slice(-8).map((c: any) => new Date(c.timestamp ?? c.time).getTime()),
+          );
           const markers: PatternMarker[] = result.patterns
             .filter((p: any) => p.strength >= 0.6)
+            .filter((p: any) => last8Times.has(new Date(p.timestamp).getTime()))
             .map((p: any) => ({
               timestamp: p.timestamp,
               pattern: p.pattern,
@@ -1098,6 +1103,14 @@ export default function PriceChart() {
             `}
           >
             MBO
+          </button>
+          {/* Expand chart toggle */}
+          <button
+            onClick={toggleChartExpanded}
+            className="px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[32px] border-[var(--color-border-primary)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+            title={chartExpanded ? "Exit fullscreen" : "Expand chart"}
+          >
+            {chartExpanded ? "⊟" : "⊞"}
           </button>
           {/* Timeframe selector */}
           <div className="flex items-center gap-0.5 md:gap-1">
