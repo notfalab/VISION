@@ -1,30 +1,34 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import Header from "@/components/layout/Header";
 import AuthGuard from "@/components/AuthGuard";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import CommunityModal from "@/components/CommunityModal";
 import PriceChart from "@/components/charts/PriceChart";
 import VolumeProfile from "@/components/charts/VolumeProfile";
-import TradeScore from "@/components/widgets/TradeScore";
 import IndicatorPanel from "@/components/widgets/IndicatorPanel";
-import GoldMacro from "@/components/widgets/GoldMacro";
-import COTReport from "@/components/widgets/COTReport";
-import SmartMoney from "@/components/widgets/SmartMoney";
-import MTFConfluence from "@/components/widgets/MTFConfluence";
-import MLPrediction from "@/components/widgets/MLPrediction";
-import OrderFlow from "@/components/widgets/OrderFlow";
-import Correlations from "@/components/widgets/Correlations";
 import ScalperMode from "@/components/widgets/ScalperMode";
-import WhaleTracker from "@/components/widgets/WhaleTracker";
-import CurrencyHeatmap from "@/components/widgets/CurrencyHeatmap";
-import ZonesOverlay from "@/components/widgets/ZonesOverlay";
-import TPSLWidget from "@/components/widgets/TPSLWidget";
-import LiquidationWidget from "@/components/widgets/LiquidationWidget";
-import DeepOrderBookWidget from "@/components/widgets/DeepOrderBookWidget";
-import PerformanceDashboard from "@/components/widgets/PerformanceDashboard";
+import LazyWidget from "@/components/LazyWidget";
 import { useMarketStore, getMarketType } from "@/stores/market";
+
+// Lazy-load heavy widgets — they won't be included in the initial JS bundle
+const PerformanceDashboard = dynamic(() => import("@/components/widgets/PerformanceDashboard"), { ssr: false });
+const ZonesOverlay = dynamic(() => import("@/components/widgets/ZonesOverlay"), { ssr: false });
+const TradeScore = dynamic(() => import("@/components/widgets/TradeScore"), { ssr: false });
+const CurrencyHeatmap = dynamic(() => import("@/components/widgets/CurrencyHeatmap"), { ssr: false });
+const MLPrediction = dynamic(() => import("@/components/widgets/MLPrediction"), { ssr: false });
+const OrderFlow = dynamic(() => import("@/components/widgets/OrderFlow"), { ssr: false });
+const TPSLWidget = dynamic(() => import("@/components/widgets/TPSLWidget"), { ssr: false });
+const DeepOrderBookWidget = dynamic(() => import("@/components/widgets/DeepOrderBookWidget"), { ssr: false });
+const LiquidationWidget = dynamic(() => import("@/components/widgets/LiquidationWidget"), { ssr: false });
+const MTFConfluence = dynamic(() => import("@/components/widgets/MTFConfluence"), { ssr: false });
+const SmartMoney = dynamic(() => import("@/components/widgets/SmartMoney"), { ssr: false });
+const WhaleTracker = dynamic(() => import("@/components/widgets/WhaleTracker"), { ssr: false });
+const Correlations = dynamic(() => import("@/components/widgets/Correlations"), { ssr: false });
+const GoldMacro = dynamic(() => import("@/components/widgets/GoldMacro"), { ssr: false });
+const COTReport = dynamic(() => import("@/components/widgets/COTReport"), { ssr: false });
 
 const COMMUNITY_KEY = "vision_community_joined";
 
@@ -100,30 +104,67 @@ function DashboardContent() {
           {/* Right panel — scrollable on desktop, inline on mobile — hidden when chart expanded */}
           <div className={`w-full lg:w-[440px] lg:shrink-0 lg:overflow-y-auto lg:min-h-0 ${chartExpanded ? "hidden" : ""}`}>
             <div className="space-y-3">
+              {/* Priority 1: Loads immediately (core trading widget) */}
               <ErrorBoundary><ScalperMode /></ErrorBoundary>
-              <ErrorBoundary><PerformanceDashboard /></ErrorBoundary>
-              <ErrorBoundary><ZonesOverlay /></ErrorBoundary>
-              <ErrorBoundary><TradeScore /></ErrorBoundary>
-              <ErrorBoundary><CurrencyHeatmap /></ErrorBoundary>
-              <ErrorBoundary><MLPrediction /></ErrorBoundary>
-              <ErrorBoundary><OrderFlow /></ErrorBoundary>
-              <ErrorBoundary><TPSLWidget /></ErrorBoundary>
-              <ErrorBoundary><DeepOrderBookWidget /></ErrorBoundary>
+
+              {/* Priority 2: Loads after 500ms + when visible */}
+              <LazyWidget delay={500}>
+                <ErrorBoundary><PerformanceDashboard /></ErrorBoundary>
+              </LazyWidget>
+              <LazyWidget delay={500}>
+                <ErrorBoundary><ZonesOverlay /></ErrorBoundary>
+              </LazyWidget>
+              <LazyWidget delay={500}>
+                <ErrorBoundary><TradeScore /></ErrorBoundary>
+              </LazyWidget>
+
+              {/* Priority 3: Loads after 1.5s + when visible */}
+              <LazyWidget delay={1500}>
+                <ErrorBoundary><CurrencyHeatmap /></ErrorBoundary>
+              </LazyWidget>
+              <LazyWidget delay={1000}>
+                <ErrorBoundary><MLPrediction /></ErrorBoundary>
+              </LazyWidget>
+              <LazyWidget delay={1000}>
+                <ErrorBoundary><OrderFlow /></ErrorBoundary>
+              </LazyWidget>
+              <LazyWidget delay={1000}>
+                <ErrorBoundary><TPSLWidget /></ErrorBoundary>
+              </LazyWidget>
+              <LazyWidget delay={1000}>
+                <ErrorBoundary><DeepOrderBookWidget /></ErrorBoundary>
+              </LazyWidget>
               {isCrypto && (
-                <ErrorBoundary><LiquidationWidget /></ErrorBoundary>
+                <LazyWidget delay={1500}>
+                  <ErrorBoundary><LiquidationWidget /></ErrorBoundary>
+                </LazyWidget>
               )}
-              <ErrorBoundary><MTFConfluence /></ErrorBoundary>
-              <ErrorBoundary><SmartMoney /></ErrorBoundary>
+
+              {/* Priority 4: Loads after 2s + when visible */}
+              <LazyWidget delay={2000}>
+                <ErrorBoundary><MTFConfluence /></ErrorBoundary>
+              </LazyWidget>
+              <LazyWidget delay={2000}>
+                <ErrorBoundary><SmartMoney /></ErrorBoundary>
+              </LazyWidget>
               {isCrypto && (
-                <ErrorBoundary><WhaleTracker /></ErrorBoundary>
+                <LazyWidget delay={2500}>
+                  <ErrorBoundary><WhaleTracker /></ErrorBoundary>
+                </LazyWidget>
               )}
               {isGold && (
-                <ErrorBoundary><Correlations /></ErrorBoundary>
+                <LazyWidget delay={2500}>
+                  <ErrorBoundary><Correlations /></ErrorBoundary>
+                </LazyWidget>
               )}
               {isGold && (
-                <ErrorBoundary><GoldMacro /></ErrorBoundary>
+                <LazyWidget delay={2500}>
+                  <ErrorBoundary><GoldMacro /></ErrorBoundary>
+                </LazyWidget>
               )}
-              <ErrorBoundary><COTReport /></ErrorBoundary>
+              <LazyWidget delay={2500}>
+                <ErrorBoundary><COTReport /></ErrorBoundary>
+              </LazyWidget>
             </div>
           </div>
         </div>
