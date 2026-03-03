@@ -196,20 +196,29 @@ async def get_orderbook(
     symbol: str,
     depth: int = Query(20, ge=1, le=1000),
 ):
-    """Fetch live order book from the exchange (crypto only)."""
+    """Fetch live order book (real or synthetic fallback)."""
     from backend.app.data.registry import data_registry
     try:
         adapter = data_registry.route_symbol(symbol)
         await adapter.connect()
         try:
             ob = await adapter.fetch_orderbook(symbol, depth)
-            if ob is None:
+            if ob is not None and ob.bids and ob.asks:
+                return {
+                    "symbol": ob.symbol,
+                    "timestamp": ob.timestamp.isoformat(),
+                    "bids": [{"price": l.price, "quantity": l.quantity} for l in ob.bids],
+                    "asks": [{"price": l.price, "quantity": l.quantity} for l in ob.asks],
+                }
+            # Fallback: synthetic orderbook
+            synthetic = await _synthetic_orderbook(adapter, symbol, depth)
+            if not synthetic["bids"] or not synthetic["asks"]:
                 raise HTTPException(status_code=404, detail=f"Order book not available for {symbol}")
             return {
-                "symbol": ob.symbol,
-                "timestamp": ob.timestamp.isoformat(),
-                "bids": [{"price": l.price, "quantity": l.quantity} for l in ob.bids],
-                "asks": [{"price": l.price, "quantity": l.quantity} for l in ob.asks],
+                "symbol": symbol.upper(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "bids": synthetic["bids"],
+                "asks": synthetic["asks"],
             }
         finally:
             await adapter.disconnect()
@@ -255,10 +264,44 @@ async def _synthetic_orderbook(adapter, symbol: str, depth: int) -> dict:
     or geo-blocked Binance), generate one from the current bid/ask spread
     so TP/SL analysis and deep OB can still provide useful signals.
     """
-    ticker = await adapter.fetch_ticker(symbol)
-    price = float(ticker.get("price", 0))
-    bid = float(ticker.get("bid", price))
-    ask = float(ticker.get("ask", price))
+    price = 0.0
+    bid = 0.0
+    ask = 0.0
+
+    # Try adapter ticker first
+    try:
+        ticker = await adapter.fetch_ticker(symbol)
+        price = float(ticker.get("price", 0))
+        bid = float(ticker.get("bid", price))
+        ask = float(ticker.get("ask", price))
+    except Exception:
+        pass
+
+    # Fallback: get price from DB if adapter ticker failed
+    if price <= 0:
+        try:
+            from sqlalchemy import select as sa_select
+            from backend.app.database import async_session as db_session
+
+            async with db_session() as session:
+                result = await session.execute(
+                    sa_select(Asset).where(Asset.symbol == symbol.upper())
+                )
+                asset = result.scalar_one_or_none()
+                if asset:
+                    result = await session.execute(
+                        sa_select(OHLCVData)
+                        .where(OHLCVData.asset_id == asset.id)
+                        .order_by(OHLCVData.timestamp.desc())
+                        .limit(1)
+                    )
+                    row = result.scalar_one_or_none()
+                    if row:
+                        price = float(row.close)
+                        bid = price
+                        ask = price
+        except Exception:
+            pass
 
     if price <= 0:
         return {"bids": [], "asks": [], "current_price": 0}
@@ -372,14 +415,10 @@ async def get_tpsl_heatmap(
         await adapter.connect()
         try:
             ob = await adapter.fetch_orderbook(symbol, depth)
-            if ob is not None:
+            if ob is not None and ob.bids and ob.asks:
                 bids = [{"price": l.price, "quantity": l.quantity} for l in ob.bids]
                 asks = [{"price": l.price, "quantity": l.quantity} for l in ob.asks]
-                current_price = (
-                    (bids[0]["price"] + asks[0]["price"]) / 2
-                    if bids and asks
-                    else (bids[0]["price"] if bids else (asks[0]["price"] if asks else 0))
-                )
+                current_price = (bids[0]["price"] + asks[0]["price"]) / 2
                 ts = ob.timestamp.isoformat()
             else:
                 # Fallback: synthetic orderbook from bid/ask ticker data
@@ -482,7 +521,7 @@ async def get_deep_orderbook(
         await adapter.connect()
         try:
             ob = await adapter.fetch_orderbook(symbol, min(depth, 1000))
-            if ob is not None:
+            if ob is not None and ob.bids and ob.asks:
                 raw_bids = [{"price": l.price, "quantity": l.quantity, "orders_count": l.orders_count} for l in ob.bids]
                 raw_asks = [{"price": l.price, "quantity": l.quantity, "orders_count": l.orders_count} for l in ob.asks]
                 ts = ob.timestamp.isoformat()
