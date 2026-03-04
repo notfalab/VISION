@@ -11,10 +11,10 @@ interface ThemeState {
 const STORAGE_KEY = "vision_theme";
 
 function readStored(): ThemeName {
-  if (typeof window === "undefined") return "dark";
+  if (typeof window === "undefined") return "night";
   const v = localStorage.getItem(STORAGE_KEY);
-  if (v === "night") return "night";
-  return "dark";
+  if (v === "dark") return "dark";
+  return "night";
 }
 
 export const useThemeStore = create<ThemeState>((set, get) => ({
@@ -25,16 +25,16 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     set({ theme: t });
   },
   toggleTheme: () => {
-    const next = get().theme === "dark" ? "night" : "dark";
+    const next = get().theme === "night" ? "dark" : "night";
     get().setTheme(next);
   },
 }));
 
 /* ── CSS variable overrides per theme ── */
-// "dark" = null means use @theme defaults from globals.css (purple-accent theme)
+// "night" = null means use @theme defaults from globals.css (purple-accent theme)
 export const THEME_CSS_VARS: Record<ThemeName, Record<string, string> | null> = {
-  dark: null, // purple-accent theme from @theme defaults
-  night: {
+  night: null, // purple-accent theme from @theme defaults
+  dark: {
     "--color-bg-primary": "#000000",
     "--color-bg-secondary": "#050505",
     "--color-bg-card": "#080808",
@@ -62,7 +62,7 @@ export const THEME_CSS_VARS: Record<ThemeName, Record<string, string> | null> = 
 };
 
 // All override keys for removal when switching back to default
-const OVERRIDE_KEYS = Object.keys(THEME_CSS_VARS.night!);
+const OVERRIDE_KEYS = Object.keys(THEME_CSS_VARS.dark!);
 
 export function applyThemeVars(t: ThemeName) {
   const el = document.documentElement;
@@ -107,7 +107,7 @@ export interface CanvasColors {
 }
 
 export const THEME_CANVAS: Record<ThemeName, CanvasColors> = {
-  dark: {
+  night: {
     bull: "#10b981",
     bear: "#8b5cf6",
     bullAlpha: "rgba(16, 185, 129, 0.3)",
@@ -129,7 +129,7 @@ export const THEME_CANVAS: Record<ThemeName, CanvasColors> = {
     liqLong: [139, 92, 246],
     liqShort: [16, 185, 129],
   },
-  night: {
+  dark: {
     bull: "#10b981",
     bear: "#ef4444",
     bullAlpha: "rgba(16, 185, 129, 0.2)",
