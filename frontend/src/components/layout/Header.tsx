@@ -411,7 +411,8 @@ export default function Header() {
             <div className="relative" ref={cryptoMobileRef}>
               <button
                 onClick={() => setCryptoOpen(!cryptoOpen)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-mono font-bold transition-colors hover:bg-[var(--color-bg-hover)] border border-transparent hover:border-[var(--color-border-primary)] min-h-[36px] text-[var(--color-neon-orange)]"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-mono font-bold transition-colors hover:brightness-110 min-h-[36px] text-white"
+                style={{ background: "linear-gradient(135deg, #8B5CF6, #EC4899)" }}
               >
                 Crypto
                 <ChevronDown className="w-4 h-4 opacity-60" />
@@ -528,7 +529,8 @@ export default function Header() {
           <div className="relative" ref={cryptoRef}>
             <button
               onClick={() => setCryptoOpen(!cryptoOpen)}
-              className="flex items-center gap-1 px-2 py-1 rounded text-[12px] font-mono font-semibold transition-colors hover:bg-[var(--color-bg-hover)] border border-transparent hover:border-[var(--color-border-primary)] text-[var(--color-neon-orange)]"
+              className="flex items-center gap-1 px-2 py-1 rounded text-[12px] font-mono font-semibold transition-colors hover:brightness-110 text-white"
+              style={{ background: "linear-gradient(135deg, #8B5CF6, #EC4899)" }}
             >
               Crypto
               <ChevronDown className="w-3.5 h-3.5 opacity-60" />
