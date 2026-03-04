@@ -183,4 +183,18 @@ export const api = {
     fetchAPISafe<any>(`/api/v1/prices/${symbol}/mbo-profile?depth=${depth}`, {
       bids: [], asks: [], current_price: 0, max_volume: 0, bucket_size: 0,
     }),
+
+  // Economic Calendar
+  calendarEvents: (days = 7) =>
+    fetchAPISafe<any>(`/api/v1/calendar/events?days=${days}`, {
+      events: [], count: 0,
+    }),
+
+  // News & Sentiment
+  newsSentiment: (symbol: string) =>
+    fetchAPISafe<any>(`/api/v1/news/sentiment/${symbol}`, {
+      aggregate_score: 50, aggregate_label: "Neutral",
+      crypto_fear_greed: null, market_fear_greed: null,
+      news_sentiment: null,
+    }),
 };

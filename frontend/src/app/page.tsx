@@ -29,6 +29,8 @@ const WhaleTracker = dynamic(() => import("@/components/widgets/WhaleTracker"), 
 const Correlations = dynamic(() => import("@/components/widgets/Correlations"), { ssr: false });
 const GoldMacro = dynamic(() => import("@/components/widgets/GoldMacro"), { ssr: false });
 const COTReport = dynamic(() => import("@/components/widgets/COTReport"), { ssr: false });
+const EconomicCalendar = dynamic(() => import("@/components/widgets/EconomicCalendar"), { ssr: false });
+const NewsSentiment = dynamic(() => import("@/components/widgets/NewsSentiment"), { ssr: false });
 
 const COMMUNITY_KEY = "vision_community_joined";
 
@@ -118,7 +120,15 @@ function DashboardContent() {
                 <ErrorBoundary><TradeScore /></ErrorBoundary>
               </LazyWidget>
 
-              {/* Priority 3: Loads after 1.5s + when visible */}
+              {/* Priority 3: Calendar + Sentiment */}
+              <LazyWidget delay={1000}>
+                <ErrorBoundary><EconomicCalendar /></ErrorBoundary>
+              </LazyWidget>
+              <LazyWidget delay={1000}>
+                <ErrorBoundary><NewsSentiment /></ErrorBoundary>
+              </LazyWidget>
+
+              {/* Priority 3.5: Heatmap + ML */}
               <LazyWidget delay={1500}>
                 <ErrorBoundary><CurrencyHeatmap /></ErrorBoundary>
               </LazyWidget>
