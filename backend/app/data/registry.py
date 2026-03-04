@@ -1,6 +1,6 @@
 """Data source registry — manages adapters and symbol routing."""
 
-from backend.app.data.base import DataSourceAdapter
+from backend.app.data.base import DataSourceAdapter, OrderBook
 from backend.app.logging_config import get_logger
 
 logger = get_logger("data_registry")
@@ -14,8 +14,10 @@ class DataSourceRegistry:
 
     def __init__(self):
         self._adapters: dict[str, DataSourceAdapter] = {}
-        # symbol -> adapter name mapping
+        # symbol -> adapter name mapping (for OHLCV / ticker)
         self._symbol_routes: dict[str, str] = {}
+        # symbol -> adapter name for orderbook specifically
+        self._orderbook_routes: dict[str, str] = {}
 
     def register(self, adapter: DataSourceAdapter) -> None:
         self._adapters[adapter.name] = adapter
@@ -33,7 +35,7 @@ class DataSourceRegistry:
     _FOREX_BASES = {"EUR", "GBP", "USD", "JPY", "AUD", "CAD", "NZD", "CHF"}
 
     def route_symbol(self, symbol: str) -> DataSourceAdapter:
-        """Find the right adapter for a symbol."""
+        """Find the right adapter for a symbol (OHLCV / ticker)."""
         symbol = symbol.upper()
 
         # Check explicit routes first
@@ -70,6 +72,67 @@ class DataSourceRegistry:
     def set_route(self, symbol: str, adapter_name: str) -> None:
         """Manually route a symbol to a specific adapter."""
         self._symbol_routes[symbol.upper()] = adapter_name
+
+    def set_orderbook_route(self, symbol: str, adapter_name: str) -> None:
+        """Route a symbol's orderbook requests to a specific adapter."""
+        self._orderbook_routes[symbol.upper()] = adapter_name
+
+    async def fetch_real_orderbook(self, symbol: str, depth: int = 500) -> OrderBook | None:
+        """Fetch REAL orderbook data. Tries orderbook-specific adapter first,
+        then primary adapter, then all adapters.
+
+        Returns None only if no real data is available.
+        NEVER generates synthetic/fake data.
+        """
+        symbol = symbol.upper()
+        tried: set[str] = set()
+
+        # 1. Try orderbook-specific adapter (e.g. Binance for crypto, OANDA for forex)
+        if symbol in self._orderbook_routes:
+            name = self._orderbook_routes[symbol]
+            adapter = self._adapters.get(name)
+            if adapter:
+                tried.add(name)
+                try:
+                    await adapter.connect()
+                    ob = await adapter.fetch_orderbook(symbol, depth)
+                    if ob and ob.bids and ob.asks:
+                        logger.info("orderbook_real", symbol=symbol, adapter=name,
+                                    bids=len(ob.bids), asks=len(ob.asks))
+                        return ob
+                except Exception as e:
+                    logger.warning("orderbook_failed", symbol=symbol, adapter=name, error=str(e))
+
+        # 2. Try the primary symbol adapter
+        try:
+            primary = self.route_symbol(symbol)
+            if primary.name not in tried:
+                tried.add(primary.name)
+                await primary.connect()
+                ob = await primary.fetch_orderbook(symbol, depth)
+                if ob and ob.bids and ob.asks:
+                    logger.info("orderbook_real", symbol=symbol, adapter=primary.name,
+                                bids=len(ob.bids), asks=len(ob.asks))
+                    return ob
+        except Exception as e:
+            logger.warning("orderbook_primary_failed", symbol=symbol, error=str(e))
+
+        # 3. Try ALL remaining adapters (brute force — find anyone with real data)
+        for adapter in self._adapters.values():
+            if adapter.name in tried:
+                continue
+            try:
+                await adapter.connect()
+                ob = await adapter.fetch_orderbook(symbol, depth)
+                if ob and ob.bids and ob.asks:
+                    logger.info("orderbook_real_fallback", symbol=symbol, adapter=adapter.name,
+                                bids=len(ob.bids), asks=len(ob.asks))
+                    return ob
+            except Exception:
+                continue
+
+        logger.warning("no_real_orderbook_available", symbol=symbol)
+        return None
 
     def list_adapters(self) -> list[dict]:
         return [

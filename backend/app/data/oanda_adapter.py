@@ -335,7 +335,15 @@ class OandaAdapter(DataSourceAdapter):
         return {"symbol": symbol.upper(), "price": 0, "error": "Failed to fetch ticker"}
 
     async def fetch_orderbook(self, symbol: str, depth: int = 20) -> OrderBook | None:
-        """Fetch OANDA order book (shows % of traders at each price level)."""
+        """Fetch OANDA order book — REAL trader positioning data.
+
+        OANDA returns the percentage of their clients with pending orders
+        at each price bucket. This is real data from a regulated broker,
+        not simulated.
+
+        We scale percentages by 10000 to produce meaningful "volume"
+        numbers while preserving the real distribution.
+        """
         if not self._client or not self._account_id:
             await self.connect()
 
@@ -345,14 +353,37 @@ class OandaAdapter(DataSourceAdapter):
         try:
             resp = await self._client.get(url)
             if resp.status_code != 200:
+                logger.warning("oanda_orderbook_http", symbol=symbol, status=resp.status_code)
                 return None
 
             data = resp.json()
             ob_data = data.get("orderBook", {})
             buckets = ob_data.get("buckets", [])
             price = float(ob_data.get("price", 0))
+            ts_str = ob_data.get("time", "")
+
+            if not buckets or price <= 0:
+                return None
+
+            # Parse timestamp from OANDA
+            if ts_str:
+                try:
+                    from pandas import Timestamp as PdTs
+                    ts = PdTs(ts_str).to_pydatetime()
+                    if ts.tzinfo is None:
+                        ts = ts.replace(tzinfo=timezone.utc)
+                except Exception:
+                    ts = datetime.now(timezone.utc)
+            else:
+                ts = datetime.now(timezone.utc)
+
+            # Scale factor: convert percentages (0.001-0.05) to meaningful
+            # volume units. 10000x keeps the REAL distribution intact.
+            SCALE = 10000.0
 
             # Split buckets into bids (below price) and asks (above price)
+            # Bids: longCountPercent = buy orders (limit buys below market)
+            # Asks: shortCountPercent = sell orders (limit sells above market)
             bids = []
             asks = []
             for b in buckets:
@@ -360,24 +391,27 @@ class OandaAdapter(DataSourceAdapter):
                 long_pct = float(b.get("longCountPercent", 0))
                 short_pct = float(b.get("shortCountPercent", 0))
 
-                if bp <= price:
+                if bp < price and long_pct > 0:
                     bids.append(OrderBookLevel(
                         price=bp,
-                        quantity=long_pct,  # % of traders with long orders at this level
+                        quantity=round(long_pct * SCALE, 2),
                     ))
-                else:
+                elif bp > price and short_pct > 0:
                     asks.append(OrderBookLevel(
                         price=bp,
-                        quantity=short_pct,
+                        quantity=round(short_pct * SCALE, 2),
                     ))
 
-            # Sort: bids descending, asks ascending
+            # Sort: bids descending (best bid first), asks ascending (best ask first)
             bids.sort(key=lambda x: x.price, reverse=True)
             asks.sort(key=lambda x: x.price)
 
+            if not bids or not asks:
+                return None
+
             return OrderBook(
                 symbol=symbol.upper(),
-                timestamp=datetime.now(timezone.utc),
+                timestamp=ts,
                 bids=bids[:depth],
                 asks=asks[:depth],
             )

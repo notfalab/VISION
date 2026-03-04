@@ -248,6 +248,22 @@ async def lifespan(app: FastAPI):
                  "EURGBP", "EURJPY", "GBPJPY"]:
         data_registry.set_route(pair, "massive")
 
+    # ── Orderbook-specific routes (real exchange data only) ──
+    # Crypto orderbook → Binance (real L2 depth, public API, no key needed)
+    # Even though OHLCV goes to CryptoCompare (Binance 451 for klines),
+    # Binance /depth endpoint works fine from US servers.
+    for pair in ["BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD"]:
+        data_registry.set_orderbook_route(pair, "binance")
+
+    # Gold/silver orderbook → OANDA (real trader positioning data)
+    data_registry.set_orderbook_route("XAUUSD", "oanda")
+    data_registry.set_orderbook_route("XAGUSD", "oanda")
+
+    # Forex orderbook → OANDA (real trader order data)
+    for pair in ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD",
+                 "EURGBP", "EURJPY", "GBPJPY"]:
+        data_registry.set_orderbook_route(pair, "oanda")
+
     for pair in ["ETHBTC", "XRPUSD"]:
         data_registry.set_route(pair, "cryptocompare")
 

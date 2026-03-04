@@ -1,6 +1,5 @@
 """ML endpoints — prediction, regime detection, model training."""
 
-import random
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -124,74 +123,36 @@ async def train_model(
     }
 
 
-async def _synthetic_orderbook(adapter, symbol: str, depth: int) -> dict:
-    """Build a synthetic orderbook from bid/ask ticker data.
-
-    When no real orderbook is available (e.g. GoldAPI for gold),
-    generate one from the current bid/ask spread so OrderFlow
-    analysis can still provide useful signals.
-    """
-    ticker = await adapter.fetch_ticker(symbol)
-    price = float(ticker.get("price", 0))
-    bid = float(ticker.get("bid", price))
-    ask = float(ticker.get("ask", price))
-
-    if price <= 0:
-        return {"bids": [], "asks": []}
-
-    spread = max(ask - bid, price * 0.0001)
-    tick = spread / 2
-
-    # Generate synthetic levels around bid/ask
-    rng = random.Random(int(datetime.now(timezone.utc).timestamp()) // 60)
-    bids = []
-    asks = []
-    for i in range(depth):
-        bid_price = round(bid - tick * i, 2)
-        ask_price = round(ask + tick * i, 2)
-        # Simulate varying liquidity — larger orders further from spread
-        base_qty = rng.uniform(0.5, 3.0) * (1 + i * 0.1)
-        # Occasional large orders (walls)
-        if rng.random() < 0.08:
-            base_qty *= rng.uniform(4, 8)
-        bids.append({"price": bid_price, "quantity": round(base_qty, 2)})
-        asks.append({"price": ask_price, "quantity": round(rng.uniform(0.5, 3.0) * (1 + i * 0.1), 2)})
-
-    return {"bids": bids, "asks": asks}
-
-
 @router.get("/{symbol}/orderflow")
 async def order_flow(
     symbol: str,
     depth: int = Query(50, ge=10, le=500),
 ):
     """
-    Analyze real-time order flow from the order book.
-    Detects buy/sell pressure, walls, absorption signals.
-    Falls back to synthetic orderbook from bid/ask when no real orderbook.
+    Analyze real-time order flow from REAL order book data.
+    Sources: Binance (crypto), OANDA (forex/gold).
     """
     from backend.app.data.registry import data_registry
     from backend.app.core.orderbook.flow_analyzer import analyze_order_flow
 
     try:
-        adapter = data_registry.route_symbol(symbol)
-        await adapter.connect()
-        try:
-            ob = await adapter.fetch_orderbook(symbol, depth)
-            if ob is not None:
-                orderbook = {
-                    "bids": [{"price": l.price, "quantity": l.quantity} for l in ob.bids],
-                    "asks": [{"price": l.price, "quantity": l.quantity} for l in ob.asks],
-                }
-            else:
-                orderbook = await _synthetic_orderbook(adapter, symbol, depth)
-            result = analyze_order_flow(orderbook)
-            return {
-                "symbol": symbol.upper(),
-                **result,
-            }
-        finally:
-            await adapter.disconnect()
+        ob = await data_registry.fetch_real_orderbook(symbol, depth)
+        if ob is None or not ob.bids or not ob.asks:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No real orderbook data available for {symbol}."
+            )
+        orderbook = {
+            "bids": [{"price": l.price, "quantity": l.quantity} for l in ob.bids],
+            "asks": [{"price": l.price, "quantity": l.quantity} for l in ob.asks],
+        }
+        result = analyze_order_flow(orderbook)
+        return {
+            "symbol": symbol.upper(),
+            **result,
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Order flow analysis failed: {str(e)}")
 
@@ -220,26 +181,19 @@ async def institutional_heat(
         except Exception:
             pass
 
-    # 2. Get order flow from order book
+    # 2. Get order flow from REAL order book data
     orderflow = None
     try:
         from backend.app.data.registry import data_registry
         from backend.app.core.orderbook.flow_analyzer import analyze_order_flow
 
-        adapter = data_registry.route_symbol(symbol)
-        await adapter.connect()
-        try:
-            ob = await adapter.fetch_orderbook(symbol, depth)
-            if ob is not None:
-                orderbook = {
-                    "bids": [{"price": l.price, "quantity": l.quantity} for l in ob.bids],
-                    "asks": [{"price": l.price, "quantity": l.quantity} for l in ob.asks],
-                }
-            else:
-                orderbook = await _synthetic_orderbook(adapter, symbol, depth)
+        ob = await data_registry.fetch_real_orderbook(symbol, depth)
+        if ob is not None and ob.bids and ob.asks:
+            orderbook = {
+                "bids": [{"price": l.price, "quantity": l.quantity} for l in ob.bids],
+                "asks": [{"price": l.price, "quantity": l.quantity} for l in ob.asks],
+            }
             orderflow = analyze_order_flow(orderbook)
-        finally:
-            await adapter.disconnect()
     except Exception:
         pass
 
