@@ -378,6 +378,42 @@ def create_app() -> FastAPI:
 
         return results
 
+    @app.get("/diag/orderbook", tags=["system"])
+    async def diag_orderbook():
+        """Test orderbook connectivity for each adapter."""
+        from backend.app.data.registry import data_registry
+
+        results = {"orderbook_routes": {}, "tests": {}}
+
+        # Show configured routes
+        results["orderbook_routes"] = dict(data_registry._orderbook_routes)
+
+        # Test specific adapter orderbook calls
+        test_cases = {
+            "binance_BTCUSD": ("binance", "BTCUSD"),
+            "oanda_XAUUSD": ("oanda", "XAUUSD"),
+            "oanda_EURUSD": ("oanda", "EURUSD"),
+        }
+        for label, (adapter_name, sym) in test_cases.items():
+            try:
+                adapter = data_registry.get_adapter(adapter_name)
+                await adapter.connect()
+                ob = await adapter.fetch_orderbook(sym, 5)
+                if ob and ob.bids and ob.asks:
+                    results["tests"][label] = {
+                        "status": "ok",
+                        "bids": len(ob.bids),
+                        "asks": len(ob.asks),
+                        "best_bid": ob.bids[0].price if ob.bids else None,
+                        "best_ask": ob.asks[0].price if ob.asks else None,
+                    }
+                else:
+                    results["tests"][label] = {"status": "empty", "ob_none": ob is None}
+            except Exception as e:
+                results["tests"][label] = {"status": "error", "error": str(e)[:200]}
+
+        return results
+
     return app
 
 
