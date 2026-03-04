@@ -70,13 +70,21 @@ const CHAPTERS: Chapter[] = [
       {
         title: "What is VISION?",
         content:
-          "VISION is an institutional-grade trading analytics platform that gives retail traders the same tools used by hedge funds, prop desks, and market makers. It combines real-time price data, 14+ technical indicators, machine learning predictions, smart money tracking, and AI-powered analysis — all in one unified dashboard.",
-        tip: "VISION is not a broker. It's an analytics layer that helps you make better trading decisions with data-driven insights rather than gut feelings.",
+          "VISION is an institutional-grade trading analytics platform built on one principle: REAL DATA wins, not drawings on a chart. Forget trendlines, triangles, and subjective patterns — those are guesswork that institutions use against you. VISION gives retail traders what actually moves markets: order flow, volume analysis, institutional positioning, liquidity data, ML predictions, and smart money tracking. The same quantifiable, data-driven edge used by hedge funds, prop desks, and market makers — all in one unified dashboard.",
+        tip: "VISION is not a broker and not a charting tool for drawing lines. It's a DATA engine that tells you where real money is flowing, where institutions are positioned, and where price is likely to go — backed by quantifiable evidence, not opinions.",
+      },
+      {
+        title: "Why Data Beats Drawing",
+        content:
+          "Most retail traders lose money because they rely on subjective chart drawings — trendlines that can be drawn differently by every person, 'head and shoulders' patterns that only exist in hindsight, and support/resistance lines that break as often as they hold. Meanwhile, institutions don't draw on charts. They use ORDER FLOW data, VOLUME profiles, POSITIONING data, and ALGORITHMS. VISION brings you that same data. Every tool in this platform is powered by real, measurable, quantifiable data — not visual patterns that require interpretation.",
+        example: "data-vs-drawing",
+        warning: "If your trading strategy depends on drawing lines on a chart, you're making subjective decisions that institutions exploit. Data doesn't lie, drawings do. VISION replaces every drawn line with a data-backed equivalent.",
       },
       {
         title: "Dashboard Overview",
         content:
           "The dashboard is split into two panels. The LEFT panel shows the price chart with overlays, a volume profile sidebar, and the technical indicator panel. The RIGHT panel is a scrollable stack of analytical widgets — each providing a different perspective on the market. Widgets load progressively based on priority, so the most actionable tools appear first.",
+        example: "dashboard-layout",
       },
       {
         title: "Selecting an Asset",
@@ -87,12 +95,14 @@ const CHAPTERS: Chapter[] = [
         title: "Timeframes",
         content:
           "The timeframe selector sits above the chart. Each button (1m, 5m, 15m, 1H, 4H, 1D, 1W) changes the candle duration on the chart and recalculates all indicators. Lower timeframes (1m-15m) are for scalping and day trading. Higher timeframes (4H-1W) are for swing trading and identifying the bigger trend. Always check multiple timeframes before entering a trade.",
+        example: "timeframes",
         tip: "Start with the daily (1D) chart to understand the trend, then zoom into 1H or 15m to find precise entries. This is called top-down analysis.",
       },
       {
         title: "Real-Time Data",
         content:
           "The LIVE badge in the header indicates you're receiving real-time price updates. Crypto prices stream via WebSocket from Binance. Forex and commodity prices update via REST polling every 10 seconds from OANDA. The price display next to the asset name shows the current bid price and session change percentage.",
+        example: "live-data",
       },
     ],
   },
@@ -102,7 +112,7 @@ const CHAPTERS: Chapter[] = [
     id: "chart",
     number: 2,
     title: "Reading the Chart",
-    subtitle: "Candlesticks, overlays, sessions, and volume",
+    subtitle: "The chart is your canvas for DATA — not for drawing lines",
     icon: CandlestickChart,
     color: "var(--color-neon-green)",
     sections: [
@@ -114,9 +124,11 @@ const CHAPTERS: Chapter[] = [
         tip: "Pay attention to candle size relative to recent candles. An unusually large candle often signals institutional activity or a major breakout.",
       },
       {
-        title: "Chart Overlay Toggles",
+        title: "Chart Overlay Toggles — Data Layers, Not Drawings",
         content:
-          "Above the chart you'll find toggle buttons: TP/SL shows estimated take-profit and stop-loss clusters as colored zones. Liq shows the liquidation heatmap (crypto only). Stops shows the stop-loss heatmap as a thermal overlay. MBO shows the Market-by-Order profile with institutional vs retail order segmentation. Toggle these on/off to layer different intelligence on the chart.",
+          "Above the chart you'll find toggle buttons that overlay REAL DATA onto the chart — this is what replaces drawing. TP/SL shows estimated take-profit and stop-loss clusters calculated from order book data and ATR analysis. Liq shows the liquidation heatmap (crypto only) with actual leverage data. Stops shows the stop-loss heatmap as a thermal overlay based on real positioning data. MBO shows the Market-by-Order profile with institutional vs retail order segmentation. Each overlay is computed from real market data — not from lines you draw by hand.",
+        example: "chart-overlays",
+        tip: "Instead of drawing a 'support line' manually, toggle on the TP/SL and Stops overlays — they show you WHERE actual orders are clustered, calculated from real data. That's infinitely more reliable than a line you drew based on 3 candle touches.",
       },
       {
         title: "Trading Sessions",
@@ -135,6 +147,7 @@ const CHAPTERS: Chapter[] = [
         title: "Volume Bars",
         content:
           "Volume bars appear at the bottom of the chart. Green bars mean the candle closed higher (buying pressure), red bars mean it closed lower (selling pressure). The bar height represents how much volume traded in that period. Volume confirms price action — a breakout with high volume is more reliable than one with low volume. Declining volume during a trend suggests the move is losing steam.",
+        example: "volume-bars",
         tip: "Volume spikes (bars 2-3x taller than average) often mark the beginning or end of a significant move. They signal institutional participation.",
       },
     ],
@@ -145,7 +158,7 @@ const CHAPTERS: Chapter[] = [
     id: "indicators",
     number: 3,
     title: "Technical Indicators",
-    subtitle: "RSI, MACD, Bollinger Bands, and how they combine",
+    subtitle: "Mathematical formulas applied to price data — zero subjectivity",
     icon: Activity,
     color: "var(--color-neon-purple)",
     sections: [
@@ -166,6 +179,7 @@ const CHAPTERS: Chapter[] = [
         title: "Stochastic RSI",
         content:
           "Stochastic RSI applies the stochastic oscillator formula to RSI values, creating a more sensitive momentum indicator. It oscillates between 0 and 100 with overbought (>80) and oversold (<20) zones. The %K line (fast) and %D line (slow) generate crossover signals. It's faster than regular RSI and better for catching short-term reversals.",
+        example: "stoch-rsi",
         warning: "Stochastic RSI is noisy on low timeframes. Use it on 15m+ for cleaner signals and always confirm with at least one other indicator.",
       },
       {
@@ -179,12 +193,15 @@ const CHAPTERS: Chapter[] = [
         title: "ATR (Average True Range)",
         content:
           "ATR measures market volatility — not direction. It calculates the average range of each candle over 14 periods. ATR is critical for position sizing: use 1.5-2x ATR for stop-loss placement and 2.5-4x ATR for take-profit targets. Higher ATR means wider stops are needed to avoid getting stopped out by normal noise. Lower ATR means tighter stops are appropriate.",
+        example: "atr",
         tip: "Never use fixed-pip stop losses. Always scale your SL/TP to the current ATR. A 50-pip stop on EUR/USD might be fine during quiet hours but too tight during London session.",
       },
       {
         title: "How Indicators Combine → Composite Score",
         content:
-          "No single indicator is reliable alone. VISION calculates a Composite Score (0-100) by weighting all indicators together. Each indicator votes bullish, bearish, or neutral with a specific weight. The score aggregates these votes: above 65 = bullish bias, below 35 = bearish bias, 35-65 = neutral. The more indicators that agree (confluence), the stronger the signal. The Trade Score widget shows the full breakdown.",
+          "No single indicator is reliable alone — and this is exactly why VISION doesn't ask you to interpret them visually. VISION calculates a Composite Score (0-100) by weighting all indicators together using a mathematical formula, not your subjective reading. Each indicator votes bullish, bearish, or neutral with a specific weight. The score aggregates these votes: above 65 = bullish bias, below 35 = bearish bias, 35-65 = neutral. No guessing, no 'I think I see a pattern' — pure data-driven scoring.",
+        example: "composite-score",
+        tip: "The Composite Score replaces the need to 'read' charts visually. Instead of staring at 6 different indicators and deciding what they mean, VISION calculates a single, objective number that tells you the bias. Let the data do the thinking.",
       },
     ],
   },
@@ -194,26 +211,28 @@ const CHAPTERS: Chapter[] = [
     id: "volume",
     number: 4,
     title: "Volume & Order Flow",
-    subtitle: "Where the money is moving and why it matters",
+    subtitle: "The hardest data to fake — where REAL money is moving",
     icon: BarChart3,
     color: "var(--color-neon-blue)",
     sections: [
       {
-        title: "Volume Spikes",
+        title: "Volume Spikes — The Data That Can't Be Faked",
         content:
-          "A volume spike occurs when trading volume is 2-3x higher than the 20-period average. This signals institutional participation — large players entering or exiting positions. Spikes at key support/resistance levels are especially significant. A spike at a support level with a bullish candle = strong buying interest. A spike at resistance with a bearish candle = strong distribution.",
+          "A volume spike occurs when trading volume is 2-3x higher than the 20-period average. Unlike a trendline that you draw subjectively, volume is REAL — it represents actual transactions that happened. You can't fake volume. This is why it's one of the most powerful tools: a volume spike signals institutional participation — large players entering or exiting positions. A spike at a price level with a bullish candle = strong buying interest backed by real money, not by a line on a chart.",
         example: "volume-spike",
       },
       {
         title: "OBV (On-Balance Volume)",
         content:
           "OBV is a running total of volume — it adds volume on up days and subtracts it on down days. The direction of OBV reveals whether volume is flowing into (accumulation) or out of (distribution) the asset. If price is rising but OBV is flat or declining, it means the rally lacks volume support and may reverse. If OBV is rising while price is flat, institutions may be quietly accumulating before a breakout.",
+        example: "obv",
         tip: "OBV divergence from price is one of the earliest warning signs of a trend reversal. Watch for price making new highs while OBV fails to confirm.",
       },
       {
         title: "A/D Line (Accumulation/Distribution)",
         content:
           "The A/D Line weighs volume by where price closes within the candle range. If price closes near the high, most volume is counted as buying (accumulation). Near the low = selling (distribution). Unlike OBV which only looks at close direction, A/D considers the close position within the range, making it more nuanced.",
+        example: "ad-line",
       },
       {
         title: "Volume Profile (VAH / VAL / POC)",
@@ -226,11 +245,13 @@ const CHAPTERS: Chapter[] = [
         title: "Order Flow Analysis",
         content:
           "The Order Flow widget shows real-time market microstructure: Delta measures net buying vs selling pressure (buy volume minus sell volume). Positive delta = buyers dominant. Imbalance Ratio shows the proportion of aggressive orders. Buy/sell walls are large resting orders in the order book that can act as support or resistance. Absorption means a large wall is eating incoming orders without price moving — a sign of institutional accumulation.",
+        example: "order-flow",
       },
       {
         title: "Deep Order Book",
         content:
           "The Deep Order Book shows bid (buy) and ask (sell) orders at multiple price levels with quantity and cumulative totals. It reveals where institutional liquidity is sitting. A massive bid wall means strong support; a massive ask wall means heavy resistance. The bid:ask ratio tells you the overall balance of supply and demand. However, be aware that large orders can be pulled (spoofing) — always confirm with actual price action.",
+        example: "order-book",
         warning: "Order book data is not 100% reliable because traders can place and cancel orders (spoofing). Use it as one input alongside price action, not as your sole decision tool.",
       },
     ],
@@ -241,26 +262,27 @@ const CHAPTERS: Chapter[] = [
     id: "smart-money",
     number: 5,
     title: "Smart Money Concepts",
-    subtitle: "How institutions trade and how to follow them",
+    subtitle: "Algorithmically detected institutional footprints — not hand-drawn zones",
     icon: Layers,
     color: "#F59E0B",
     sections: [
       {
         title: "What is Smart Money?",
         content:
-          "Smart money refers to institutional traders — banks, hedge funds, and market makers who move large volumes and often drive price direction. They have more information, better technology, and deeper pockets than retail traders. The key insight: retail traders tend to lose because they trade against institutional flow. By tracking where institutions are positioning, you can align your trades with the side that has the edge.",
+          "Smart money refers to institutional traders — banks, hedge funds, and market makers who move large volumes and often drive price direction. They have more information, better technology, and deeper pockets than retail traders. Here's the critical insight: institutions don't draw trendlines. They use DATA — order flow, positioning, volume footprint, and algorithmic execution. VISION detects their footprint using the same data, automatically. You don't need to 'see' a pattern — the algorithm finds it for you with mathematical precision.",
+        warning: "Traditional 'Smart Money Concepts' on YouTube teach you to draw order blocks and FVGs by hand. That's still subjective. VISION detects them algorithmically from price structure and volume data — removing human bias entirely.",
       },
       {
-        title: "Order Blocks",
+        title: "Order Blocks — Algorithmically Detected",
         content:
-          "An order block is a price zone where institutions placed significant buy or sell orders. It appears as the last bearish candle before a strong bullish move (bullish OB) or the last bullish candle before a strong bearish move (bearish OB). When price returns to these zones, institutions often defend their positions, causing bounces. VISION detects and displays these automatically on the chart.",
+          "An order block is a price zone where institutions placed significant buy or sell orders. It appears as the last bearish candle before a strong bullish move (bullish OB) or the last bullish candle before a strong bearish move (bearish OB). VISION's algorithm detects these automatically using price structure analysis, volume confirmation, and displacement measurement — no manual drawing required. When price returns to these zones, institutions often defend their positions, causing bounces.",
         example: "order-block",
-        tip: "The strongest order blocks are those that caused a Break of Structure (BoS). When price returns to one of these after a BoS, it's a high-probability entry.",
+        tip: "The strongest order blocks are those confirmed by volume data AND that caused a Break of Structure (BoS). VISION flags these automatically — you don't need to scroll through candles looking for them.",
       },
       {
-        title: "Fair Value Gaps (FVG)",
+        title: "Fair Value Gaps (FVG) — Data-Detected Imbalances",
         content:
-          "A Fair Value Gap is a three-candle pattern where the middle candle is so large that it creates an imbalance — the first and third candles don't overlap. This gap represents an area where price moved too fast for the market to fairly price, and price often returns to fill it. VISION marks FVGs on the chart. When price fills an FVG and then reverses, it's a high-quality entry signal.",
+          "A Fair Value Gap is a three-candle pattern where the middle candle is so large that it creates a measurable price imbalance — the first and third candles don't overlap. This isn't about 'seeing' a gap visually — VISION's algorithm mathematically calculates the exact zone boundaries, the imbalance magnitude, and the fill probability based on historical data. When price fills an FVG and then reverses, it's a data-backed entry signal.",
         example: "fvg",
       },
       {
@@ -280,6 +302,7 @@ const CHAPTERS: Chapter[] = [
         title: "Support, Resistance, Pivots & Fibonacci",
         content:
           "Support is a price level where buying interest prevents further decline. Resistance is where selling pressure prevents further advance. Pivot Points (P, R1-R3, S1-S3) are calculated from the previous period's high, low, and close — floor traders and algorithms use these as intraday reference levels. Fibonacci levels (23.6%, 38.2%, 50%, 61.8%, 78.6%) are retracement targets during pullbacks. The 61.8% level is the 'golden ratio' and the most watched.",
+        example: "pivots-fib",
         tip: "When multiple levels converge at the same price (e.g., a pivot point, a Fibonacci level, and a supply zone), that's a high-confluence area and a strong trade setup.",
       },
     ],
@@ -290,7 +313,7 @@ const CHAPTERS: Chapter[] = [
     id: "heatmaps",
     number: 6,
     title: "Heatmaps & Liquidity",
-    subtitle: "Where the orders are and where institutions will hunt",
+    subtitle: "Real order positioning data visualized — the ultimate edge over drawing",
     icon: Flame,
     color: "var(--color-bear)",
     sections: [
@@ -298,6 +321,7 @@ const CHAPTERS: Chapter[] = [
         title: "TP/SL Heatmap",
         content:
           "The TP/SL Heatmap overlays the chart with estimated clusters of take-profit and stop-loss orders. Green zones show where traders likely have take-profit orders (long TP above price, short TP below). Orange/amber zones show stop-loss clusters. These are estimated using round-number psychology, ATR-based placement, and order book data. Toggle this with the 'TP/SL' button above the chart.",
+        example: "tpsl-clusters",
       },
       {
         title: "Stop-Loss Heatmap",
@@ -310,22 +334,26 @@ const CHAPTERS: Chapter[] = [
         title: "Liquidation Heatmap (Crypto)",
         content:
           "Available for crypto pairs with perpetual contracts, the Liquidation Heatmap shows predicted forced-liquidation levels. In crypto, traders use leverage — when price moves against them past their margin, positions are forcibly closed (liquidated). Cascading liquidations at a price level can cause extreme price movements. Blue-to-green colors show moderate liquidation density; yellow-to-red shows extreme danger zones.",
+        example: "liquidation",
       },
       {
         title: "Liquidity Forecast",
         content:
           "The Liquidity Forecast widget predicts where future liquidity clusters will form based on historical patterns, swing point analysis, and ATR-based stop estimation. It shows predicted liquidity levels with confidence scores and identifies 'liquidity magnets' — price levels that attract price movement. Price is drawn toward these magnets because that's where resting orders create the most efficient fills.",
+        example: "liquidity-forecast",
         tip: "Use liquidity magnets as potential take-profit targets. Price tends to reach these levels before reversing, making them ideal exit points.",
       },
       {
         title: "MBO Profile (Market by Order)",
         content:
           "The MBO Profile displays bid and ask volume segmented by estimated order size: Institutional (brightest, largest orders), Large, Medium, and Small (faded, retail). This appears as horizontal bars on the right edge of the chart. Green bars show bid volume (buyers); red bars show ask volume (sellers). Heavy institutional bars at a price level signal that major players are positioned there.",
+        example: "mbo-profile",
       },
       {
         title: "How Institutions Hunt Stops",
         content:
           "Stop hunts are a common institutional strategy: 1) Institutions identify clusters of retail stop losses (visible in heatmaps). 2) They push price through these levels with aggressive orders. 3) This triggers a cascade of stop-loss executions, creating liquidity. 4) Institutions fill their real orders at these artificially created prices. 5) Price then reverses back. To protect yourself: place stops beyond obvious levels, use ATR-based stops instead of round numbers, and check the stop heatmap before choosing your SL level.",
+        example: "stop-hunt",
         warning: "Never place your stop loss at an obvious round number (e.g., exactly $3,000 for gold). Place it slightly beyond — the heatmap shows you exactly where the danger zones are.",
       },
     ],
@@ -336,7 +364,7 @@ const CHAPTERS: Chapter[] = [
     id: "ai-ml",
     number: 7,
     title: "AI & Machine Learning",
-    subtitle: "How VISION's algorithms predict market direction",
+    subtitle: "Algorithms that process thousands of data points — no human bias",
     icon: Brain,
     color: "var(--color-neon-purple)",
     sections: [
@@ -344,27 +372,32 @@ const CHAPTERS: Chapter[] = [
         title: "ML Prediction",
         content:
           "VISION uses an XGBoost machine learning model trained on historical price data and technical features. It predicts whether price will go up (bullish), down (bearish), or stay neutral in the near term. The ML Prediction widget shows: Direction (the model's call), Confidence (how sure the model is), and Top Features (which indicators most influenced the prediction). The model automatically retrains weekly to adapt to changing market conditions.",
+        example: "ml-prediction",
       },
       {
         title: "Market Regime Detection",
         content:
           "Not all markets behave the same way. VISION detects the current market regime: Trending (strong directional movement), Ranging (price oscillating between levels), Volatile (large erratic moves), or Mean-Reverting (price pulling back to average). Regime matters because strategies that work in trends fail in ranges and vice versa. The regime detector uses volatility clustering, trend strength, and price distribution analysis.",
+        example: "regime",
         tip: "Match your strategy to the regime. In trending regimes, use breakout entries and trail your stops. In ranging regimes, buy at support and sell at resistance. In volatile regimes, widen your stops or sit out.",
       },
       {
         title: "Market Narrator",
         content:
           "The Market Narrator is VISION's AI brain — it synthesizes ALL available data (price, indicators, ML prediction, regime, composite score, volatility, zones, divergence, order flow, and multi-timeframe analysis) into a clear, actionable narrative. It tells you: what's happening, where price is going, what to do (BUY/SELL/WAIT), specific price levels for entry/target/stop, and the probability of the predicted move. Updated every 5 minutes.",
+        example: "narrator",
       },
       {
         title: "Composite Score",
         content:
           "The Composite Score is VISION's master signal — a weighted aggregate of all indicators on a 0-100 scale. Each indicator contributes based on its reliability and current market conditions. Scores above 65 indicate bullish bias; below 35 indicate bearish bias. The Trade Score widget breaks down exactly how each indicator is voting and with what weight, so you can see the full reasoning behind the score.",
+        example: "composite-score",
       },
       {
         title: "Understanding Confidence Percentages",
         content:
           "Confidence reflects how many data sources agree on a direction. 90%+ means nearly everything aligns — very rare and very strong. 75-89% means strong consensus with minor disagreements. 60-74% means moderate agreement but some conflicting signals. Below 60% means significant disagreement — proceed with caution or wait. VISION only sends signal alerts at 75%+ confidence to ensure quality.",
+        example: "confidence-levels",
         tip: "Higher confidence doesn't mean guaranteed profit — it means higher probability. Even 85% confidence means 15% of the time it will be wrong. Always use a stop loss.",
       },
     ],
@@ -375,7 +408,7 @@ const CHAPTERS: Chapter[] = [
     id: "institutional",
     number: 8,
     title: "Institutional Tracking",
-    subtitle: "COT reports, divergence, whale tracking, and macro context",
+    subtitle: "Public filings, on-chain data, and positioning reports — hard evidence",
     icon: Globe,
     color: "#06B6D4",
     sections: [
@@ -383,29 +416,34 @@ const CHAPTERS: Chapter[] = [
         title: "COT Reports (Commitment of Traders)",
         content:
           "The CFTC publishes weekly data showing how different trader categories are positioned in futures markets. Managed Money (hedge funds) positions reveal institutional sentiment. Producers/Commercials hedge their real business exposure. When managed money is heavily long, it may signal crowded positioning. When they flip from short to long, it often signals the early stages of a new trend. VISION displays this for gold and BTC.",
+        example: "cot",
         tip: "COT data has a 3-day lag (released Friday for Tuesday positions). Use it for weekly bias, not intraday signals. When retail is heavily on one side and institutions on the other, follow institutions.",
       },
       {
         title: "Retail vs Institutional Divergence",
         content:
           "The Divergence widget compares retail trader positioning (from MyFxBook — percentage long vs short) against institutional positioning (from COT data, order flow, and whale tracking). When retail is heavily long but institutional data shows selling, that's a bearish divergence — a contrarian sell signal. The divergence score ranges from -100 (extreme bearish divergence) to +100 (extreme bullish divergence). Scores beyond 60 in either direction are significant.",
+        example: "divergence",
         warning: "The majority of retail traders lose money. When 80%+ of retail is positioned in one direction, the contrarian trade (going against them) has historically been more profitable.",
       },
       {
         title: "Whale Tracker (Crypto)",
         content:
           "For Bitcoin and Ethereum, the Whale Tracker monitors large on-chain transfers — transactions moving significant amounts between wallets and exchanges. When whales move crypto TO exchanges, it often signals upcoming selling. When they move FROM exchanges to cold wallets, it signals accumulation (holding). Each transfer shows block height, transaction hash, value, and whether an exchange is involved.",
+        example: "whale-tracker",
       },
       {
         title: "Currency Heatmap (Forex)",
         content:
           "The Currency Heatmap shows the relative strength of each major currency (USD, EUR, GBP, JPY, AUD, CAD, NZD, CHF) across multiple timeframes (1h, 4h, 1d). Strong currencies are green; weak ones are red. The ideal forex trade pairs the strongest currency against the weakest. It also shows cross-pair correlations — if EUR/USD and GBP/USD are both bullish, USD weakness is confirmed.",
+        example: "currency-heatmap",
         tip: "Don't trade a pair where both currencies are neutral/flat. Look for maximum divergence — the strongest vs the weakest gives the highest-probability trades.",
       },
       {
         title: "Correlations & Macro Dashboard (Gold)",
         content:
           "For gold, VISION tracks key macro correlations: Gold typically moves inversely to the US Dollar Index (DXY) — when the dollar weakens, gold rises. Gold is also inversely correlated with real yields (US 10-Year Treasury minus inflation). The Macro Dashboard shows current US 10Y yield, yield curve (2Y-10Y spread), Fed Funds Rate, CPI, and annual inflation. These macro drivers are essential for understanding gold's medium-term direction.",
+        example: "macro-correlation",
       },
     ],
   },
@@ -415,7 +453,7 @@ const CHAPTERS: Chapter[] = [
     id: "scalper",
     number: 9,
     title: "Scalper Mode — Signal System",
-    subtitle: "How VISION generates, tracks, and improves signals",
+    subtitle: "14+ data inputs → algorithm → actionable signal — zero guesswork",
     icon: Crosshair,
     color: "var(--color-neon-green)",
     sections: [
@@ -423,16 +461,19 @@ const CHAPTERS: Chapter[] = [
         title: "How Signals Are Generated",
         content:
           "VISION's signal engine runs 14+ indicators simultaneously, calculates a weighted composite score, cross-references with ML prediction and regime detection, applies smart money adjustments (order flow, institutional positioning), and checks against active loss patterns. Only signals that pass ALL filters with 75%+ confidence are shown and sent to channels. The system scans automatically every 5 minutes across multiple timeframes.",
+        example: "signal-pipeline",
       },
       {
         title: "Understanding Confidence",
         content:
           "Confidence starts from the composite score percentage, then gets adjusted: ML agreement boosts it (+30% blend). Regime incompatibility penalizes heavily (-60%). Multi-timeframe confluence adds +15%. Order flow alignment adds +12%. Institutional positioning agreement adds +10%. Counter-trend signals get penalized (-15%). Signals matching known loss patterns get -50%. The final confidence must be 75% or higher to qualify.",
+        example: "confidence-calc",
       },
       {
         title: "Entry, Stop Loss & Take Profit",
         content:
           "Entry price is the current market price when the signal triggers. Stop Loss (SL) is placed beyond recent swing structure — below the swing low for longs, above the swing high for shorts — with an ATR buffer to avoid noise. The engine also checks the stop heatmap to avoid placing your SL inside a stop-loss cluster. Take Profit (TP) targets use ATR multiples and, when available, order book walls as natural targets.",
+        example: "entry-setup",
         tip: "VISION's SL placement is smarter than simple ATR-based stops. It uses market structure AND avoids known stop-loss clusters. Trust the levels — they're engineered to survive institutional stop hunts.",
       },
       {
@@ -446,27 +487,32 @@ const CHAPTERS: Chapter[] = [
         title: "Multi-Timeframe Confluence",
         content:
           "When the signal engine scans multiple timeframes (5m, 15m, 30m) and two or more agree on direction, the signal gets a MTF (Multi-Timeframe) badge and a +15% confidence boost. MTF confluence means the short-term setup aligns with the bigger-picture trend — these are the highest-quality signals. When you see the green MTF badge, it means multiple timeframes are confirming the trade.",
+        example: "mtf",
       },
       {
         title: "Signal Lifecycle",
         content:
           "Every signal goes through a lifecycle: PENDING means the signal was generated but the entry price hasn't been hit yet. ACTIVE means entry was triggered and the trade is live — the system monitors it against SL and TP levels. WIN means price reached the take-profit level. LOSS means price hit the stop-loss. EXPIRED means the signal was never triggered within its validity window (typically 12 candles). Each completed signal records its PnL for your journal.",
+        example: "signal-lifecycle",
       },
       {
         title: "Journal & Performance",
         content:
           "The Journal tab shows all completed signals with their outcomes — win, loss, or expired. The summary displays: total win rate, total P&L, profit factor (ratio of gross wins to gross losses), and performance breakdown by timeframe and direction (long vs short). Use this data to understand which timeframes and directions work best for each asset. The equity curve shows your cumulative performance over time.",
+        example: "journal",
       },
       {
         title: "Loss Learning (Adaptive Filters)",
         content:
           "VISION's unique loss learning system analyzes WHY signals fail and builds adaptive filters to avoid repeating mistakes. It categorizes losses into 7 types: False Breakout, Regime Mismatch, Low Confluence, Overextended (RSI extreme), Weak Volume, Against Trend, and News Event. When a loss pattern appears 3+ times, the engine activates a filter that reduces confidence for similar setups, effectively 'learning' from past mistakes.",
+        example: "loss-learning",
         tip: "Check the Learning tab regularly. The 'With Filters' win rate shows what your performance WOULD be if the loss filters had been active — this validates that the system is improving.",
       },
       {
         title: "Telegram & Discord Channels",
         content:
           "VISION broadcasts high-confidence signals (75%+) to dedicated channels: Telegram Gold, Telegram Crypto, and Telegram Forex. Each signal includes direction, entry, SL, TP, R:R, confidence, and regime context. Outcome notifications are sent when signals resolve (win/loss with P&L). Daily performance summaries are also broadcast. Join the channels from the header dropdown for real-time alerts.",
+        example: "channels",
       },
     ],
   },
@@ -476,42 +522,48 @@ const CHAPTERS: Chapter[] = [
     id: "workflow",
     number: 10,
     title: "Putting It All Together",
-    subtitle: "Your pre-trade checklist and analysis workflow",
+    subtitle: "A data-driven workflow that replaces every drawn line with real evidence",
     icon: CheckCircle2,
     color: "var(--color-neon-amber)",
     sections: [
       {
-        title: "Pre-Trade Checklist",
+        title: "Pre-Trade Checklist — All Data, No Drawing",
         content:
-          "Before every trade, follow this checklist: 1) CHECK THE REGIME — is the market trending, ranging, or volatile? Match your strategy. 2) CHECK THE NARRATOR — what's the AI's overall assessment and direction? 3) CHECK COMPOSITE SCORE — is there strong directional bias (above 65 or below 35)? 4) CHECK MTF CONFLUENCE — do multiple timeframes agree? 5) CHECK SMART MONEY — are institutions aligned with your trade? 6) CHECK THE CALENDAR — any high-impact news events coming? 7) CHECK HEATMAPS — is your SL placed beyond stop clusters? Only enter when most boxes check green.",
+          "Before every trade, follow this data-driven checklist — notice that NONE of these steps involve drawing on a chart: 1) CHECK THE REGIME — algorithmically detected, not a guess. 2) CHECK THE NARRATOR — AI synthesis of ALL data sources. 3) CHECK COMPOSITE SCORE — mathematical aggregate of 14+ indicators. 4) CHECK MTF CONFLUENCE — automated multi-timeframe scan. 5) CHECK SMART MONEY — algorithmically detected order blocks and zones. 6) CHECK THE CALENDAR — real economic data releases. 7) CHECK HEATMAPS — real order positioning data. Every step is powered by DATA. Only enter when most boxes check green.",
+        example: "checklist",
       },
       {
         title: "Reading the Composite Score",
         content:
           "The Composite Score is your starting point. Open the Trade Score widget to see the full breakdown: each indicator's name, its signal (bullish/bearish/neutral), its weight in the composite, and the final direction. A score of 72 with 9 bullish indicators out of 12 is very different from 72 with 6 strongly bullish and 6 weakly bearish — the breakdown matters more than the number. Look for agreement across different categories (trend + momentum + volume).",
+        example: "composite-score",
       },
       {
         title: "When to Trade vs When to Wait",
         content:
           "Trade when: confidence is 75%+, the regime supports your strategy, multiple timeframes agree, and no major news is imminent. WAIT when: signals are NEUTRAL, the Narrator says 'conflicting signals', the regime is 'volatile' or 'mean-reverting' against your bias, RSI is at extremes in the opposite direction, or a high-impact event (FOMC, NFP, CPI) is within 2 hours. Patience is a superpower — the best traders wait for high-probability setups.",
+        example: "confidence-levels",
         tip: "The most common beginner mistake is overtrading. If VISION says WAIT or NEUTRAL, respect it. A day with no trades is better than a day with losing trades.",
       },
       {
         title: "Risk Management Principles",
         content:
           "Rule 1: Never risk more than 1-2% of your account on a single trade. Rule 2: Always use a stop loss — no exceptions. Rule 3: Focus on R:R ratio, not win rate. A 40% win rate with 2:1 R:R is profitable. Rule 4: Don't move your stop loss to 'give the trade more room' — that's emotional trading. Rule 5: Take partial profits at TP1 and move SL to break-even. Rule 6: Don't revenge trade after a loss. Rule 7: Respect your daily loss limit — stop trading after 2-3 consecutive losses.",
+        example: "risk-rules",
         warning: "Risk management is more important than technical analysis. You can have mediocre signals and still be profitable with good risk management. You cannot have perfect signals and survive with bad risk management.",
       },
       {
         title: "Economic Calendar Awareness",
         content:
           "The Economic Calendar widget shows upcoming data releases with impact ratings (HIGH, MEDIUM, LOW). High-impact events like FOMC decisions, Non-Farm Payrolls (NFP), CPI releases, and central bank rate decisions can cause extreme volatility. Close or reduce positions before major events. The countdown timer helps you plan — if a HIGH event is 30 minutes away, it's not the time to open a new trade.",
+        example: "econ-calendar",
       },
       {
         title: "Building Your VISION Workflow",
         content:
-          "Here's a suggested daily workflow: MORNING — Check the Narrator for overall market context. Review the macro dashboard for gold/forex. Check the economic calendar for the day's events. DURING SESSION — Use Scalper Mode's Scan All to find setups. Verify signals against heatmaps and zones. Check order flow for confirmation. ENTER only 75%+ confidence trades with proper SL/TP. AFTER SESSION — Review the Journal tab. Check the Learning tab for pattern insights. The system improves over time as it learns from your signals.",
-        tip: "Treat trading like a business. The Journal and Learning tabs are your performance review tools. Successful traders constantly refine their approach based on data, not feelings.",
+          "Here's a suggested daily workflow — 100% data-driven, 0% drawing: MORNING — Check the Narrator for AI market context. Review macro data (yields, DXY, inflation). Check the economic calendar for scheduled data releases. DURING SESSION — Use Scalper Mode's Scan All to find data-backed setups. Verify signals against heatmaps (real order positions) and zones (algorithmically detected). Check order flow for volume confirmation. ENTER only 75%+ confidence trades with data-calculated SL/TP. AFTER SESSION — Review the Journal tab with real P&L data. Check the Learning tab for algorithmic pattern insights. The system self-improves using data from every signal.",
+        example: "workflow",
+        tip: "The entire workflow is automated and data-powered. You never need to open a drawing tool. VISION does the analysis — you make the decision based on the data it presents. That's the edge.",
       },
     ],
   },
@@ -1031,6 +1083,841 @@ function RiskRewardDiagram() {
   );
 }
 
+/* ═══════════════════════════════════════════════════════
+   ADDITIONAL DIAGRAMS (Ch1-10 remaining sections)
+   ═══════════════════════════════════════════════════════ */
+
+/* ── Ch1: Data vs Drawing ── */
+function DataVsDrawing() {
+  return (
+    <svg viewBox="0 0 420 150" width="100%" role="img" aria-label="Data-driven vs drawing-based trading comparison">
+      <rect width="420" height="150" fill={D.bg} rx="6" />
+      {/* Left: Drawing (bad) */}
+      <rect x="10" y="10" width="190" height="130" fill={D.bear} opacity="0.1" rx="4" stroke={D.bear} strokeWidth="1" />
+      <text x="105" y="28" fill={D.bear} fontSize="10" fontFamily={FONT} textAnchor="middle" fontWeight="bold">DRAWING (Subjective)</text>
+      {["Trendlines you draw","'Patterns' you see","Support you guess","Channels you fit","Fibonacci you place"].map((t, i) => (
+        <g key={i}><text x="30" y={48 + i * 18} fill={D.bear} fontSize="9" fontFamily={FONT}>✗</text><text x="42" y={48 + i * 18} fill={D.textSec} fontSize="9" fontFamily={FONT}>{t}</text></g>
+      ))}
+      {/* Right: Data (good) */}
+      <rect x="220" y="10" width="190" height="130" fill={D.bull} opacity="0.1" rx="4" stroke={D.bull} strokeWidth="1" />
+      <text x="315" y="28" fill={D.bull} fontSize="10" fontFamily={FONT} textAnchor="middle" fontWeight="bold">DATA (Objective)</text>
+      {["Order flow volume","Stop-loss heatmaps","Institutional positions","ML predictions","Algorithmic detection"].map((t, i) => (
+        <g key={i}><text x="240" y={48 + i * 18} fill={D.bull} fontSize="9" fontFamily={FONT}>✓</text><text x="252" y={48 + i * 18} fill={D.textSec} fontSize="9" fontFamily={FONT}>{t}</text></g>
+      ))}
+    </svg>
+  );
+}
+
+/* ── Ch1: Dashboard Layout ── */
+function DashboardLayout() {
+  return (
+    <svg viewBox="0 0 420 130" width="100%" role="img" aria-label="Dashboard layout — chart left, widgets right">
+      <rect width="420" height="130" fill={D.bg} rx="6" />
+      {/* Left panel */}
+      <rect x="10" y="25" width="240" height="95" fill={D.bgCard} rx="4" stroke={D.border} />
+      <text x="130" y="18" fill={D.cyan} fontSize="9" fontFamily={FONT} textAnchor="middle">LEFT PANEL</text>
+      {/* mini chart */}
+      <polyline points="20,90 50,80 80,85 110,60 140,65 170,50 200,55 230,45" fill="none" stroke={D.bull} strokeWidth="1.5" />
+      {/* volume bars */}
+      {[20,50,80,110,140,170,200,230].map((x,i) => <rect key={i} x={x} y={100} width="15" height={8+Math.random()*12} fill={i%2?D.bear:D.bull} opacity="0.4" rx="1" />)}
+      <text x="130" y="70" fill={D.muted} fontSize="8" fontFamily={FONT} textAnchor="middle">Price Chart + Overlays + Indicators</text>
+      {/* Right panel */}
+      <rect x="260" y="25" width="150" height="95" fill={D.bgCard} rx="4" stroke={D.border} />
+      <text x="335" y="18" fill={D.purple} fontSize="9" fontFamily={FONT} textAnchor="middle">RIGHT PANEL</text>
+      {["Trade Score","ML Prediction","Order Flow","Smart Money","Heatmaps"].map((w,i) => (
+        <rect key={i} x="268" y={32+i*17} width="134" height="14" fill={D.border} rx="2">
+          <title>{w}</title>
+        </rect>
+      ))}
+      {["Trade Score","ML Prediction","Order Flow","Smart Money","Heatmaps"].map((w,i) => (
+        <text key={`t${i}`} x="335" y={42+i*17} fill={D.textSec} fontSize="7" fontFamily={FONT} textAnchor="middle">{w}</text>
+      ))}
+    </svg>
+  );
+}
+
+/* ── Ch1: Timeframes ── */
+function TimeframesDiagram() {
+  const tfs = [
+    { label: "1m", use: "Scalping", color: D.bear },
+    { label: "5m", use: "Scalping", color: D.orange },
+    { label: "15m", use: "Day Trade", color: D.amber },
+    { label: "1H", use: "Day Trade", color: D.cyan },
+    { label: "4H", use: "Swing", color: D.blue },
+    { label: "1D", use: "Swing", color: D.purple },
+    { label: "1W", use: "Position", color: D.bull },
+  ];
+  return (
+    <svg viewBox="0 0 420 90" width="100%" role="img" aria-label="Timeframe selector from 1m to 1W">
+      <rect width="420" height="90" fill={D.bg} rx="6" />
+      {tfs.map((tf, i) => {
+        const x = 15 + i * 58;
+        return (
+          <g key={i}>
+            <rect x={x} y="15" width="50" height="28" rx="6" fill={tf.color} opacity="0.15" stroke={tf.color} strokeWidth="1" />
+            <text x={x + 25} y="34" fill={tf.color} fontSize="11" fontFamily={FONT} textAnchor="middle" fontWeight="bold">{tf.label}</text>
+            <text x={x + 25} y="58" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">{tf.use}</text>
+          </g>
+        );
+      })}
+      <line x1="30" y1="68" x2="390" y2="68" stroke={D.border} />
+      <text x="30" y="80" fill={D.bear} fontSize="8" fontFamily={FONT}>← Faster / Noisier</text>
+      <text x="390" y="80" fill={D.bull} fontSize="8" fontFamily={FONT} textAnchor="end">Smoother / Reliable →</text>
+    </svg>
+  );
+}
+
+/* ── Ch1: Live Data Flow ── */
+function LiveDataFlow() {
+  return (
+    <svg viewBox="0 0 420 80" width="100%" role="img" aria-label="Real-time data flow from exchanges to VISION">
+      <rect width="420" height="80" fill={D.bg} rx="6" />
+      {/* Sources */}
+      {[{x:30,label:"Binance",sub:"WebSocket"},{x:140,label:"OANDA",sub:"REST API"},{x:250,label:"CFTC",sub:"Weekly"}].map((s,i)=>(
+        <g key={i}><rect x={s.x} y="10" width="80" height="25" rx="4" fill={D.border} stroke={D.muted} strokeWidth="0.5" />
+        <text x={s.x+40} y="25" fill={D.text} fontSize="8" fontFamily={FONT} textAnchor="middle">{s.label}</text>
+        <text x={s.x+40} y="48" fill={D.muted} fontSize="7" fontFamily={FONT} textAnchor="middle">{s.sub}</text></g>
+      ))}
+      {/* arrows */}
+      {[70,180,290].map((x,i)=><line key={i} x1={x} y1="38" x2={x} y2="52" stroke={D.cyan} strokeWidth="1" markerEnd="url(#arr)" />)}
+      {/* VISION */}
+      <rect x="340" y="15" width="70" height="50" rx="6" fill={D.cyan} opacity="0.15" stroke={D.cyan} />
+      <text x="375" y="35" fill={D.cyan} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">VISION</text>
+      <text x="375" y="48" fill={D.textSec} fontSize="7" fontFamily={FONT} textAnchor="middle">Real-time</text>
+      {/* connecting lines */}
+      <line x1="110" y1="55" x2="340" y2="40" stroke={D.cyan} strokeDasharray="3" opacity="0.3" />
+      <line x1="220" y1="55" x2="340" y2="40" stroke={D.cyan} strokeDasharray="3" opacity="0.3" />
+      <line x1="330" y1="55" x2="340" y2="40" stroke={D.cyan} strokeDasharray="3" opacity="0.3" />
+      <circle cx="355" cy="22" r="3" fill={D.bull}><animate attributeName="opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite" /></circle>
+      <text x="375" y="60" fill={D.bull} fontSize="7" fontFamily={FONT} textAnchor="middle">LIVE</text>
+    </svg>
+  );
+}
+
+/* ── Ch2: Volume Bars ── */
+function VolumeBarsDiagram() {
+  const bars = [{h:25,bull:true},{h:18,bull:false},{h:30,bull:true},{h:15,bull:false},{h:22,bull:true},{h:45,bull:true},{h:12,bull:false},{h:28,bull:true},{h:20,bull:false},{h:35,bull:true},{h:16,bull:false},{h:24,bull:true}];
+  return (
+    <svg viewBox="0 0 400 100" width="100%" role="img" aria-label="Volume bars showing buying and selling pressure">
+      <rect width="400" height="100" fill={D.bg} rx="6" />
+      {bars.map((b,i) => <rect key={i} x={20+i*30} y={80-b.h} width="22" height={b.h} fill={b.bull?D.bull:D.bear} opacity="0.5" rx="1" />)}
+      <text x="20" y="14" fill={D.bull} fontSize="8" fontFamily={FONT}>■ Green = Buying pressure</text>
+      <text x="200" y="14" fill={D.bear} fontSize="8" fontFamily={FONT}>■ Red = Selling pressure</text>
+      <text x="200" y="96" fill={D.muted} fontSize="8" fontFamily={FONT} textAnchor="middle">Bar height = total volume traded in that period</text>
+    </svg>
+  );
+}
+
+/* ── Ch2: Chart Overlays ── */
+function ChartOverlaysDiagram() {
+  const toggles = [{label:"TP/SL",color:D.bull,desc:"Order clusters"},{label:"Liq",color:D.orange,desc:"Liquidations"},{label:"Stops",color:D.bear,desc:"Stop heatmap"},{label:"MBO",color:D.purple,desc:"Inst. orders"}];
+  return (
+    <svg viewBox="0 0 400 70" width="100%" role="img" aria-label="Chart overlay toggle buttons">
+      <rect width="400" height="70" fill={D.bg} rx="6" />
+      {toggles.map((t,i) => (
+        <g key={i}>
+          <rect x={20+i*95} y="10" width="80" height="26" rx="6" fill={t.color} opacity="0.15" stroke={t.color} strokeWidth="1.5" />
+          <text x={60+i*95} y="28" fill={t.color} fontSize="10" fontFamily={FONT} textAnchor="middle" fontWeight="bold">{t.label}</text>
+          <text x={60+i*95} y="52" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">{t.desc}</text>
+        </g>
+      ))}
+      <text x="200" y="66" fill={D.muted} fontSize="8" fontFamily={FONT} textAnchor="middle">Each toggle overlays REAL DATA onto the chart — no drawing needed</text>
+    </svg>
+  );
+}
+
+/* ── Ch3: Stochastic RSI ── */
+function StochasticRSIDiagram() {
+  return (
+    <svg viewBox="0 0 400 130" width="100%" role="img" aria-label="Stochastic RSI with K and D lines">
+      <rect width="400" height="130" fill={D.bg} rx="6" />
+      <rect x="20" y="8" width="360" height="18" fill={D.bear} opacity="0.08" />
+      <rect x="20" y="88" width="360" height="22" fill={D.bull} opacity="0.08" />
+      <line x1="20" y1="26" x2="380" y2="26" stroke={D.bear} strokeDasharray="3" opacity="0.3" />
+      <line x1="20" y1="88" x2="380" y2="88" stroke={D.bull} strokeDasharray="3" opacity="0.3" />
+      <text x="8" y="20" fill={D.bear} fontSize="7" fontFamily={FONT}>80</text>
+      <text x="8" y="95" fill={D.bull} fontSize="7" fontFamily={FONT}>20</text>
+      {/* %K fast line */}
+      <polyline points="30,60 60,45 90,25 120,30 150,50 180,75 210,90 240,95 270,85 300,60 330,40 360,35" fill="none" stroke={D.cyan} strokeWidth="2" />
+      {/* %D slow line */}
+      <polyline points="30,65 60,52 90,35 120,35 150,45 180,65 210,85 240,92 270,90 300,72 330,50 360,40" fill="none" stroke={D.orange} strokeWidth="1.5" strokeDasharray="4" />
+      {/* crossover */}
+      <circle cx="150" cy="50" r="4" fill={D.bear} />
+      <text x="150" y="68" fill={D.bear} fontSize="8" fontFamily={FONT} textAnchor="middle">Sell</text>
+      <circle cx="300" cy="60" r="4" fill={D.bull} />
+      <text x="300" y="55" fill={D.bull} fontSize="8" fontFamily={FONT} textAnchor="middle">Buy</text>
+      <line x1="80" y1="122" x2="95" y2="122" stroke={D.cyan} strokeWidth="2" />
+      <text x="100" y="125" fill={D.textSec} fontSize="8" fontFamily={FONT}>%K (Fast)</text>
+      <line x1="180" y1="122" x2="195" y2="122" stroke={D.orange} strokeWidth="1.5" strokeDasharray="4" />
+      <text x="200" y="125" fill={D.textSec} fontSize="8" fontFamily={FONT}>%D (Slow)</text>
+    </svg>
+  );
+}
+
+/* ── Ch3: ATR Volatility ── */
+function ATRDiagram() {
+  return (
+    <svg viewBox="0 0 400 110" width="100%" role="img" aria-label="ATR measures volatility for stop-loss sizing">
+      <rect width="400" height="110" fill={D.bg} rx="6" />
+      {/* Low ATR */}
+      <text x="100" y="16" fill={D.cyan} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">LOW ATR</text>
+      {[30,60,90,120,150].map((x,i) => {
+        const h = 15 + Math.random() * 10;
+        return <g key={i}><line x1={x} y1={45-h/2} x2={x} y2={45+h/2} stroke={D.bull} strokeWidth="1.5" /><rect x={x-5} y={40-h/4} width="10" height={h/2} fill={D.bull} rx="1" /></g>;
+      })}
+      <text x="100" y="72" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">Small candles → Tight SL</text>
+      <text x="100" y="84" fill={D.cyan} fontSize="8" fontFamily={FONT} textAnchor="middle">SL = 1.5x ATR = 15 pips</text>
+      {/* High ATR */}
+      <text x="300" y="16" fill={D.amber} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">HIGH ATR</text>
+      {[230,260,290,320,350].map((x,i) => {
+        const h = 30 + Math.random() * 25;
+        return <g key={i}><line x1={x} y1={45-h/2} x2={x} y2={45+h/2} stroke={D.bear} strokeWidth="1.5" /><rect x={x-5} y={40-h/4} width="10" height={h/2} fill={D.bear} rx="1" /></g>;
+      })}
+      <text x="300" y="72" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">Large candles → Wide SL</text>
+      <text x="300" y="84" fill={D.amber} fontSize="8" fontFamily={FONT} textAnchor="middle">SL = 1.5x ATR = 50 pips</text>
+      <line x1="200" y1="10" x2="200" y2="95" stroke={D.border} strokeDasharray="4" />
+      <text x="200" y="105" fill={D.muted} fontSize="8" fontFamily={FONT} textAnchor="middle">ATR scales your stops to actual market volatility — never use fixed pips</text>
+    </svg>
+  );
+}
+
+/* ── Ch3: Composite Score Visual ── */
+function CompositeScoreDiagram() {
+  const indicators = [{name:"RSI",vote:"BULL",w:"12%",c:D.bull},{name:"MACD",vote:"BULL",w:"15%",c:D.bull},{name:"Stoch",vote:"BEAR",w:"8%",c:D.bear},{name:"BB",vote:"BULL",w:"10%",c:D.bull},{name:"OBV",vote:"BULL",w:"12%",c:D.bull},{name:"ATR",vote:"NEUT",w:"5%",c:D.muted},{name:"MA Cross",vote:"BULL",w:"15%",c:D.bull},{name:"OrderFlow",vote:"BULL",w:"13%",c:D.bull}];
+  return (
+    <svg viewBox="0 0 420 130" width="100%" role="img" aria-label="Composite score breakdown showing indicator votes and weights">
+      <rect width="420" height="130" fill={D.bg} rx="6" />
+      {indicators.map((ind,i)=>{
+        const x = 10 + (i % 4) * 103, y = i < 4 ? 12 : 60;
+        return (
+          <g key={i}>
+            <rect x={x} y={y} width="95" height="38" rx="4" fill={ind.c} opacity="0.08" stroke={ind.c} strokeWidth="0.5" />
+            <text x={x+48} y={y+15} fill={D.text} fontSize="8" fontFamily={FONT} textAnchor="middle">{ind.name}</text>
+            <text x={x+48} y={y+30} fill={ind.c} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">{ind.vote} ({ind.w})</text>
+          </g>
+        );
+      })}
+      {/* Result */}
+      <rect x="145" y="105" width="130" height="22" rx="10" fill={D.bull} opacity="0.15" stroke={D.bull} strokeWidth="1.5" />
+      <text x="210" y="120" fill={D.bull} fontSize="11" fontFamily={FONT} textAnchor="middle" fontWeight="bold">SCORE: 72 / 100</text>
+    </svg>
+  );
+}
+
+/* ── Ch4: OBV ── */
+function OBVDiagram() {
+  return (
+    <svg viewBox="0 0 400 130" width="100%" role="img" aria-label="OBV accumulation and distribution patterns">
+      <rect width="400" height="130" fill={D.bg} rx="6" />
+      {/* Price line */}
+      <polyline points="30,40 70,35 110,38 150,42 190,38 230,35 270,30 310,32 350,28 380,25" fill="none" stroke={D.text} strokeWidth="1.5" />
+      <text x="390" y="25" fill={D.textSec} fontSize="7" fontFamily={FONT}>Price ↑</text>
+      {/* OBV rising = accumulation */}
+      <polyline points="30,100 70,95 110,88 150,80 190,72 230,65 270,55 310,50 350,42 380,38" fill="none" stroke={D.bull} strokeWidth="2" />
+      <text x="200" y="110" fill={D.bull} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">OBV Rising = ACCUMULATION</text>
+      <text x="200" y="125" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">Volume flowing IN — confirms the uptrend with real data</text>
+      <line x1="90" y1="122" x2="105" y2="122" stroke={D.text} strokeWidth="1.5" />
+      <text x="110" y="125" fill={D.textSec} fontSize="7" fontFamily={FONT}>Price</text>
+      <line x1="150" y1="122" x2="165" y2="122" stroke={D.bull} strokeWidth="2" />
+      <text x="170" y="125" fill={D.textSec} fontSize="7" fontFamily={FONT}>OBV</text>
+    </svg>
+  );
+}
+
+/* ── Ch4: A/D Line ── */
+function ADLineDiagram() {
+  return (
+    <svg viewBox="0 0 400 100" width="100%" role="img" aria-label="Accumulation/Distribution Line divergence from price">
+      <rect width="400" height="100" fill={D.bg} rx="6" />
+      <polyline points="30,50 80,40 130,35 180,30 230,28 280,25 330,22" fill="none" stroke={D.text} strokeWidth="1.5" />
+      <text x="340" y="22" fill={D.textSec} fontSize="8" fontFamily={FONT}>Price ↑</text>
+      <polyline points="30,55 80,50 130,52 180,58 230,62 280,68 330,72" fill="none" stroke={D.bear} strokeWidth="2" />
+      <text x="340" y="75" fill={D.bear} fontSize="8" fontFamily={FONT}>A/D ↓</text>
+      <text x="200" y="92" fill={D.bear} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">BEARISH DIVERGENCE — Distribution in progress</text>
+    </svg>
+  );
+}
+
+/* ── Ch4: Order Flow ── */
+function OrderFlowDiagram() {
+  return (
+    <svg viewBox="0 0 400 110" width="100%" role="img" aria-label="Order flow showing delta, buy/sell pressure">
+      <rect width="400" height="110" fill={D.bg} rx="6" />
+      <text x="200" y="16" fill={D.cyan} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">ORDER FLOW — Real-time Market Microstructure</text>
+      {/* Buy/Sell bars */}
+      {[{x:30,buy:65,sell:35},{x:80,buy:45,sell:55},{x:130,buy:70,sell:30},{x:180,buy:80,sell:20},{x:230,buy:55,sell:45},{x:280,buy:40,sell:60},{x:330,buy:50,sell:50}].map((b,i)=>(
+        <g key={i}>
+          <rect x={b.x} y="28" width="35" height={b.buy*0.6} fill={D.bull} opacity="0.5" rx="1" />
+          <rect x={b.x} y={28+b.buy*0.6} width="35" height={b.sell*0.6} fill={D.bear} opacity="0.5" rx="1" />
+          <text x={b.x+17} y={28+b.buy*0.6-3} fill={D.bull} fontSize="7" fontFamily={FONT} textAnchor="middle">{b.buy}%</text>
+        </g>
+      ))}
+      <text x="30" y="100" fill={D.bull} fontSize="8" fontFamily={FONT}>■ Buy pressure</text>
+      <text x="150" y="100" fill={D.bear} fontSize="8" fontFamily={FONT}>■ Sell pressure</text>
+      <text x="280" y="100" fill={D.textSec} fontSize="8" fontFamily={FONT}>Delta = Buy − Sell</text>
+    </svg>
+  );
+}
+
+/* ── Ch4: Deep Order Book ── */
+function OrderBookDiagram() {
+  const bids = [40,55,80,120,95,60,35];
+  const asks = [35,50,70,90,130,75,45];
+  return (
+    <svg viewBox="0 0 400 120" width="100%" role="img" aria-label="Order book depth with bid and ask walls">
+      <rect width="400" height="120" fill={D.bg} rx="6" />
+      <text x="200" y="14" fill={D.cyan} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">ORDER BOOK DEPTH</text>
+      <line x1="200" y1="20" x2="200" y2="100" stroke={D.muted} strokeDasharray="3" />
+      <text x="200" y="112" fill={D.amber} fontSize="8" fontFamily={FONT} textAnchor="middle">CURRENT PRICE</text>
+      {/* Bids (left, green) */}
+      {bids.map((w,i) => <rect key={i} x={195-w} y={24+i*11} width={w} height="9" fill={D.bull} opacity="0.4" rx="1" />)}
+      <text x="100" y="112" fill={D.bull} fontSize="8" fontFamily={FONT} textAnchor="middle">BIDS (Buyers)</text>
+      {/* Asks (right, red) */}
+      {asks.map((w,i) => <rect key={i} x="205" y={24+i*11} width={w} height="9" fill={D.bear} opacity="0.4" rx="1" />)}
+      <text x="300" y="112" fill={D.bear} fontSize="8" fontFamily={FONT} textAnchor="middle">ASKS (Sellers)</text>
+      {/* Wall annotation */}
+      <rect x="205" y={24+4*11} width="130" height="9" fill="none" stroke={D.amber} strokeDasharray="2" rx="1" />
+      <text x="365" y={30+4*11} fill={D.amber} fontSize="7" fontFamily={FONT}>ASK WALL</text>
+    </svg>
+  );
+}
+
+/* ── Ch5: Pivots & Fibonacci ── */
+function PivotsFibDiagram() {
+  return (
+    <svg viewBox="0 0 400 140" width="100%" role="img" aria-label="Pivot points and Fibonacci retracement levels">
+      <rect width="400" height="140" fill={D.bg} rx="6" />
+      {[{y:10,label:"R3",c:D.bear},{y:28,label:"R2",c:D.bear},{y:46,label:"R1",c:D.bear},{y:68,label:"Pivot (P)",c:D.cyan},{y:90,label:"S1",c:D.bull},{y:108,label:"S2",c:D.bull},{y:126,label:"S3",c:D.bull}].map((l,i)=>(
+        <g key={i}><line x1="50" y1={l.y} x2="250" y2={l.y} stroke={l.c} strokeDasharray="4" opacity="0.5" />
+        <text x="45" y={l.y+4} fill={l.c} fontSize="8" fontFamily={FONT} textAnchor="end">{l.label}</text></g>
+      ))}
+      {/* Fibonacci side */}
+      <line x1="280" y1="5" x2="280" y2="135" stroke={D.border} strokeDasharray="4" />
+      {[{y:15,label:"0%",c:D.muted},{y:38,label:"23.6%",c:D.muted},{y:55,label:"38.2%",c:D.amber},{y:68,label:"50%",c:D.cyan},{y:82,label:"61.8%",c:D.amber},{y:108,label:"78.6%",c:D.muted},{y:130,label:"100%",c:D.muted}].map((f,i)=>(
+        <g key={i}><line x1="290" y1={f.y} x2="395" y2={f.y} stroke={f.c} strokeDasharray="3" opacity="0.5" />
+        <text x="395" y={f.y+4} fill={f.c} fontSize="7" fontFamily={FONT}>{f.label}</text></g>
+      ))}
+      <text x="150" y="140" fill={D.muted} fontSize="7" fontFamily={FONT} textAnchor="middle">PIVOT POINTS</text>
+      <text x="340" y="140" fill={D.muted} fontSize="7" fontFamily={FONT} textAnchor="middle">FIBONACCI LEVELS</text>
+    </svg>
+  );
+}
+
+/* ── Ch6: TP/SL Clusters ── */
+function TPSLClustersDiagram() {
+  return (
+    <svg viewBox="0 0 400 120" width="100%" role="img" aria-label="Take-profit and stop-loss order clusters on chart">
+      <rect width="400" height="120" fill={D.bg} rx="6" />
+      <polyline points="30,80 80,70 130,65 180,55 230,50 280,45 330,40 370,35" fill="none" stroke={D.text} strokeWidth="1.5" />
+      {/* TP clusters above */}
+      <rect x="200" y="15" width="120" height="18" fill={D.bull} opacity="0.15" rx="3" stroke={D.bull} strokeDasharray="3" />
+      <text x="260" y="28" fill={D.bull} fontSize="8" fontFamily={FONT} textAnchor="middle">TP CLUSTER (Long TP)</text>
+      {/* SL clusters below */}
+      <rect x="80" y="85" width="130" height="18" fill={D.amber} opacity="0.15" rx="3" stroke={D.amber} strokeDasharray="3" />
+      <text x="145" y="98" fill={D.amber} fontSize="8" fontFamily={FONT} textAnchor="middle">SL CLUSTER (Stop-losses)</text>
+      <text x="200" y="115" fill={D.muted} fontSize="8" fontFamily={FONT} textAnchor="middle">Calculated from order book data + ATR analysis — not drawn</text>
+    </svg>
+  );
+}
+
+/* ── Ch6: Liquidation Heatmap ── */
+function LiquidationDiagram() {
+  return (
+    <svg viewBox="0 0 400 100" width="100%" role="img" aria-label="Liquidation cascade levels for crypto">
+      <rect width="400" height="100" fill={D.bg} rx="6" />
+      {/* price line */}
+      <line x1="30" y1="50" x2="370" y2="50" stroke={D.muted} strokeDasharray="3" />
+      <text x="380" y="53" fill={D.cyan} fontSize="8" fontFamily={FONT}>Price</text>
+      {/* Liq levels above */}
+      {[{y:15,w:60,c:"#fbbf24"},{y:28,w:90,c:"#f97316"},{y:38,w:40,c:"#ef4444"}].map((l,i)=>(
+        <rect key={i} x={200-l.w/2} y={l.y} width={l.w} height="8" fill={l.c} opacity="0.6" rx="2" />
+      ))}
+      <text x="300" y="25" fill={D.amber} fontSize="8" fontFamily={FONT}>SHORT Liquidations</text>
+      {/* Liq levels below */}
+      {[{y:58,w:50,c:"#ef4444"},{y:68,w:100,c:"#f97316"},{y:78,w:70,c:"#fbbf24"}].map((l,i)=>(
+        <rect key={i} x={200-l.w/2} y={l.y} width={l.w} height="8" fill={l.c} opacity="0.6" rx="2" />
+      ))}
+      <text x="300" y="72" fill={D.amber} fontSize="8" fontFamily={FONT}>LONG Liquidations</text>
+      <text x="200" y="96" fill={D.muted} fontSize="8" fontFamily={FONT} textAnchor="middle">Real leverage data — forced liquidation cascades</text>
+    </svg>
+  );
+}
+
+/* ── Ch6: Liquidity Forecast ── */
+function LiquidityForecastDiagram() {
+  return (
+    <svg viewBox="0 0 400 100" width="100%" role="img" aria-label="Liquidity magnets attracting price">
+      <rect width="400" height="100" fill={D.bg} rx="6" />
+      <polyline points="30,60 80,55 130,58 180,52 230,48 270,42" fill="none" stroke={D.text} strokeWidth="1.5" />
+      {/* Liquidity magnets */}
+      <circle cx="320" cy="25" r="12" fill={D.cyan} opacity="0.15" stroke={D.cyan} strokeDasharray="3" />
+      <text x="320" y="29" fill={D.cyan} fontSize="7" fontFamily={FONT} textAnchor="middle">87%</text>
+      <text x="345" y="28" fill={D.cyan} fontSize="8" fontFamily={FONT}>Magnet ↑</text>
+      <circle cx="340" cy="75" r="10" fill={D.amber} opacity="0.15" stroke={D.amber} strokeDasharray="3" />
+      <text x="340" y="79" fill={D.amber} fontSize="7" fontFamily={FONT} textAnchor="middle">62%</text>
+      <text x="365" y="78" fill={D.amber} fontSize="8" fontFamily={FONT}>Magnet ↓</text>
+      {/* arrows */}
+      <line x1="270" y1="42" x2="310" y2="28" stroke={D.cyan} strokeDasharray="3" />
+      <text x="200" y="96" fill={D.muted} fontSize="8" fontFamily={FONT} textAnchor="middle">Predicted liquidity clusters — where price is drawn to</text>
+    </svg>
+  );
+}
+
+/* ── Ch6: MBO Profile ── */
+function MBOProfileDiagram() {
+  const levels = [{inst:60,large:30,med:15,sm:8},{inst:40,large:25,med:20,sm:12},{inst:80,large:40,med:10,sm:5},{inst:20,large:15,med:25,sm:18},{inst:50,large:35,med:12,sm:8}];
+  return (
+    <svg viewBox="0 0 400 110" width="100%" role="img" aria-label="Market by Order profile showing institutional vs retail">
+      <rect width="400" height="110" fill={D.bg} rx="6" />
+      <text x="200" y="14" fill={D.cyan} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">MBO — Institutional vs Retail Orders</text>
+      {levels.map((l,i) => {
+        const y = 24 + i * 16;
+        return (
+          <g key={i}>
+            <text x="8" y={y+10} fill={D.muted} fontSize="7" fontFamily={FONT}>Lvl {i+1}</text>
+            <rect x="40" y={y} width={l.inst} height="12" fill={D.cyan} opacity="0.8" rx="1" />
+            <rect x={40+l.inst} y={y} width={l.large} height="12" fill={D.blue} opacity="0.6" rx="1" />
+            <rect x={40+l.inst+l.large} y={y} width={l.med} height="12" fill={D.purple} opacity="0.4" rx="1" />
+            <rect x={40+l.inst+l.large+l.med} y={y} width={l.sm} height="12" fill={D.muted} opacity="0.3" rx="1" />
+          </g>
+        );
+      })}
+      {[{c:D.cyan,l:"Institutional"},{c:D.blue,l:"Large"},{c:D.purple,l:"Medium"},{c:D.muted,l:"Retail"}].map((leg,i)=>(
+        <g key={i}><rect x={40+i*85} y="98" width="8" height="8" fill={leg.c} opacity="0.7" rx="1" />
+        <text x={52+i*85} y="106" fill={D.textSec} fontSize="7" fontFamily={FONT}>{leg.l}</text></g>
+      ))}
+    </svg>
+  );
+}
+
+/* ── Ch6: Stop Hunt Sequence ── */
+function StopHuntDiagram() {
+  return (
+    <svg viewBox="0 0 420 130" width="100%" role="img" aria-label="How institutions hunt stops in 5 steps">
+      <rect width="420" height="130" fill={D.bg} rx="6" />
+      {[{x:10,n:"1",t:"Identify",sub:"stops",c:D.cyan},{x:92,n:"2",t:"Push",sub:"price",c:D.amber},{x:174,n:"3",t:"Trigger",sub:"cascade",c:D.bear},{x:256,n:"4",t:"Fill",sub:"orders",c:D.purple},{x:338,n:"5",t:"Reverse",sub:"profit",c:D.bull}].map((s,i)=>(
+        <g key={i}>
+          <circle cx={s.x+35} cy="35" r="16" fill={s.c} opacity="0.15" stroke={s.c} strokeWidth="1.5" />
+          <text x={s.x+35} y="39" fill={s.c} fontSize="11" fontFamily={FONT} textAnchor="middle" fontWeight="bold">{s.n}</text>
+          <text x={s.x+35} y="68" fill={D.text} fontSize="8" fontFamily={FONT} textAnchor="middle">{s.t}</text>
+          <text x={s.x+35} y="80" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">{s.sub}</text>
+          {i < 4 && <text x={s.x+70} y="37" fill={D.muted} fontSize="12" fontFamily={FONT}>→</text>}
+        </g>
+      ))}
+      <text x="210" y="100" fill={D.amber} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">This is why VISION shows you WHERE stops are clustered</text>
+      <text x="210" y="115" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">Place your SL BEYOND the clusters — the heatmap is your shield</text>
+    </svg>
+  );
+}
+
+/* ── Ch7: ML Prediction ── */
+function MLPredictionDiagram() {
+  return (
+    <svg viewBox="0 0 420 100" width="100%" role="img" aria-label="ML prediction pipeline from features to prediction">
+      <rect width="420" height="100" fill={D.bg} rx="6" />
+      {/* Input features */}
+      {["RSI","MACD","Vol","OBV","ATR","Regime"].map((f,i)=>(
+        <g key={i}><rect x={10+i*42} y="10" width="38" height="20" rx="3" fill={D.border} stroke={D.muted} strokeWidth="0.5" />
+        <text x={29+i*42} y="24" fill={D.textSec} fontSize="7" fontFamily={FONT} textAnchor="middle">{f}</text></g>
+      ))}
+      {/* arrows down */}
+      <text x="140" y="45" fill={D.muted} fontSize="10" fontFamily={FONT}>↓ ↓ ↓ ↓ ↓ ↓</text>
+      {/* XGBoost box */}
+      <rect x="100" y="52" width="120" height="25" rx="6" fill={D.purple} opacity="0.15" stroke={D.purple} />
+      <text x="160" y="69" fill={D.purple} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">XGBoost Model</text>
+      {/* Output */}
+      <text x="250" y="67" fill={D.muted} fontSize="12" fontFamily={FONT}>→</text>
+      <rect x="270" y="52" width="140" height="25" rx="6" fill={D.bull} opacity="0.15" stroke={D.bull} />
+      <text x="340" y="63" fill={D.bull} fontSize="8" fontFamily={FONT} textAnchor="middle">BULLISH 78%</text>
+      <text x="340" y="74" fill={D.textSec} fontSize="7" fontFamily={FONT} textAnchor="middle">Direction + Confidence</text>
+      <text x="210" y="95" fill={D.muted} fontSize="8" fontFamily={FONT} textAnchor="middle">Trained on historical data — retrains weekly — zero human bias</text>
+    </svg>
+  );
+}
+
+/* ── Ch7: Market Regime ── */
+function RegimeDiagram() {
+  const regimes = [{name:"TRENDING",icon:"↗",c:D.bull,desc:"Strong moves"},{name:"RANGING",icon:"↔",c:D.cyan,desc:"Oscillating"},{name:"VOLATILE",icon:"⚡",c:D.amber,desc:"Erratic swings"},{name:"MEAN-REV",icon:"↩",c:D.purple,desc:"Pulling back"}];
+  return (
+    <svg viewBox="0 0 420 80" width="100%" role="img" aria-label="Four market regimes detected by algorithm">
+      <rect width="420" height="80" fill={D.bg} rx="6" />
+      {regimes.map((r,i)=>(
+        <g key={i}>
+          <rect x={10+i*103} y="10" width="95" height="50" rx="6" fill={r.c} opacity="0.1" stroke={r.c} strokeWidth="1" />
+          <text x={57+i*103} y="30" fill={r.c} fontSize="14" fontFamily={FONT} textAnchor="middle">{r.icon}</text>
+          <text x={57+i*103} y="44" fill={r.c} fontSize="8" fontFamily={FONT} textAnchor="middle" fontWeight="bold">{r.name}</text>
+          <text x={57+i*103} y="55" fill={D.textSec} fontSize="7" fontFamily={FONT} textAnchor="middle">{r.desc}</text>
+        </g>
+      ))}
+      <text x="210" y="75" fill={D.muted} fontSize="8" fontFamily={FONT} textAnchor="middle">Algorithmically detected — match your strategy to the regime</text>
+    </svg>
+  );
+}
+
+/* ── Ch7: Narrator AI ── */
+function NarratorDiagram() {
+  return (
+    <svg viewBox="0 0 420 95" width="100%" role="img" aria-label="AI Narrator synthesizes all data into actionable narrative">
+      <rect width="420" height="95" fill={D.bg} rx="6" />
+      {["Price","Indicators","ML","Regime","Zones","OrderFlow","Volume","Macro"].map((s,i)=>(
+        <g key={i}><rect x={5+i*52} y="8" width="48" height="18" rx="3" fill={D.border} />
+        <text x={29+i*52} y="20" fill={D.textSec} fontSize="6" fontFamily={FONT} textAnchor="middle">{s}</text>
+        <line x1={29+i*52} y1="28" x2="210" y2="42" stroke={D.cyan} strokeDasharray="2" opacity="0.2" /></g>
+      ))}
+      <rect x="140" y="38" width="140" height="24" rx="8" fill={D.cyan} opacity="0.15" stroke={D.cyan} />
+      <text x="210" y="48" fill={D.cyan} fontSize="7" fontFamily={FONT} textAnchor="middle">AI MARKET NARRATOR</text>
+      <text x="210" y="57" fill={D.cyan} fontSize="6" fontFamily={FONT} textAnchor="middle">Synthesizes ALL data sources</text>
+      <text x="210" y="78" fill={D.bull} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">{'"'}BUY XAUUSD @ 2,645 → TP 2,668 | SL 2,632{'"'}</text>
+      <text x="210" y="90" fill={D.textSec} fontSize="7" fontFamily={FONT} textAnchor="middle">One clear, actionable output from dozens of data inputs</text>
+    </svg>
+  );
+}
+
+/* ── Ch7: Confidence Levels ── */
+function ConfidenceLevels() {
+  const levels = [{pct:"90%+",label:"Very Strong",c:D.bull,w:180},{pct:"75-89%",label:"Strong",c:D.cyan,w:150},{pct:"60-74%",label:"Moderate",c:D.amber,w:120},{pct:"<60%",label:"Weak — WAIT",c:D.bear,w:80}];
+  return (
+    <svg viewBox="0 0 400 100" width="100%" role="img" aria-label="Confidence level thresholds">
+      <rect width="400" height="100" fill={D.bg} rx="6" />
+      {levels.map((l,i)=>(
+        <g key={i}>
+          <rect x="80" y={10+i*22} width={l.w} height="16" rx="3" fill={l.c} opacity="0.3" />
+          <text x="75" y={22+i*22} fill={l.c} fontSize="9" fontFamily={FONT} textAnchor="end" fontWeight="bold">{l.pct}</text>
+          <text x={85+l.w} y={22+i*22} fill={D.textSec} fontSize="8" fontFamily={FONT}>{l.label}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+/* ── Ch8: COT Chart ── */
+function COTDiagram() {
+  return (
+    <svg viewBox="0 0 400 110" width="100%" role="img" aria-label="COT report showing institutional vs retail positioning">
+      <rect width="400" height="110" fill={D.bg} rx="6" />
+      <text x="200" y="14" fill={D.cyan} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">COT — Commitment of Traders (CFTC Data)</text>
+      {/* Managed Money */}
+      <rect x="30" y="25" width="340" height="16" rx="3" fill={D.border} />
+      <rect x="30" y="25" width="230" height="16" rx="3" fill={D.bull} opacity="0.5" />
+      <text x="15" y="37" fill={D.textSec} fontSize="7" fontFamily={FONT} textAnchor="end">Inst</text>
+      <text x="145" y="37" fill={D.text} fontSize="8" fontFamily={FONT} textAnchor="middle">68% LONG ← Hedge Funds</text>
+      {/* Retail */}
+      <rect x="30" y="48" width="340" height="16" rx="3" fill={D.border} />
+      <rect x="30" y="48" width="120" height="16" rx="3" fill={D.bear} opacity="0.5" />
+      <text x="15" y="60" fill={D.textSec} fontSize="7" fontFamily={FONT} textAnchor="end">Retail</text>
+      <text x="90" y="60" fill={D.text} fontSize="8" fontFamily={FONT} textAnchor="middle">35% LONG</text>
+      {/* Signal */}
+      <rect x="100" y="75" width="200" height="22" rx="6" fill={D.bull} opacity="0.1" stroke={D.bull} />
+      <text x="200" y="90" fill={D.bull} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">Institutions are BULLISH — follow the data</text>
+      <text x="200" y="107" fill={D.muted} fontSize="7" fontFamily={FONT} textAnchor="middle">Published weekly by CFTC — real regulatory filings, not opinions</text>
+    </svg>
+  );
+}
+
+/* ── Ch8: Divergence ── */
+function DivergenceDiagram() {
+  return (
+    <svg viewBox="0 0 400 90" width="100%" role="img" aria-label="Retail vs institutional divergence signal">
+      <rect width="400" height="90" fill={D.bg} rx="6" />
+      <rect x="20" y="10" width="170" height="35" fill={D.bear} opacity="0.08" rx="4" stroke={D.bear} strokeWidth="0.5" />
+      <text x="105" y="24" fill={D.bear} fontSize="8" fontFamily={FONT} textAnchor="middle">RETAIL: 82% LONG</text>
+      <text x="105" y="38" fill={D.textSec} fontSize="7" fontFamily={FONT} textAnchor="middle">Crowd is bullish</text>
+      <rect x="210" y="10" width="170" height="35" fill={D.bull} opacity="0.08" rx="4" stroke={D.bull} strokeWidth="0.5" />
+      <text x="295" y="24" fill={D.bull} fontSize="8" fontFamily={FONT} textAnchor="middle">INSTITUTIONS: SELLING</text>
+      <text x="295" y="38" fill={D.textSec} fontSize="7" fontFamily={FONT} textAnchor="middle">Smart money is bearish</text>
+      <text x="200" y="32" fill={D.amber} fontSize="14" fontFamily={FONT} textAnchor="middle">≠</text>
+      <rect x="100" y="55" width="200" height="22" rx="6" fill={D.bear} opacity="0.1" stroke={D.bear} />
+      <text x="200" y="70" fill={D.bear} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">BEARISH DIVERGENCE → Contrarian SELL</text>
+      <text x="200" y="86" fill={D.muted} fontSize="7" fontFamily={FONT} textAnchor="middle">When retail and institutions disagree — follow institutions</text>
+    </svg>
+  );
+}
+
+/* ── Ch8: Whale Tracker ── */
+function WhaleTrackerDiagram() {
+  return (
+    <svg viewBox="0 0 400 90" width="100%" role="img" aria-label="Whale tracker showing large on-chain transfers">
+      <rect width="400" height="90" fill={D.bg} rx="6" />
+      <text x="200" y="14" fill={D.cyan} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">ON-CHAIN WHALE TRANSFERS</text>
+      {[{dir:"→ Exchange",val:"500 BTC",signal:"SELL signal",c:D.bear},{dir:"→ Cold Wallet",val:"1,200 BTC",signal:"HOLD signal",c:D.bull}].map((w,i)=>(
+        <g key={i}>
+          <rect x={10+i*200} y="24" width="190" height="35" rx="4" fill={w.c} opacity="0.06" stroke={w.c} strokeWidth="0.5" />
+          <text x={105+i*200} y="38" fill={D.text} fontSize="8" fontFamily={FONT} textAnchor="middle">{w.val} {w.dir}</text>
+          <text x={105+i*200} y="52" fill={w.c} fontSize="8" fontFamily={FONT} textAnchor="middle" fontWeight="bold">{w.signal}</text>
+        </g>
+      ))}
+      <text x="200" y="78" fill={D.muted} fontSize="8" fontFamily={FONT} textAnchor="middle">Real blockchain data — every transaction is verifiable on-chain</text>
+    </svg>
+  );
+}
+
+/* ── Ch8: Currency Heatmap ── */
+function CurrencyHeatmapDiagram() {
+  const currencies = ["USD","EUR","GBP","JPY","AUD","CAD","NZD","CHF"];
+  const strengths = [72,45,60,30,55,40,35,50];
+  return (
+    <svg viewBox="0 0 400 80" width="100%" role="img" aria-label="Currency strength heatmap">
+      <rect width="400" height="80" fill={D.bg} rx="6" />
+      {currencies.map((c,i)=>{
+        const s = strengths[i];
+        const col = s > 60 ? D.bull : s > 45 ? D.muted : D.bear;
+        return (
+          <g key={i}>
+            <rect x={10+i*49} y="10" width="43" height="40" rx="4" fill={col} opacity={0.15 + (s/100)*0.4} />
+            <text x={31+i*49} y="28" fill={col} fontSize="10" fontFamily={FONT} textAnchor="middle" fontWeight="bold">{c}</text>
+            <text x={31+i*49} y="42" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">{s}</text>
+          </g>
+        );
+      })}
+      <text x="200" y="66" fill={D.bull} fontSize="8" fontFamily={FONT} textAnchor="middle">Strongest: USD (72)</text>
+      <text x="200" y="77" fill={D.bear} fontSize="8" fontFamily={FONT} textAnchor="middle">Weakest: JPY (30) → Trade USD/JPY LONG</text>
+    </svg>
+  );
+}
+
+/* ── Ch8: Macro Correlations ── */
+function MacroCorrelationDiagram() {
+  return (
+    <svg viewBox="0 0 400 90" width="100%" role="img" aria-label="Gold macro correlations with DXY and yields">
+      <rect width="400" height="90" fill={D.bg} rx="6" />
+      <text x="200" y="14" fill={D.amber} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">GOLD MACRO CORRELATIONS</text>
+      {/* Gold up, DXY down */}
+      <rect x="20" y="25" width="170" height="28" rx="4" fill={D.bear} opacity="0.06" />
+      <text x="105" y="38" fill={D.amber} fontSize="8" fontFamily={FONT} textAnchor="middle">Gold ↑</text>
+      <text x="105" y="48" fill={D.bear} fontSize="8" fontFamily={FONT} textAnchor="middle">DXY ↓ (inverse)</text>
+      {/* Gold up, Yields down */}
+      <rect x="210" y="25" width="170" height="28" rx="4" fill={D.bear} opacity="0.06" />
+      <text x="295" y="38" fill={D.amber} fontSize="8" fontFamily={FONT} textAnchor="middle">Gold ↑</text>
+      <text x="295" y="48" fill={D.bear} fontSize="8" fontFamily={FONT} textAnchor="middle">Real Yields ↓ (inverse)</text>
+      <text x="200" y="72" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">Dollar weak + Yields falling = Bullish Gold</text>
+      <text x="200" y="85" fill={D.muted} fontSize="7" fontFamily={FONT} textAnchor="middle">Real economic data from Fed, Treasury — not chart patterns</text>
+    </svg>
+  );
+}
+
+/* ── Ch9: Signal Pipeline ── */
+function SignalPipelineDiagram() {
+  return (
+    <svg viewBox="0 0 420 80" width="100%" role="img" aria-label="Signal generation pipeline from indicators to alert">
+      <rect width="420" height="80" fill={D.bg} rx="6" />
+      {[{x:5,label:"14+ Indicators",c:D.blue},{x:95,label:"Composite Score",c:D.cyan},{x:185,label:"ML Blend",c:D.purple},{x:275,label:"Filters + R:R",c:D.amber},{x:355,label:"SIGNAL",c:D.bull}].map((s,i)=>(
+        <g key={i}>
+          <rect x={s.x} y="15" width="80" height="30" rx="6" fill={s.c} opacity="0.12" stroke={s.c} strokeWidth="1" />
+          <text x={s.x+40} y="34" fill={s.c} fontSize="7" fontFamily={FONT} textAnchor="middle" fontWeight="bold">{s.label}</text>
+          {i < 4 && <text x={s.x+86} y="33" fill={D.muted} fontSize="10" fontFamily={FONT}>→</text>}
+        </g>
+      ))}
+      <text x="210" y="62" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">Every signal passes through 5 data stages — zero human interpretation</text>
+      <text x="210" y="75" fill={D.bull} fontSize="8" fontFamily={FONT} textAnchor="middle" fontWeight="bold">Only 75%+ confidence signals are shown and broadcast</text>
+    </svg>
+  );
+}
+
+/* ── Ch9: Confidence Calculation ── */
+function ConfidenceCalcDiagram() {
+  return (
+    <svg viewBox="0 0 420 110" width="100%" role="img" aria-label="How confidence percentage is calculated with boosts and penalties">
+      <rect width="420" height="110" fill={D.bg} rx="6" />
+      <text x="210" y="14" fill={D.cyan} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">CONFIDENCE CALCULATION</text>
+      <rect x="30" y="22" width="120" height="20" rx="4" fill={D.cyan} opacity="0.15" />
+      <text x="90" y="36" fill={D.cyan} fontSize="8" fontFamily={FONT} textAnchor="middle">Base: Composite 68%</text>
+      {[{label:"+30% ML agrees",c:D.bull},{label:"+15% MTF confluence",c:D.bull},{label:"+12% Order flow",c:D.bull},{label:"−60% Regime mismatch",c:D.bear},{label:"−50% Loss pattern",c:D.bear}].map((a,i)=>(
+        <text key={i} x={210+(i<3?0:1)*180} y={28+(i<3?i:i-3)*16} fill={a.c} fontSize="8" fontFamily={FONT} textAnchor={i<3?"start":"start"}>{a.label}</text>
+      ))}
+      <rect x="120" y="85" width="180" height="22" rx="10" fill={D.bull} opacity="0.15" stroke={D.bull} />
+      <text x="210" y="100" fill={D.bull} fontSize="10" fontFamily={FONT} textAnchor="middle" fontWeight="bold">FINAL: 82% → SIGNAL</text>
+    </svg>
+  );
+}
+
+/* ── Ch9: Entry Setup ── */
+function EntrySetupDiagram() {
+  return (
+    <svg viewBox="0 0 400 110" width="100%" role="img" aria-label="Entry, SL, and TP levels with structure-based placement">
+      <rect width="400" height="110" fill={D.bg} rx="6" />
+      <text x="200" y="14" fill={D.cyan} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">DATA-CALCULATED SL/TP</text>
+      {/* Candles */}
+      {[{x:40,t:50,b:20,bull:true},{x:70,t:45,b:15,bull:false},{x:100,t:55,b:25,bull:true},{x:130,t:35,b:30,bull:true}].map((c,i)=>(
+        <g key={i}><line x1={c.x+8} y1={c.t} x2={c.x+8} y2={c.t+c.b+15} stroke={c.bull?D.bull:D.bear} strokeWidth="1.5" />
+        <rect x={c.x} y={c.t+4} width="16" height={c.b} fill={c.bull?D.bull:D.bear} rx="1" /></g>
+      ))}
+      {/* SL below swing low */}
+      <line x1="40" y1="85" x2="180" y2="85" stroke={D.bear} strokeDasharray="3" />
+      <text x="185" y="88" fill={D.bear} fontSize="8" fontFamily={FONT}>SL: Below swing + ATR buffer</text>
+      <text x="185" y="100" fill={D.textSec} fontSize="7" fontFamily={FONT}>+ Avoids stop-loss clusters (heatmap)</text>
+      {/* TP at wall */}
+      <line x1="40" y1="25" x2="180" y2="25" stroke={D.bull} strokeDasharray="3" />
+      <text x="185" y="28" fill={D.bull} fontSize="8" fontFamily={FONT}>TP: Order book wall target</text>
+      <text x="185" y="40" fill={D.textSec} fontSize="7" fontFamily={FONT}>+ ATR multiple + structure level</text>
+    </svg>
+  );
+}
+
+/* ── Ch9: MTF Confluence ── */
+function MTFDiagram() {
+  return (
+    <svg viewBox="0 0 400 90" width="100%" role="img" aria-label="Multi-timeframe confluence across 5m, 15m, 30m">
+      <rect width="400" height="90" fill={D.bg} rx="6" />
+      {[{tf:"5m",dir:"BULL",c:D.bull},{tf:"15m",dir:"BULL",c:D.bull},{tf:"30m",dir:"BULL",c:D.bull}].map((t,i)=>(
+        <g key={i}>
+          <rect x={30+i*120} y="10" width="100" height="38" rx="6" fill={t.c} opacity="0.1" stroke={t.c} />
+          <text x={80+i*120} y="28" fill={t.c} fontSize="10" fontFamily={FONT} textAnchor="middle" fontWeight="bold">{t.tf}</text>
+          <text x={80+i*120} y="42" fill={t.c} fontSize="9" fontFamily={FONT} textAnchor="middle">{t.dir} ✓</text>
+        </g>
+      ))}
+      <rect x="110" y="58" width="180" height="22" rx="10" fill={D.bull} opacity="0.15" stroke={D.bull} />
+      <text x="200" y="73" fill={D.bull} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">MTF CONFLUENCE → +15% confidence</text>
+    </svg>
+  );
+}
+
+/* ── Ch9: Signal Lifecycle ── */
+function SignalLifecycleDiagram() {
+  const states = [{label:"PENDING",c:D.amber},{label:"ACTIVE",c:D.cyan},{label:"WIN",c:D.bull},{label:"LOSS",c:D.bear},{label:"EXPIRED",c:D.muted}];
+  return (
+    <svg viewBox="0 0 420 70" width="100%" role="img" aria-label="Signal lifecycle from pending to resolution">
+      <rect width="420" height="70" fill={D.bg} rx="6" />
+      {states.map((s,i)=>(
+        <g key={i}>
+          <rect x={8+i*83} y="12" width="75" height="28" rx="6" fill={s.c} opacity="0.12" stroke={s.c} strokeWidth="1.5" />
+          <text x={45+i*83} y="30" fill={s.c} fontSize="8" fontFamily={FONT} textAnchor="middle" fontWeight="bold">{s.label}</text>
+          {i < 4 && i !== 2 && <text x={88+i*83} y="30" fill={D.muted} fontSize="10" fontFamily={FONT}>→</text>}
+        </g>
+      ))}
+      <line x1="250" y1="40" x2="295" y2="28" stroke={D.bull} strokeDasharray="2" opacity="0.3" />
+      <line x1="250" y1="40" x2="295" y2="28" stroke={D.bear} strokeDasharray="2" opacity="0.3" />
+      <text x="210" y="60" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">Every signal is tracked with real P&amp;L — full accountability</text>
+    </svg>
+  );
+}
+
+/* ── Ch9: Journal ── */
+function JournalDiagram() {
+  return (
+    <svg viewBox="0 0 400 90" width="100%" role="img" aria-label="Trading journal with performance metrics">
+      <rect width="400" height="90" fill={D.bg} rx="6" />
+      {[{label:"Win Rate",val:"64%",c:D.bull},{label:"Total P&L",val:"+$2,340",c:D.bull},{label:"Profit Factor",val:"2.1x",c:D.cyan},{label:"Avg R:R",val:"1:1.8",c:D.amber}].map((m,i)=>(
+        <g key={i}>
+          <rect x={10+i*98} y="10" width="90" height="45" rx="6" fill={m.c} opacity="0.08" stroke={m.c} strokeWidth="0.5" />
+          <text x={55+i*98} y="30" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">{m.label}</text>
+          <text x={55+i*98} y="46" fill={m.c} fontSize="12" fontFamily={FONT} textAnchor="middle" fontWeight="bold">{m.val}</text>
+        </g>
+      ))}
+      <text x="200" y="75" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">Real performance data from tracked signals — not backtested fantasies</text>
+    </svg>
+  );
+}
+
+/* ── Ch9: Loss Learning ── */
+function LossLearningDiagram() {
+  const patterns = [{name:"False Breakout",count:5,c:D.bear},{name:"Regime Mismatch",count:3,c:D.amber},{name:"Low Confluence",count:4,c:D.orange},{name:"Against Trend",count:2,c:D.muted}];
+  return (
+    <svg viewBox="0 0 400 90" width="100%" role="img" aria-label="Loss learning adaptive filters">
+      <rect width="400" height="90" fill={D.bg} rx="6" />
+      <text x="200" y="14" fill={D.purple} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">ADAPTIVE LOSS FILTERS</text>
+      {patterns.map((p,i)=>(
+        <g key={i}>
+          <rect x={10+i*98} y="22" width="90" height="38" rx="4" fill={p.c} opacity="0.08" stroke={p.c} strokeWidth="0.5" />
+          <text x={55+i*98} y="38" fill={D.text} fontSize="7" fontFamily={FONT} textAnchor="middle">{p.name}</text>
+          <text x={55+i*98} y="52" fill={p.c} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">{p.count}x → FILTER ON</text>
+        </g>
+      ))}
+      <text x="200" y="78" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">System learns from losses — reduces confidence for similar setups</text>
+    </svg>
+  );
+}
+
+/* ── Ch9: Channels ── */
+function ChannelsDiagram() {
+  return (
+    <svg viewBox="0 0 400 70" width="100%" role="img" aria-label="Signal broadcast to Telegram and Discord channels">
+      <rect width="400" height="70" fill={D.bg} rx="6" />
+      <rect x="130" y="8" width="140" height="25" rx="6" fill={D.bull} opacity="0.12" stroke={D.bull} />
+      <text x="200" y="25" fill={D.bull} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">75%+ SIGNAL</text>
+      {[{x:30,label:"TG Gold",c:D.amber},{x:130,label:"TG Crypto",c:D.cyan},{x:230,label:"TG Forex",c:D.blue},{x:330,label:"Discord",c:D.purple}].map((ch,i)=>(
+        <g key={i}>
+          <line x1="200" y1="35" x2={ch.x+30} y2="45" stroke={D.muted} strokeDasharray="2" />
+          <rect x={ch.x} y="42" width="60" height="20" rx="4" fill={ch.c} opacity="0.12" stroke={ch.c} strokeWidth="0.5" />
+          <text x={ch.x+30} y="56" fill={ch.c} fontSize="7" fontFamily={FONT} textAnchor="middle">{ch.label}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+/* ── Ch10: Workflow ── */
+function WorkflowDiagram() {
+  return (
+    <svg viewBox="0 0 420 80" width="100%" role="img" aria-label="Daily trading workflow — morning, session, after">
+      <rect width="420" height="80" fill={D.bg} rx="6" />
+      {[{x:10,label:"MORNING",sub:"Narrator + Macro",c:D.cyan},{x:150,label:"SESSION",sub:"Scan + Verify + Enter",c:D.bull},{x:290,label:"AFTER",sub:"Journal + Learning",c:D.purple}].map((p,i)=>(
+        <g key={i}>
+          <rect x={p.x} y="10" width="120" height="45" rx="6" fill={p.c} opacity="0.1" stroke={p.c} />
+          <text x={p.x+60} y="30" fill={p.c} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">{p.label}</text>
+          <text x={p.x+60} y="45" fill={D.textSec} fontSize="7" fontFamily={FONT} textAnchor="middle">{p.sub}</text>
+          {i < 2 && <text x={p.x+130} y="35" fill={D.muted} fontSize="12" fontFamily={FONT}>→</text>}
+        </g>
+      ))}
+      <text x="210" y="72" fill={D.muted} fontSize="8" fontFamily={FONT} textAnchor="middle">100% data-driven workflow — 0% chart drawing</text>
+    </svg>
+  );
+}
+
+/* ── Ch10: Checklist ── */
+function ChecklistDiagram() {
+  const items = [{label:"Regime check",data:"Algorithm"},{label:"Narrator",data:"AI synthesis"},{label:"Composite Score",data:"14+ indicators"},{label:"MTF Confluence",data:"Auto-scan"},{label:"Smart Money",data:"Auto-detected"},{label:"Calendar",data:"Real events"},{label:"Heatmaps",data:"Order data"}];
+  return (
+    <svg viewBox="0 0 400 120" width="100%" role="img" aria-label="Pre-trade checklist — all data-powered steps">
+      <rect width="400" height="120" fill={D.bg} rx="6" />
+      {items.map((item,i)=>(
+        <g key={i}>
+          <rect x={10+(i%4)*98} y={i<4?10:55} width="90" height="35" rx="4" fill={D.bull} opacity="0.06" stroke={D.bull} strokeWidth="0.5" />
+          <text x={55+(i%4)*98} y={(i<4?10:55)+15} fill={D.bull} fontSize="7" fontFamily={FONT} textAnchor="middle">✓ {item.label}</text>
+          <text x={55+(i%4)*98} y={(i<4?10:55)+28} fill={D.textSec} fontSize="7" fontFamily={FONT} textAnchor="middle">{item.data}</text>
+        </g>
+      ))}
+      <text x="200" y="112" fill={D.bull} fontSize="8" fontFamily={FONT} textAnchor="middle" fontWeight="bold">Every checkbox is DATA — no drawing required</text>
+    </svg>
+  );
+}
+
+/* ── Ch10: Risk Management ── */
+function RiskRulesDiagram() {
+  const rules = [{n:"1",rule:"Max 1-2% per trade"},{n:"2",rule:"Always use stop loss"},{n:"3",rule:"Focus on R:R ratio"},{n:"4",rule:"Never move SL wider"},{n:"5",rule:"Stop after 3 losses"}];
+  return (
+    <svg viewBox="0 0 400 80" width="100%" role="img" aria-label="Core risk management rules">
+      <rect width="400" height="80" fill={D.bg} rx="6" />
+      {rules.map((r,i)=>(
+        <g key={i}>
+          <circle cx={20+i*78} cy="25" r="12" fill={D.bear} opacity="0.15" stroke={D.bear} strokeWidth="1" />
+          <text x={20+i*78} y="29" fill={D.bear} fontSize="10" fontFamily={FONT} textAnchor="middle" fontWeight="bold">{r.n}</text>
+          <text x={20+i*78} y="50" fill={D.textSec} fontSize="7" fontFamily={FONT} textAnchor="middle">{r.rule.split(" ").slice(0,2).join(" ")}</text>
+          <text x={20+i*78} y="60" fill={D.textSec} fontSize="7" fontFamily={FONT} textAnchor="middle">{r.rule.split(" ").slice(2).join(" ")}</text>
+        </g>
+      ))}
+      <text x="200" y="76" fill={D.amber} fontSize="8" fontFamily={FONT} textAnchor="middle" fontWeight="bold">Risk management &gt; Technical analysis</text>
+    </svg>
+  );
+}
+
+/* ── Ch10: Economic Calendar ── */
+function EconCalendarDiagram() {
+  return (
+    <svg viewBox="0 0 400 90" width="100%" role="img" aria-label="Economic calendar with high-impact events">
+      <rect width="400" height="90" fill={D.bg} rx="6" />
+      {[{time:"14:30",event:"NFP",impact:"HIGH",c:D.bear},{time:"15:00",event:"ISM PMI",impact:"MED",c:D.amber},{time:"18:00",event:"FOMC",impact:"HIGH",c:D.bear},{time:"21:00",event:"API Oil",impact:"LOW",c:D.muted}].map((e,i)=>(
+        <g key={i}>
+          <rect x={10+i*98} y="12" width="90" height="48" rx="4" fill={e.c} opacity="0.06" stroke={e.c} strokeWidth="0.5" />
+          <text x={55+i*98} y="26" fill={D.textSec} fontSize="7" fontFamily={FONT} textAnchor="middle">{e.time} UTC</text>
+          <text x={55+i*98} y="40" fill={D.text} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">{e.event}</text>
+          <text x={55+i*98} y="54" fill={e.c} fontSize="8" fontFamily={FONT} textAnchor="middle">{e.impact}</text>
+        </g>
+      ))}
+      <text x="200" y="78" fill={D.bear} fontSize="8" fontFamily={FONT} textAnchor="middle" fontWeight="bold">Avoid opening trades within 30min of HIGH events</text>
+    </svg>
+  );
+}
+
 /* ── Example Diagram Renderer ── */
 const EXAMPLE_COMPONENTS: Record<string, React.FC> = {
   "candlestick-anatomy": CandlestickDiagram,
@@ -1047,6 +1934,46 @@ const EXAMPLE_COMPONENTS: Record<string, React.FC> = {
   "supply-demand": SupplyDemandZones,
   "heatmap-example": HeatmapExample,
   "risk-reward": RiskRewardDiagram,
+  "data-vs-drawing": DataVsDrawing,
+  "dashboard-layout": DashboardLayout,
+  "timeframes": TimeframesDiagram,
+  "live-data": LiveDataFlow,
+  "volume-bars": VolumeBarsDiagram,
+  "chart-overlays": ChartOverlaysDiagram,
+  "stoch-rsi": StochasticRSIDiagram,
+  "atr": ATRDiagram,
+  "composite-score": CompositeScoreDiagram,
+  "obv": OBVDiagram,
+  "ad-line": ADLineDiagram,
+  "order-flow": OrderFlowDiagram,
+  "order-book": OrderBookDiagram,
+  "pivots-fib": PivotsFibDiagram,
+  "tpsl-clusters": TPSLClustersDiagram,
+  "liquidation": LiquidationDiagram,
+  "liquidity-forecast": LiquidityForecastDiagram,
+  "mbo-profile": MBOProfileDiagram,
+  "stop-hunt": StopHuntDiagram,
+  "ml-prediction": MLPredictionDiagram,
+  "regime": RegimeDiagram,
+  "narrator": NarratorDiagram,
+  "confidence-levels": ConfidenceLevels,
+  "cot": COTDiagram,
+  "divergence": DivergenceDiagram,
+  "whale-tracker": WhaleTrackerDiagram,
+  "currency-heatmap": CurrencyHeatmapDiagram,
+  "macro-correlation": MacroCorrelationDiagram,
+  "signal-pipeline": SignalPipelineDiagram,
+  "confidence-calc": ConfidenceCalcDiagram,
+  "entry-setup": EntrySetupDiagram,
+  "mtf": MTFDiagram,
+  "signal-lifecycle": SignalLifecycleDiagram,
+  "journal": JournalDiagram,
+  "loss-learning": LossLearningDiagram,
+  "channels": ChannelsDiagram,
+  "workflow": WorkflowDiagram,
+  "checklist": ChecklistDiagram,
+  "risk-rules": RiskRulesDiagram,
+  "econ-calendar": EconCalendarDiagram,
 };
 
 function ExampleDiagram({ exampleKey }: { exampleKey: string }) {
