@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   GraduationCap,
   ChevronDown,
@@ -27,6 +27,11 @@ import {
   Flame,
   Clock,
   CheckCircle2,
+  Trophy,
+  XCircle,
+  RotateCcw,
+  Star,
+  Award,
 } from "lucide-react";
 import Link from "next/link";
 
@@ -610,6 +615,638 @@ function ChapterCard({ chapter, isOpen, onToggle }: { chapter: Chapter; isOpen: 
 }
 
 /* ═══════════════════════════════════════════════════════
+   QUIZ DATA & COMPONENT (Duolingo-style)
+   ═══════════════════════════════════════════════════════ */
+
+interface QuizQuestion {
+  id: number;
+  chapter: string;
+  question: string;
+  options: string[];
+  correct: number; // index of correct answer
+  explanation: string;
+}
+
+const QUIZ_QUESTIONS: QuizQuestion[] = [
+  // Chapter 1: Welcome
+  {
+    id: 1,
+    chapter: "Welcome to VISION",
+    question: "What does VISION combine to help traders make decisions?",
+    options: [
+      "Only candlestick patterns",
+      "Real-time data, 14+ indicators, ML predictions, smart money tracking, and AI analysis",
+      "Social media sentiment only",
+      "Basic moving averages and RSI",
+    ],
+    correct: 1,
+    explanation: "VISION is an institutional-grade platform that synthesizes multiple data sources including real-time prices, technical indicators, machine learning, smart money tracking, and AI-powered analysis.",
+  },
+  {
+    id: 2,
+    chapter: "Welcome to VISION",
+    question: "What does a green dot next to an asset in the selector mean?",
+    options: [
+      "The asset is profitable today",
+      "The asset has high volume",
+      "The market is currently open",
+      "The asset is trending bullish",
+    ],
+    correct: 2,
+    explanation: "A green dot indicates the market for that asset is currently open and trading. Red means the market is closed.",
+  },
+  // Chapter 2: Chart
+  {
+    id: 3,
+    chapter: "Reading the Chart",
+    question: "What does a candle with a tiny body and long wicks (doji) signal?",
+    options: [
+      "Strong bullish momentum",
+      "Strong bearish momentum",
+      "Market indecision",
+      "A guaranteed reversal",
+    ],
+    correct: 2,
+    explanation: "A doji candle has a very small body with long wicks on both sides, indicating that neither buyers nor sellers won the period — a sign of indecision that often precedes a directional move.",
+  },
+  {
+    id: 4,
+    chapter: "Reading the Chart",
+    question: "When is the highest-volume trading period for forex?",
+    options: [
+      "Tokyo session open (00:00 UTC)",
+      "London-New York overlap (13:00-16:00 UTC)",
+      "Sydney session (21:00 UTC)",
+      "After all markets close",
+    ],
+    correct: 1,
+    explanation: "The London-New York overlap (13:00-16:00 UTC) is when two of the three major sessions are open simultaneously, creating the highest liquidity and biggest price moves.",
+  },
+  // Chapter 3: Indicators
+  {
+    id: 5,
+    chapter: "Technical Indicators",
+    question: "RSI is at 75. What does this indicate?",
+    options: [
+      "The asset is oversold — likely to bounce",
+      "The asset is overbought — may be due for a pullback",
+      "The trend is neutral",
+      "Volume is extremely high",
+    ],
+    correct: 1,
+    explanation: "RSI above 70 indicates overbought conditions, suggesting the asset may be stretched and due for a pullback. However, in strong trends, RSI can remain overbought for extended periods.",
+  },
+  {
+    id: 6,
+    chapter: "Technical Indicators",
+    question: "What happens when the MACD line crosses ABOVE the Signal line?",
+    options: [
+      "Sell signal — bearish momentum",
+      "Buy signal — bullish momentum",
+      "No signal — stay flat",
+      "Market is about to close",
+    ],
+    correct: 1,
+    explanation: "When the MACD line crosses above the Signal line, it generates a bullish signal indicating upward momentum is accelerating. The reverse (crossing below) is a bearish signal.",
+  },
+  {
+    id: 7,
+    chapter: "Technical Indicators",
+    question: "What is a Bollinger Squeeze?",
+    options: [
+      "When price breaks above the upper band",
+      "When the bands contract tightly, signaling low volatility before a big move",
+      "When volume drops to zero",
+      "When RSI and MACD disagree",
+    ],
+    correct: 1,
+    explanation: "A Bollinger Squeeze occurs when the bands contract tightly around price, indicating very low volatility. This compression often precedes a significant breakout in either direction.",
+  },
+  // Chapter 4: Volume
+  {
+    id: 8,
+    chapter: "Volume & Order Flow",
+    question: "What does the POC (Point of Control) represent in a Volume Profile?",
+    options: [
+      "The highest price of the day",
+      "The price level with the MOST volume traded",
+      "The lowest price of the day",
+      "The average price",
+    ],
+    correct: 1,
+    explanation: "The POC is the price level where the most volume was traded. It acts as a magnet — price tends to return to the POC because it represents the 'fairest' price agreed upon by the most participants.",
+  },
+  {
+    id: 9,
+    chapter: "Volume & Order Flow",
+    question: "OBV is rising while price is flat. What might this indicate?",
+    options: [
+      "The market is about to crash",
+      "Volume is irrelevant to price",
+      "Institutions may be quietly accumulating before a breakout",
+      "The indicator is broken",
+    ],
+    correct: 2,
+    explanation: "Rising OBV with flat price is a classic sign of stealth accumulation — large players are buying without pushing price up yet. This divergence often resolves with a strong upward breakout.",
+  },
+  // Chapter 5: Smart Money
+  {
+    id: 10,
+    chapter: "Smart Money Concepts",
+    question: "What is a Fair Value Gap (FVG)?",
+    options: [
+      "A three-candle pattern where the middle candle creates an imbalance that price tends to return to fill",
+      "The gap between the bid and ask price",
+      "A gap that only appears on daily charts",
+      "The difference between retail and institutional pricing",
+    ],
+    correct: 0,
+    explanation: "An FVG is a three-candle pattern where the middle candle is so large that candles 1 and 3 don't overlap, creating an area of unfair pricing. Price often returns to fill this gap before continuing.",
+  },
+  {
+    id: 11,
+    chapter: "Smart Money Concepts",
+    question: "What does a Change of Character (ChoCH) signal?",
+    options: [
+      "Trend continuation",
+      "A potential trend reversal — the first break of structure in the opposite direction",
+      "High volatility but no direction",
+      "A news event is coming",
+    ],
+    correct: 1,
+    explanation: "A ChoCH is a Break of Structure in the OPPOSITE direction of the current trend. It's the first warning sign that the trend may be shifting — unlike a regular BoS which confirms the existing trend.",
+  },
+  // Chapter 6: Heatmaps
+  {
+    id: 12,
+    chapter: "Heatmaps & Liquidity",
+    question: "Why do institutions target stop-loss clusters?",
+    options: [
+      "To help retail traders exit positions",
+      "To trigger cascading liquidations that create liquidity for filling their own large orders",
+      "Because they don't know where stops are",
+      "To reduce market volatility",
+    ],
+    correct: 1,
+    explanation: "Institutions push price into stop clusters to trigger a cascade of forced executions. This creates the liquidity they need to fill large positions at favorable prices, after which price typically reverses.",
+  },
+  {
+    id: 13,
+    chapter: "Heatmaps & Liquidity",
+    question: "What should you do with stop-loss placement according to the heatmap?",
+    options: [
+      "Place stops at exact round numbers",
+      "Place stops inside the brightest heatmap zones",
+      "Place stops BEYOND stop-loss clusters to avoid stop hunts",
+      "Don't use stop losses",
+    ],
+    correct: 2,
+    explanation: "Always place your stop loss beyond the bright zones on the heatmap, not inside them. Bright zones are stop-hunt targets — placing your stop there increases the chance of being stopped out by institutional manipulation.",
+  },
+  // Chapter 7: AI/ML
+  {
+    id: 14,
+    chapter: "AI & Machine Learning",
+    question: "What does a confidence score of 82% mean?",
+    options: [
+      "82% of all traders agree",
+      "The trade will be profitable 82% of the time — guaranteed",
+      "82% of VISION's data sources agree on the direction — high probability but not certain",
+      "The market is 82% efficient",
+    ],
+    correct: 2,
+    explanation: "Confidence reflects how many data sources align on a direction. 82% is strong consensus, but it still means 18% of the time it will be wrong. Always use a stop loss regardless of confidence level.",
+  },
+  {
+    id: 15,
+    chapter: "AI & Machine Learning",
+    question: "Why does market regime matter for your trading strategy?",
+    options: [
+      "It doesn't — use the same strategy always",
+      "Because strategies that work in trends fail in ranges and vice versa",
+      "Regime only matters for crypto",
+      "It determines the time of day to trade",
+    ],
+    correct: 1,
+    explanation: "Market regime is critical because different conditions require different approaches. Breakout strategies work in trends but get chopped up in ranges. Mean-reversion works in ranges but gets destroyed in trends.",
+  },
+  // Chapter 8: Institutional
+  {
+    id: 16,
+    chapter: "Institutional Tracking",
+    question: "Retail traders are 82% long on EUR/USD while institutional data shows selling. What's the likely outcome?",
+    options: [
+      "EUR/USD will rally because retail has the edge",
+      "Nothing — retail and institutional data are equally reliable",
+      "Bearish divergence — institutions are often right, making the contrarian (short) trade more probable",
+      "The data is unreliable and should be ignored",
+    ],
+    correct: 2,
+    explanation: "When retail is heavily on one side and institutions on the other, follow institutions. The majority of retail traders lose money. This extreme divergence is a contrarian sell signal.",
+  },
+  // Chapter 9: Scalper
+  {
+    id: 17,
+    chapter: "Scalper Mode",
+    question: "What minimum confidence does VISION require to send signals to Telegram/Discord?",
+    options: [
+      "50%",
+      "65%",
+      "75%",
+      "90%",
+    ],
+    correct: 2,
+    explanation: "VISION only broadcasts signals with 75% or higher confidence. This threshold ensures only high-quality, multi-source-confirmed setups reach the channels, filtering out noise.",
+  },
+  {
+    id: 18,
+    chapter: "Scalper Mode",
+    question: "A signal has a Risk:Reward ratio of 1:2.5. What does this mean?",
+    options: [
+      "You risk $2.50 to make $1",
+      "You risk $1 to make $2.50",
+      "The win rate is 25%",
+      "The trade lasts 2.5 hours",
+    ],
+    correct: 1,
+    explanation: "R:R 1:2.5 means for every dollar you risk (distance to SL), you stand to gain $2.50 (distance to TP). With this ratio, you only need to win 30% of trades to be profitable.",
+  },
+  {
+    id: 19,
+    chapter: "Scalper Mode",
+    question: "What does the Loss Learning system do when it detects a recurring loss pattern?",
+    options: [
+      "Deletes all previous signals",
+      "Stops the engine completely",
+      "Activates a filter that reduces confidence for similar future setups",
+      "Sends an email to the trader",
+    ],
+    correct: 2,
+    explanation: "When a loss pattern occurs 3+ times, the engine activates an adaptive filter that reduces confidence by 50% for setups matching those conditions, effectively learning from past mistakes.",
+  },
+  // Chapter 10: Workflow
+  {
+    id: 20,
+    chapter: "Putting It All Together",
+    question: "What's the MOST important trading principle according to the Academy?",
+    options: [
+      "Having the highest win rate possible",
+      "Trading as many signals as possible",
+      "Risk management — it matters more than technical analysis",
+      "Always following the daily trend",
+    ],
+    correct: 2,
+    explanation: "Risk management is the foundation of profitable trading. You can have mediocre signals and still be profitable with good risk management. You cannot survive with bad risk management no matter how good your analysis is.",
+  },
+];
+
+/* ── Quiz Streak XP System ── */
+const XP_CORRECT = 10;
+const XP_STREAK_BONUS = 5; // extra per question in streak
+const GRADE_THRESHOLDS = [
+  { min: 90, label: "MASTER", color: "var(--color-neon-cyan)", icon: Trophy },
+  { min: 75, label: "EXPERT", color: "var(--color-neon-green)", icon: Award },
+  { min: 60, label: "INTERMEDIATE", color: "var(--color-neon-amber)", icon: Star },
+  { min: 0, label: "BEGINNER", color: "var(--color-bear)", icon: BookOpen },
+];
+
+function KnowledgeQuiz() {
+  const [started, setStarted] = useState(false);
+  const [currentQ, setCurrentQ] = useState(0);
+  const [selected, setSelected] = useState<number | null>(null);
+  const [answered, setAnswered] = useState(false);
+  const [score, setScore] = useState(0);
+  const [streak, setStreak] = useState(0);
+  const [maxStreak, setMaxStreak] = useState(0);
+  const [xp, setXp] = useState(0);
+  const [finished, setFinished] = useState(false);
+  const [answers, setAnswers] = useState<(boolean | null)[]>(new Array(QUIZ_QUESTIONS.length).fill(null));
+
+  const q = QUIZ_QUESTIONS[currentQ];
+  const total = QUIZ_QUESTIONS.length;
+  const progress = ((currentQ + (answered ? 1 : 0)) / total) * 100;
+
+  const handleSelect = useCallback((idx: number) => {
+    if (answered) return;
+    setSelected(idx);
+  }, [answered]);
+
+  const handleCheck = useCallback(() => {
+    if (selected === null) return;
+    setAnswered(true);
+    const isCorrect = selected === q.correct;
+    const newAnswers = [...answers];
+    newAnswers[currentQ] = isCorrect;
+    setAnswers(newAnswers);
+
+    if (isCorrect) {
+      const newStreak = streak + 1;
+      setScore((s) => s + 1);
+      setStreak(newStreak);
+      setMaxStreak((m) => Math.max(m, newStreak));
+      setXp((x) => x + XP_CORRECT + (newStreak > 1 ? XP_STREAK_BONUS * (newStreak - 1) : 0));
+    } else {
+      setStreak(0);
+    }
+  }, [selected, q, currentQ, answers, streak]);
+
+  const handleNext = useCallback(() => {
+    if (currentQ + 1 >= total) {
+      setFinished(true);
+    } else {
+      setCurrentQ((c) => c + 1);
+      setSelected(null);
+      setAnswered(false);
+    }
+  }, [currentQ, total]);
+
+  const handleRestart = useCallback(() => {
+    setStarted(true);
+    setCurrentQ(0);
+    setSelected(null);
+    setAnswered(false);
+    setScore(0);
+    setStreak(0);
+    setMaxStreak(0);
+    setXp(0);
+    setFinished(false);
+    setAnswers(new Array(total).fill(null));
+  }, [total]);
+
+  const pct = Math.round((score / total) * 100);
+  const grade = GRADE_THRESHOLDS.find((g) => pct >= g.min) || GRADE_THRESHOLDS[3];
+  const GradeIcon = grade.icon;
+
+  // ── Not started ──
+  if (!started) {
+    return (
+      <div className="card-glass rounded-lg overflow-hidden">
+        <div className="p-6 text-center">
+          <Trophy className="w-8 h-8 text-[var(--color-neon-amber)] mx-auto mb-3" />
+          <h3
+            className="text-xl font-bold mb-2"
+            style={{
+              background: "linear-gradient(135deg, var(--color-neon-amber), var(--color-neon-green))",
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+            }}
+          >
+            KNOWLEDGE TEST
+          </h3>
+          <p className="text-[13px] text-[var(--color-text-secondary)] mb-1">
+            Test what you learned from the Academy chapters.
+          </p>
+          <p className="text-[12px] text-[var(--color-text-muted)] mb-5">
+            {total} questions • Earn XP • Build streaks for bonus points
+          </p>
+          <button
+            onClick={() => setStarted(true)}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md text-[13px] font-bold font-mono uppercase transition-all hover:brightness-110"
+            style={{
+              color: "black",
+              background: "linear-gradient(135deg, var(--color-neon-amber), var(--color-neon-green))",
+            }}
+          >
+            <Zap className="w-4 h-4" />
+            Start Quiz
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Finished ──
+  if (finished) {
+    return (
+      <div className="card-glass rounded-lg overflow-hidden">
+        <div className="p-6 text-center">
+          {/* Grade badge */}
+          <div
+            className="w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center"
+            style={{
+              backgroundColor: `color-mix(in srgb, ${grade.color} 15%, transparent)`,
+              border: `2px solid ${grade.color}`,
+            }}
+          >
+            <GradeIcon className="w-8 h-8" style={{ color: grade.color }} />
+          </div>
+          <div className="text-[11px] font-mono font-bold uppercase tracking-widest mb-1" style={{ color: grade.color }}>
+            {grade.label}
+          </div>
+          <div className="text-3xl font-bold font-mono mb-1" style={{ color: grade.color }}>
+            {pct}%
+          </div>
+          <p className="text-[13px] text-[var(--color-text-secondary)] mb-4">
+            {score} of {total} correct
+          </p>
+
+          {/* Stats row */}
+          <div className="grid grid-cols-3 gap-2 mb-5 max-w-xs mx-auto">
+            <div className="rounded-md bg-[var(--color-bg-secondary)] p-2 border border-[var(--color-border-primary)]">
+              <div className="text-[10px] text-[var(--color-text-muted)] uppercase">XP Earned</div>
+              <div className="text-[16px] font-bold font-mono text-[var(--color-neon-amber)]">{xp}</div>
+            </div>
+            <div className="rounded-md bg-[var(--color-bg-secondary)] p-2 border border-[var(--color-border-primary)]">
+              <div className="text-[10px] text-[var(--color-text-muted)] uppercase">Best Streak</div>
+              <div className="text-[16px] font-bold font-mono text-[var(--color-neon-green)]">{maxStreak}</div>
+            </div>
+            <div className="rounded-md bg-[var(--color-bg-secondary)] p-2 border border-[var(--color-border-primary)]">
+              <div className="text-[10px] text-[var(--color-text-muted)] uppercase">Accuracy</div>
+              <div className="text-[16px] font-bold font-mono" style={{ color: grade.color }}>{pct}%</div>
+            </div>
+          </div>
+
+          {/* Answer review dots */}
+          <div className="flex justify-center gap-1 mb-5">
+            {answers.map((a, i) => (
+              <div
+                key={i}
+                className="w-3 h-3 rounded-full"
+                style={{
+                  backgroundColor: a === true ? "var(--color-bull)" : a === false ? "var(--color-bear)" : "var(--color-bg-hover)",
+                }}
+                title={`Q${i + 1}: ${a ? "Correct" : "Wrong"}`}
+              />
+            ))}
+          </div>
+
+          {/* Message */}
+          <p className="text-[12px] text-[var(--color-text-muted)] mb-4">
+            {pct >= 90
+              ? "Outstanding! You have mastered VISION's trading tools."
+              : pct >= 75
+                ? "Great job! You have a strong understanding of the platform."
+                : pct >= 60
+                  ? "Good progress! Review the chapters you missed and try again."
+                  : "Keep learning! Re-read the chapters above and retake the quiz."}
+          </p>
+
+          <button
+            onClick={handleRestart}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-[13px] font-bold font-mono uppercase transition-colors hover:bg-[var(--color-bg-hover)] border border-[var(--color-border-primary)]"
+            style={{ color: "var(--color-text-primary)" }}
+          >
+            <RotateCcw className="w-4 h-4" />
+            Retake Quiz
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Active question ──
+  const isCorrect = selected === q.correct;
+
+  return (
+    <div className="card-glass rounded-lg overflow-hidden">
+      {/* Progress bar */}
+      <div className="h-1 bg-[var(--color-bg-hover)]">
+        <div
+          className="h-full transition-all duration-500 rounded-r"
+          style={{
+            width: `${progress}%`,
+            background: "linear-gradient(90deg, var(--color-neon-cyan), var(--color-neon-green))",
+          }}
+        />
+      </div>
+
+      {/* Header: question count + streak + XP */}
+      <div className="px-4 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-3">
+        <span className="text-[12px] font-mono text-[var(--color-text-muted)]">
+          {currentQ + 1}/{total}
+        </span>
+        <span className="text-[11px] font-mono px-1.5 py-0.5 rounded bg-[var(--color-bg-hover)] text-[var(--color-text-muted)]">
+          {q.chapter}
+        </span>
+        {streak > 0 && (
+          <span
+            className="text-[11px] font-mono font-bold px-1.5 py-0.5 rounded ml-auto flex items-center gap-1"
+            style={{
+              color: "var(--color-neon-amber)",
+              backgroundColor: "color-mix(in srgb, var(--color-neon-amber) 12%, transparent)",
+            }}
+          >
+            <Flame className="w-3 h-3" />
+            {streak} streak
+          </span>
+        )}
+        <span className="text-[11px] font-mono font-bold text-[var(--color-neon-amber)] ml-auto">
+          {xp} XP
+        </span>
+      </div>
+
+      <div className="p-4">
+        {/* Question */}
+        <p className="text-[14px] font-semibold text-[var(--color-text-primary)] mb-4 leading-relaxed">
+          {q.question}
+        </p>
+
+        {/* Options */}
+        <div className="space-y-2 mb-4">
+          {q.options.map((opt, i) => {
+            let borderColor = "var(--color-border-primary)";
+            let bgColor = "transparent";
+            let textColor = "var(--color-text-secondary)";
+
+            if (answered) {
+              if (i === q.correct) {
+                borderColor = "var(--color-bull)";
+                bgColor = "color-mix(in srgb, var(--color-bull) 10%, transparent)";
+                textColor = "var(--color-bull)";
+              } else if (i === selected && !isCorrect) {
+                borderColor = "var(--color-bear)";
+                bgColor = "color-mix(in srgb, var(--color-bear) 10%, transparent)";
+                textColor = "var(--color-bear)";
+              }
+            } else if (i === selected) {
+              borderColor = "var(--color-neon-cyan)";
+              bgColor = "color-mix(in srgb, var(--color-neon-cyan) 8%, transparent)";
+              textColor = "var(--color-neon-cyan)";
+            }
+
+            return (
+              <button
+                key={i}
+                onClick={() => handleSelect(i)}
+                disabled={answered}
+                className="w-full text-left px-3 py-2.5 rounded-md border transition-all text-[13px] leading-relaxed flex items-start gap-2"
+                style={{ borderColor, backgroundColor: bgColor, color: textColor }}
+              >
+                <span className="w-5 h-5 rounded-full border flex items-center justify-center shrink-0 mt-0.5 text-[11px] font-bold font-mono"
+                  style={{ borderColor }}
+                >
+                  {answered && i === q.correct ? (
+                    <CheckCircle2 className="w-4 h-4" style={{ color: "var(--color-bull)" }} />
+                  ) : answered && i === selected && !isCorrect ? (
+                    <XCircle className="w-4 h-4" style={{ color: "var(--color-bear)" }} />
+                  ) : (
+                    String.fromCharCode(65 + i)
+                  )}
+                </span>
+                {opt}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Explanation (after answering) */}
+        {answered && (
+          <div
+            className="mb-4 px-3 py-2 rounded-md border text-[12px] leading-relaxed"
+            style={{
+              borderColor: isCorrect
+                ? "color-mix(in srgb, var(--color-bull) 30%, transparent)"
+                : "color-mix(in srgb, var(--color-bear) 30%, transparent)",
+              backgroundColor: isCorrect
+                ? "color-mix(in srgb, var(--color-bull) 6%, transparent)"
+                : "color-mix(in srgb, var(--color-bear) 6%, transparent)",
+              color: "var(--color-text-secondary)",
+            }}
+          >
+            <span className="font-bold" style={{ color: isCorrect ? "var(--color-bull)" : "var(--color-bear)" }}>
+              {isCorrect ? "Correct! " : "Not quite. "}
+            </span>
+            {q.explanation}
+            {isCorrect && streak > 1 && (
+              <span className="ml-1 font-bold" style={{ color: "var(--color-neon-amber)" }}>
+                +{XP_CORRECT + XP_STREAK_BONUS * (streak - 1)} XP (streak bonus!)
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Action button */}
+        {!answered ? (
+          <button
+            onClick={handleCheck}
+            disabled={selected === null}
+            className="w-full py-2.5 rounded-md text-[13px] font-bold font-mono uppercase transition-all"
+            style={{
+              color: selected !== null ? "black" : "var(--color-text-muted)",
+              backgroundColor: selected !== null ? "var(--color-neon-cyan)" : "var(--color-bg-hover)",
+              cursor: selected !== null ? "pointer" : "not-allowed",
+            }}
+          >
+            Check Answer
+          </button>
+        ) : (
+          <button
+            onClick={handleNext}
+            className="w-full py-2.5 rounded-md text-[13px] font-bold font-mono uppercase transition-all hover:brightness-110"
+            style={{
+              color: "black",
+              background: "linear-gradient(90deg, var(--color-neon-cyan), var(--color-neon-green))",
+            }}
+          >
+            {currentQ + 1 >= total ? "See Results" : "Next Question"}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
    MAIN COMPONENT
    ═══════════════════════════════════════════════════════ */
 
@@ -741,6 +1378,26 @@ export default function TradingAcademy() {
               />
             </div>
           ))}
+        </div>
+
+        {/* ── Knowledge Quiz ── */}
+        <div className="mt-8 mb-4">
+          <div className="text-center mb-4">
+            <h2
+              className="text-lg font-bold"
+              style={{
+                background: "linear-gradient(135deg, var(--color-neon-amber), var(--color-neon-green))",
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+              }}
+            >
+              Test Your Knowledge
+            </h2>
+            <p className="text-[12px] text-[var(--color-text-muted)]">
+              Did you absorb everything? Take the quiz to find out.
+            </p>
+          </div>
+          <KnowledgeQuiz />
         </div>
 
         {/* ── Footer CTA ── */}
