@@ -667,58 +667,67 @@ async def get_zones(
 
     zones: dict = {"supply": [], "demand": [], "support": [], "resistance": [], "fvg": [], "order_blocks": []}
 
-    # Key levels (support/resistance)
+    # Key levels (support/resistance) — use indicator class directly
     try:
-        from backend.app.core.indicators.key_levels import calculate as calc_key_levels
+        from backend.app.core.indicators.key_levels import KeyLevelsIndicator
 
-        kl = calc_key_levels(df)
-        vals = kl.get("values", {})
+        kl_indicator = KeyLevelsIndicator()
+        kl_results = kl_indicator.calculate(df)
 
-        # Support levels
-        for level_data in vals.get("support_levels", []):
-            if isinstance(level_data, dict):
-                zones["support"].append({
-                    "price": level_data.get("price", 0),
-                    "strength": level_data.get("strength", 1),
-                    "touches": level_data.get("touches", 1),
-                })
-            elif isinstance(level_data, (int, float)):
-                zones["support"].append({"price": float(level_data), "strength": 1, "touches": 1})
+        if kl_results:
+            meta = kl_results[0].metadata
+            close = float(df["close"].iloc[-1])
 
-        # Resistance levels
-        for level_data in vals.get("resistance_levels", []):
-            if isinstance(level_data, dict):
-                zones["resistance"].append({
-                    "price": level_data.get("price", 0),
-                    "strength": level_data.get("strength", 1),
-                    "touches": level_data.get("touches", 1),
-                })
-            elif isinstance(level_data, (int, float)):
-                zones["resistance"].append({"price": float(level_data), "strength": 1, "touches": 1})
+            # Support/resistance from clustered swing levels
+            for level in meta.get("sr_levels", []):
+                if isinstance(level, dict):
+                    entry = {
+                        "price": level.get("price", 0),
+                        "strength": level.get("touches", 1),
+                        "touches": level.get("touches", 1),
+                    }
+                    if level["price"] < close:
+                        zones["support"].append(entry)
+                    else:
+                        zones["resistance"].append(entry)
 
-        # Pivot points
-        pivots = vals.get("pivot_points", {})
-        if pivots:
-            zones["pivots"] = pivots
+            # Pivot points
+            pivots = {}
+            for key in ("PP", "R1", "R2", "R3", "S1", "S2", "S3"):
+                val = meta.get(key.lower()) or meta.get(key)
+                if val is not None:
+                    pivots[key] = val
+            # Also check direct pivot_point key
+            if meta.get("pivot_point"):
+                pivots["PP"] = meta["pivot_point"]
+            for rkey in ("r1", "r2", "r3", "s1", "s2", "s3"):
+                if meta.get(rkey) and rkey.upper() not in pivots:
+                    pivots[rkey.upper()] = meta[rkey]
+            if pivots:
+                zones["pivots"] = pivots
 
-        # Fibonacci levels
-        fibs = vals.get("fibonacci", {})
-        if fibs:
-            zones["fibonacci"] = fibs
+            # Fibonacci levels
+            fibs = meta.get("fibonacci_levels", [])
+            if fibs:
+                zones["fibonacci"] = {f["label"]: f["price"] for f in fibs if isinstance(f, dict)}
 
-    except Exception as e:
+    except Exception:
         pass  # Key levels not critical
 
-    # Smart Money Concepts (order blocks, FVG)
+    # Smart Money Concepts (order blocks, FVG) — use indicator class directly
     try:
-        from backend.app.core.indicators.smart_money import calculate as calc_smc
+        from backend.app.core.indicators.smart_money import SmartMoneyIndicator
 
-        smc = calc_smc(df)
-        vals = smc.get("values", {})
+        smc_indicator = SmartMoneyIndicator()
+        smc_results = smc_indicator.calculate(df)
 
-        # Order blocks
-        for ob in vals.get("order_blocks", []):
-            if isinstance(ob, dict):
+        if smc_results:
+            # The indicator internally detects OBs and FVGs — re-run detection
+            # to get the raw lists (metadata only has counts)
+            order_blocks_raw = smc_indicator._detect_order_blocks(df)
+            fvgs_raw = smc_indicator._detect_fvg(df)
+
+            for ob in order_blocks_raw:
                 zones["order_blocks"].append({
                     "type": ob.get("type", "unknown"),
                     "high": ob.get("high", 0),
@@ -727,22 +736,24 @@ async def get_zones(
                     "active": ob.get("active", True),
                 })
 
-        # Fair Value Gaps
-        for fvg in vals.get("fair_value_gaps", []):
-            if isinstance(fvg, dict):
+            for fvg in fvgs_raw:
                 zones["fvg"].append({
                     "type": fvg.get("type", "unknown"),
                     "high": fvg.get("high", 0),
                     "low": fvg.get("low", 0),
                     "index": fvg.get("index", 0),
-                    "filled": fvg.get("filled", False),
+                    "filled": not fvg.get("active", True),
                 })
 
-        # BOS / CHoCH
-        bos = vals.get("bos", [])
-        choch = vals.get("choch", [])
-        if bos or choch:
-            zones["structure"] = {"bos": bos, "choch": choch}
+            # BOS / CHoCH from metadata
+            meta = smc_results[0].metadata
+            bos = meta.get("last_bos")
+            choch = meta.get("last_choch")
+            if bos or choch:
+                zones["structure"] = {
+                    "bos": [bos] if bos else [],
+                    "choch": [choch] if choch else [],
+                }
 
     except Exception:
         pass  # SMC not critical

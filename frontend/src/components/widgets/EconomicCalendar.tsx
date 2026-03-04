@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { Clock, ChevronDown, ChevronRight } from "lucide-react";
+import { Calendar, Clock, ChevronDown, ChevronRight, Zap } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
 
@@ -145,17 +145,18 @@ export default function EconomicCalendar() {
     <div className="card-glass rounded-lg overflow-hidden">
       {/* Header */}
       <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-2">
-        <span className="text-[13px]">📅</span>
+        <Calendar className="w-4 h-4 text-[var(--color-neon-blue)]" />
         <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
-          Calendar
+          Economic Calendar
         </h3>
 
-        {/* Next high-impact countdown — plain mono text */}
+        {/* Next high-impact countdown */}
         {nextHighImpact && (
-          <span className="ml-auto text-[11px] font-mono text-[var(--color-text-muted)]">
+          <span className="ml-auto flex items-center gap-1 text-[11px] font-mono text-[var(--color-text-muted)]">
+            <Zap className="w-3 h-3 text-red-400" />
             <span className="text-red-400">
-              {nextHighImpact.title.length > 15
-                ? nextHighImpact.title.slice(0, 15) + "…"
+              {nextHighImpact.title.length > 12
+                ? nextHighImpact.title.slice(0, 12) + "…"
                 : nextHighImpact.title}
             </span>
             {" "}
@@ -226,7 +227,7 @@ export default function EconomicCalendar() {
                           key={event.id}
                           className={`flex items-center gap-2 px-2 py-1.5 rounded text-[12px] transition-colors ${
                             affectsSymbol
-                              ? "bg-[var(--color-neon-blue)]/5 border-l-2 border-[var(--color-neon-blue)]"
+                              ? "bg-[var(--color-bg-secondary)]"
                               : "hover:bg-[var(--color-bg-hover)]"
                           } ${event.is_past ? "opacity-50" : ""}`}
                         >
