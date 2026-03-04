@@ -71,7 +71,7 @@ function DashboardContent() {
           {/* Left: Chart + Bottom row */}
           <div className="lg:flex-1 flex flex-col gap-2 min-w-0 lg:min-h-0">
             {/* Chart — expanded mode takes full height, otherwise capped */}
-            <div className={chartExpanded ? "flex-1 min-h-[60vh] lg:min-h-0" : "h-[350px] md:h-[380px] lg:h-[45%] lg:min-h-[200px] shrink-0"}>
+            <div className={chartExpanded ? "h-[calc(100dvh-100px)] lg:h-auto lg:flex-1 lg:min-h-0" : "h-[350px] md:h-[380px] lg:h-[45%] lg:min-h-[200px] shrink-0"}>
               <ErrorBoundary>
                 <PriceChart />
               </ErrorBoundary>
