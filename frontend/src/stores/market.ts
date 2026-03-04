@@ -2,9 +2,10 @@ import { create } from "zustand";
 import type { OHLCV, Ticker, Timeframe } from "@/types/market";
 import type { LivePrice } from "@/lib/binance-ws";
 
-export type MarketType = "commodity" | "crypto" | "forex";
+export type MarketType = "commodity" | "crypto" | "forex" | "index";
 
 const CRYPTO_SYMBOLS = ["BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "ETHBTC"];
+const INDEX_SYMBOLS = ["NAS100", "SPX500"];
 const FOREX_SYMBOLS = [
   // Majors
   "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDCHF",
@@ -18,6 +19,7 @@ const FOREX_SYMBOLS = [
 /** Determine market type from symbol */
 export function getMarketType(symbol: string): MarketType {
   if (CRYPTO_SYMBOLS.includes(symbol.toUpperCase())) return "crypto";
+  if (INDEX_SYMBOLS.includes(symbol.toUpperCase())) return "index";
   if (FOREX_SYMBOLS.includes(symbol.toUpperCase())) return "forex";
   return "commodity";
 }

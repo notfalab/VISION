@@ -46,6 +46,8 @@ SYMBOL_TO_MASSIVE = {
     # Crypto (X: prefix)
     "BTCUSD": "X:BTCUSD", "ETHUSD": "X:ETHUSD",
     "SOLUSD": "X:SOLUSD", "XRPUSD": "X:XRPUSD",
+    # Indices (I: prefix)
+    "NAS100": "I:NDX", "SPX500": "I:SPX",
 }
 
 SUPPORTED_SYMBOLS = set(SYMBOL_TO_MASSIVE.keys())

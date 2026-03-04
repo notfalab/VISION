@@ -23,6 +23,7 @@ FOREX_MINORS = [
     "AUDCHF", "NZDCHF", "CHFJPY",
 ]
 FOREX_PAIRS = FOREX_MAJORS + FOREX_MINORS
+INDICES = ["NAS100", "SPX500"]
 
 
 async def _forex_price_refresh(logger):
@@ -35,7 +36,7 @@ async def _forex_price_refresh(logger):
     await asyncio.sleep(45)  # Let startup complete
     logger.info("forex_price_refresh_starting")
 
-    ALL_REFRESH_PAIRS = FOREX_PAIRS + ["XAUUSD", "XAGUSD"]
+    ALL_REFRESH_PAIRS = FOREX_PAIRS + ["XAUUSD", "XAGUSD"] + INDICES
 
     while True:
         try:
@@ -116,6 +117,17 @@ async def _background_scanner(logger):
                 except Exception as e:
                     logger.warning("forex_seed_fail", symbol=pair, tf=tf, error=str(e))
         logger.info("forex_data_seeded")
+
+        # Seed indices (NAS100, SPX500) via OANDA
+        for pair in INDICES:
+            for tf in ("1d", "1h"):
+                try:
+                    count = await ingest_ohlcv(pair, tf, 200)
+                    if count > 0:
+                        logger.info("index_seeded", symbol=pair, timeframe=tf, rows=count)
+                except Exception as e:
+                    logger.warning("index_seed_fail", symbol=pair, tf=tf, error=str(e))
+        logger.info("indices_data_seeded")
     except Exception as e:
         logger.error("forex_seed_error", error=str(e))
 
@@ -142,6 +154,22 @@ async def _background_scanner(logger):
             # Scan forex majors every other cycle (~10 min)
             if scan_count % 2 == 0:
                 for symbol in FOREX_MAJORS:
+                    try:
+                        result = await _async_scan(symbol)
+                        signals = result.get("signals_generated", 0)
+                        outcomes = result.get("outcomes_resolved", 0)
+                        logger.info(
+                            "auto_scan_done",
+                            symbol=symbol,
+                            signals=signals,
+                            outcomes=outcomes,
+                        )
+                    except Exception as e:
+                        logger.error("auto_scan_error", symbol=symbol, error=str(e))
+
+            # Scan indices every other cycle (~10 min)
+            if scan_count % 2 == 0:
+                for symbol in INDICES:
                     try:
                         result = await _async_scan(symbol)
                         signals = result.get("signals_generated", 0)
@@ -183,7 +211,7 @@ async def _background_scanner(logger):
                     from backend.app.notifications.telegram import notify_summary
                     from backend.app.notifications.discord import notify_summary as discord_notify_summary
 
-                    all_symbols = ["XAUUSD", "BTCUSD"] + FOREX_PAIRS
+                    all_symbols = ["XAUUSD", "BTCUSD"] + FOREX_PAIRS + INDICES
                     for symbol in all_symbols:
                         signals = get_signals(symbol=symbol)
                         if signals:
@@ -271,6 +299,10 @@ async def lifespan(app: FastAPI):
     # Route forex pairs to Massive (paid plan, full intraday data)
     for pair in FOREX_PAIRS:
         data_registry.set_route(pair, "massive")
+
+    # Route indices to OANDA (full intraday CFD data)
+    for pair in INDICES:
+        data_registry.set_route(pair, "oanda")
 
     # ── Orderbook-specific routes (real exchange data only) ──
     # Crypto orderbook → Binance (real L2 depth, public API, no key needed)

@@ -45,6 +45,9 @@ const ASSET_OPTIONS = [
   { symbol: "AUDCHF", label: "AUD/CHF", color: "#A7F3D0", group: "Forex Minors" },
   { symbol: "NZDCHF", label: "NZD/CHF", color: "#BAE6FD", group: "Forex Minors" },
   { symbol: "CHFJPY", label: "CHF/JPY", color: "#FDE68A", group: "Forex Minors" },
+  // Indices
+  { symbol: "NAS100", label: "NAS100", color: "#7C3AED", group: "Indices" },
+  { symbol: "SPX500", label: "SPX500", color: "#0891B2", group: "Indices" },
 ];
 
 /**
@@ -59,6 +62,12 @@ function isMarketOpen(symbol: string): boolean {
 
   // Crypto is always open
   if (symbol === "BTCUSD") return true;
+
+  // Indices: US market hours Mon-Fri (~14:30-21:00 UTC)
+  if (symbol === "NAS100" || symbol === "SPX500") {
+    if (day === 0 || day === 6) return false;
+    return hour >= 14 && hour < 21;
+  }
 
   // Forex & Gold: closed Saturday all day, closed Sunday until 22:00 UTC,
   // closed Friday after 22:00 UTC
