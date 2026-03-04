@@ -78,7 +78,7 @@ export default function MarketNarrator() {
       <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-3">
         <BookOpen className="w-4 h-4 text-[var(--color-neon-purple)]" />
         <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
-          AI Market Narrator
+          Market Narrator
         </h3>
         <span
           className="text-[11px] font-mono px-1.5 py-0.5 rounded uppercase font-bold flex items-center gap-1"

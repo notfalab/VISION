@@ -39,8 +39,10 @@ Output JSON with this exact structure:
   "confidence": 0.75
 }
 
-Rules:
-- Be specific with price levels
+CRITICAL RULES:
+- You MUST ONLY use the exact price numbers provided in the data below. NEVER invent, guess, or use prices from your training data.
+- If "Current Price" says 87543.2, use exactly that number. Do NOT substitute a different price.
+- Be specific with the ACTUAL price levels from the provided data
 - No disclaimers or legal text
 - Max 3-4 key drivers
 - Confidence is 0.0-1.0 based on signal alignment
@@ -48,18 +50,19 @@ Rules:
 - Use trading terminology appropriately"""
 
 
-async def generate_narrative(symbol: str, market_data: dict) -> dict | None:
+async def generate_narrative(symbol: str, market_data: dict, timeframe: str = "1d") -> dict | None:
     """Generate AI narrative for a symbol using collected market data.
 
     Args:
         symbol: Trading pair (e.g. XAUUSD)
         market_data: Dict with prices, indicators, regime, positioning
+        timeframe: Chart timeframe for cache key
 
     Returns:
         Narrative dict or None on failure
     """
     # Check cache
-    cache_key = symbol.upper()
+    cache_key = f"{symbol.upper()}:{timeframe}"
     if cache_key in _cache:
         ts, cached = _cache[cache_key]
         if time.time() - ts < CACHE_TTL:
@@ -119,18 +122,23 @@ def _build_prompt(symbol: str, data: dict) -> str:
 
     if "price" in data:
         p = data["price"]
-        parts.append(f"\nCurrent Price: {p.get('price', 'N/A')}")
+        price_val = p.get("price", "N/A")
+        parts.append(f"\n*** CURRENT PRICE: {price_val} *** (USE THIS EXACT NUMBER)")
         parts.append(f"Open: {p.get('open', 'N/A')} | High: {p.get('high', 'N/A')} | Low: {p.get('low', 'N/A')}")
+        if p.get("recent_high"):
+            parts.append(f"20-period High: {p['recent_high']} | 20-period Low: {p['recent_low']}")
+    else:
+        parts.append("\n*** NO PRICE DATA AVAILABLE — do NOT guess any prices ***")
 
     if "indicators" in data and data["indicators"]:
         ind = data["indicators"]
         parts.append("\nIndicators:")
         if "rsi" in ind:
-            parts.append(f"  RSI: {ind['rsi']}")
-        if "macd" in ind:
-            parts.append(f"  MACD: {ind['macd']}")
+            parts.append(f"  RSI(14): {ind['rsi']}")
         if "trend" in ind:
             parts.append(f"  Trend: {ind['trend']}")
+        if "sma20" in ind:
+            parts.append(f"  SMA20: {ind['sma20']} | SMA50: {ind.get('sma50', 'N/A')}")
 
     if "regime" in data and data["regime"]:
         r = data["regime"]
@@ -150,5 +158,5 @@ def _build_prompt(symbol: str, data: dict) -> str:
                         if isinstance(zn, dict):
                             parts.append(f"  {zone_type}: {zn.get('low', 'N/A')}-{zn.get('high', 'N/A')}")
 
-    parts.append("\nGenerate the market narrative based on this data.")
+    parts.append("\nGenerate the market narrative using ONLY the data above. Do NOT use any prices from your training data.")
     return "\n".join(parts)
