@@ -843,6 +843,7 @@ export default function PriceChart() {
     const fetchZones = async () => {
       try {
         const ob = await api.orderBook(activeSymbol, 500);
+        if (!ob) return;
         const bids = (ob.bids || []).map((b: any) => ({ price: b.price, quantity: b.quantity }));
         const asks = (ob.asks || []).map((a: any) => ({ price: a.price, quantity: a.quantity }));
         const newZones = computeAccumulationZones(bids, asks);

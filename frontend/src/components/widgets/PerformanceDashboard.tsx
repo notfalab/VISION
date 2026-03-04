@@ -129,7 +129,7 @@ export default function PerformanceDashboard() {
         let grossLosses = 0;
 
         for (const r of results) {
-          if (r.status !== "fulfilled") continue;
+          if (r.status !== "fulfilled" || !r.value) continue;
           const a = r.value as Analytics;
           merged.total_signals += a.total_signals || 0;
           merged.completed += a.completed || 0;

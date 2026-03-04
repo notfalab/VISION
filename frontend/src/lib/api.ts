@@ -60,88 +60,88 @@ export const api = {
   fetchPrices: fetchPricesDeduped,
 
   latestPrice: (symbol: string) =>
-    fetchAPI<any>(`/api/v1/prices/${symbol}/latest`),
+    fetchAPISafe<any>(`/api/v1/prices/${symbol}/latest`, null),
 
   // Indicators
   indicators: (symbol: string, timeframe = "1d", limit = 200) =>
-    fetchAPI<any>(`/api/v1/indicators/${symbol}/calculate?timeframe=${timeframe}&limit=${limit}`),
+    fetchAPISafe<any>(`/api/v1/indicators/${symbol}/calculate?timeframe=${timeframe}&limit=${limit}`, null),
 
   // Pattern History (all candle patterns for chart overlay)
   patternHistory: (symbol: string, timeframe = "1d", limit = 500) =>
-    fetchAPI<any>(`/api/v1/indicators/${symbol}/patterns?timeframe=${timeframe}&limit=${limit}`),
+    fetchAPISafe<any>(`/api/v1/indicators/${symbol}/patterns?timeframe=${timeframe}&limit=${limit}`, { patterns: [] }),
 
   // Composite Score (advanced multi-factor)
   compositeScore: (symbol: string, timeframe = "1d") =>
-    fetchAPI<any>(`/api/v1/indicators/${symbol}/composite?timeframe=${timeframe}`),
+    fetchAPISafe<any>(`/api/v1/indicators/${symbol}/composite?timeframe=${timeframe}`, null),
 
   // Multi-Timeframe Confluence
   mtfConfluence: (symbol: string) =>
-    fetchAPI<any>(`/api/v1/indicators/${symbol}/mtf`),
+    fetchAPISafe<any>(`/api/v1/indicators/${symbol}/mtf`, null),
 
   // Macro
-  goldMacroSummary: () => fetchAPI<any>(`/api/v1/macro/gold/summary`),
-  cotGold: () => fetchAPI<any>(`/api/v1/macro/cot/gold`),
+  goldMacroSummary: () => fetchAPISafe<any>(`/api/v1/macro/gold/summary`, null),
+  cotGold: () => fetchAPISafe<any>(`/api/v1/macro/cot/gold`, null),
 
   // Order Book (deeper depth for accumulation zones)
   orderBook: (symbol: string, depth = 100) =>
-    fetchAPI<any>(`/api/v1/prices/${symbol}/orderbook?depth=${depth}`),
+    fetchAPISafe<any>(`/api/v1/prices/${symbol}/orderbook?depth=${depth}`, null),
 
   // ML Prediction
   mlPredict: (symbol: string, timeframe = "1d") =>
-    fetchAPI<any>(`/api/v1/ml/${symbol}/predict?timeframe=${timeframe}`),
+    fetchAPISafe<any>(`/api/v1/ml/${symbol}/predict?timeframe=${timeframe}`, null),
 
   // Market Regime
   mlRegime: (symbol: string, timeframe = "1d") =>
-    fetchAPI<any>(`/api/v1/ml/${symbol}/regime?timeframe=${timeframe}`),
+    fetchAPISafe<any>(`/api/v1/ml/${symbol}/regime?timeframe=${timeframe}`, null),
 
   // Order Flow Analysis
   orderFlow: (symbol: string, depth = 50) =>
-    fetchAPI<any>(`/api/v1/ml/${symbol}/orderflow?depth=${depth}`),
+    fetchAPISafe<any>(`/api/v1/ml/${symbol}/orderflow?depth=${depth}`, null),
 
   // Institutional Heat Score
   institutionalHeat: (symbol: string, timeframe = "1d") =>
-    fetchAPI<any>(`/api/v1/ml/${symbol}/heat?timeframe=${timeframe}`),
+    fetchAPISafe<any>(`/api/v1/ml/${symbol}/heat?timeframe=${timeframe}`, null),
 
   // Gold Correlations (DXY, 10Y Treasury)
   goldCorrelations: () =>
-    fetchAPI<any>(`/api/v1/macro/correlations/gold`),
+    fetchAPISafe<any>(`/api/v1/macro/correlations/gold`, null),
 
   // ── Institutional / On-chain ──
   btcWhales: (minBtc = 100, limit = 20) =>
-    fetchAPI<any>(`/api/v1/institutional/btc-whales?min_value_btc=${minBtc}&limit=${limit}`),
+    fetchAPISafe<any>(`/api/v1/institutional/btc-whales?min_value_btc=${minBtc}&limit=${limit}`, null),
 
   ethWhales: (minEth = 100, limit = 20) =>
-    fetchAPI<any>(`/api/v1/institutional/whale-transfers?min_value_eth=${minEth}&limit=${limit}`),
+    fetchAPISafe<any>(`/api/v1/institutional/whale-transfers?min_value_eth=${minEth}&limit=${limit}`, null),
 
   cotReport: (symbol: string, limit = 52) =>
-    fetchAPI<any>(`/api/v1/institutional/cot/${symbol}?limit=${limit}`),
+    fetchAPISafe<any>(`/api/v1/institutional/cot/${symbol}?limit=${limit}`, null),
 
   // ── Scalper Mode ──
   scalperScan: (symbol: string, timeframe = "15m") =>
-    fetchAPI<any>(`/api/v1/scalper/${symbol}/scan?timeframe=${timeframe}`),
+    fetchAPISafe<any>(`/api/v1/scalper/${symbol}/scan?timeframe=${timeframe}`, null),
 
   scalperScanAll: (symbol: string) =>
-    fetchAPI<any>(`/api/v1/scalper/${symbol}/scan`, { method: "POST" }),
+    fetchAPISafe<any>(`/api/v1/scalper/${symbol}/scan`, null, { method: "POST" }),
 
   scalperSignals: (symbol: string, status?: string, timeframe?: string, limit = 50) => {
     const params = new URLSearchParams();
     if (status) params.set("status", status);
     if (timeframe) params.set("timeframe", timeframe);
     params.set("limit", String(limit));
-    return fetchAPI<any>(`/api/v1/scalper/${symbol}/signals?${params}`);
+    return fetchAPISafe<any>(`/api/v1/scalper/${symbol}/signals?${params}`, { signals: [] });
   },
 
   scalperSignalDetail: (symbol: string, signalId: number) =>
-    fetchAPI<any>(`/api/v1/scalper/${symbol}/signals/${signalId}`),
+    fetchAPISafe<any>(`/api/v1/scalper/${symbol}/signals/${signalId}`, null),
 
   scalperJournal: (symbol: string, limit = 50) =>
-    fetchAPI<any>(`/api/v1/scalper/${symbol}/journal?limit=${limit}`),
+    fetchAPISafe<any>(`/api/v1/scalper/${symbol}/journal?limit=${limit}`, { signals: [] }),
 
   scalperAnalytics: (symbol: string) =>
-    fetchAPI<any>(`/api/v1/scalper/${symbol}/analytics`),
+    fetchAPISafe<any>(`/api/v1/scalper/${symbol}/analytics`, null),
 
   scalperLossPatterns: (symbol: string) =>
-    fetchAPI<any>(`/api/v1/scalper/${symbol}/loss-patterns`),
+    fetchAPISafe<any>(`/api/v1/scalper/${symbol}/loss-patterns`, null),
 
   // Zones (supply/demand, S/R, order blocks, FVG)
   scalperZones: (symbol: string, tf: string = "15m") =>
@@ -149,7 +149,7 @@ export const api = {
 
   // AI Market Brief
   aiBrief: () =>
-    fetchAPI<any>(`/api/v1/scalper/ai-brief`),
+    fetchAPISafe<any>(`/api/v1/scalper/ai-brief`, null),
 
   // ── TP/SL Heatmap, Liquidation, Deep Order Book ──
   tpslHeatmap: (symbol: string, depth = 500) =>

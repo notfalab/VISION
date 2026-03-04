@@ -74,7 +74,12 @@ export default function OrderFlow() {
     setError(false);
     try {
       const result = await api.orderFlow(activeSymbol);
-      setData(result);
+      if (!result) {
+        setError(true);
+        setData(null);
+      } else {
+        setData(result);
+      }
     } catch {
       setError(true);
       setData(null);
