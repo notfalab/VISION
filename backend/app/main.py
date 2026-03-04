@@ -394,6 +394,17 @@ def create_app() -> FastAPI:
         # Show configured routes
         results["orderbook_routes"] = dict(data_registry._orderbook_routes)
 
+        # Debug: check MyFxBook credentials
+        try:
+            mfx = data_registry.get_adapter("myfxbook")
+            results["myfxbook_debug"] = {
+                "email_set": bool(mfx._email),
+                "password_set": bool(mfx._password),
+                "session_id": bool(mfx._session_id),
+            }
+        except Exception as e:
+            results["myfxbook_debug"] = {"error": str(e)[:100]}
+
         # Test specific adapter orderbook calls
         test_cases = {
             "binance_BTCUSD": ("binance", "BTCUSD"),
