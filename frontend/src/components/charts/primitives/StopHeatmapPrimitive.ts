@@ -185,6 +185,7 @@ class StopHeatmapView implements IPrimitivePaneView {
 
       const xPos = x - halfW;
       const values = col.v;
+      if (!values) continue;
 
       for (let i = 0; i < values.length; i++) {
         const intensity = values[i];

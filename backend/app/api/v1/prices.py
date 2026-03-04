@@ -868,6 +868,7 @@ def _compute_liq_heatmap_grid(candles: list[dict]) -> dict:
         ts = c["time"]
 
         if close <= 0:
+            columns.append({"time": ts, "v": list(cumulative)})
             continue
 
         # Decay
