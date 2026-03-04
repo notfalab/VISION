@@ -44,6 +44,7 @@ interface SubSection {
   content: string;
   tip?: string;
   warning?: string;
+  example?: string;
 }
 
 interface Chapter {
@@ -109,6 +110,7 @@ const CHAPTERS: Chapter[] = [
         title: "Candlestick Basics",
         content:
           "Each candle represents one period of trading (determined by your timeframe). The body shows the Open and Close prices — green means price went up (close > open), red means it went down. The wicks (thin lines above and below) show the High and Low of that period. Long wicks suggest rejection at that price level. A candle with a tiny body and long wicks (doji) signals indecision.",
+        example: "candlestick-anatomy",
         tip: "Pay attention to candle size relative to recent candles. An unusually large candle often signals institutional activity or a major breakout.",
       },
       {
@@ -120,12 +122,14 @@ const CHAPTERS: Chapter[] = [
         title: "Trading Sessions",
         content:
           "Financial markets have three major trading sessions: Tokyo (00:00-09:00 UTC), London (07:00-16:00 UTC), and New York (13:00-22:00 UTC). The London-New York overlap (13:00-16:00 UTC) is the highest-volume period when the biggest moves happen. For forex, the session determines liquidity — avoid trading thin sessions where spreads widen and moves are erratic.",
+        example: "session-bands",
         warning: "Most fake breakouts happen at the start of a new session. Wait 15-30 minutes after a session opens before trading the breakout direction.",
       },
       {
         title: "Moving Averages on Chart",
         content:
           "Moving averages smooth out price noise to show the underlying trend. VISION plots SMA (Simple Moving Average) and EMA (Exponential Moving Average) with key periods: 8 (short-term momentum), 21 (intermediate trend), 50 (medium-term trend), and 200 (long-term trend). When shorter MAs cross above longer ones, it's bullish. When they cross below, it's bearish. These crossovers are called Golden Cross (bullish) and Death Cross (bearish).",
+        example: "ma-cross",
       },
       {
         title: "Volume Bars",
@@ -149,12 +153,14 @@ const CHAPTERS: Chapter[] = [
         title: "RSI (Relative Strength Index)",
         content:
           "RSI measures momentum on a scale from 0 to 100. It answers: 'How overbought or oversold is this asset?' Above 70 = overbought (price may be due for a pullback). Below 30 = oversold (price may be due for a bounce). Between 40-60 = neutral/trending zone. RSI divergence — when price makes new highs but RSI doesn't — is one of the most powerful reversal signals.",
+        example: "rsi-zones",
         tip: "In strong trends, RSI can stay overbought/oversold for extended periods. Don't blindly sell at RSI 70 in an uptrend. Instead, use RSI divergence as your signal.",
       },
       {
         title: "MACD (Moving Average Convergence Divergence)",
         content:
           "MACD shows the relationship between two moving averages (12 and 26-period EMA). The MACD line is the difference between them. The Signal line is a 9-period EMA of MACD. The Histogram shows the gap between MACD and Signal — positive bars mean bullish momentum, negative mean bearish. Buy signals occur when MACD crosses above the Signal line. Sell signals when it crosses below.",
+        example: "macd-example",
       },
       {
         title: "Stochastic RSI",
@@ -166,6 +172,7 @@ const CHAPTERS: Chapter[] = [
         title: "Bollinger Bands",
         content:
           "Bollinger Bands consist of three lines: a 20-period SMA (middle band) with upper and lower bands at 2 standard deviations away. When bands squeeze tight (low volatility), a big move is coming — this is called a Bollinger Squeeze. When price touches the upper band, it's extended; lower band means oversold. Bands expand during high volatility and contract during consolidation.",
+        example: "bollinger-bands",
         tip: "A Bollinger Squeeze followed by a break outside the bands often signals the beginning of a strong trend. Combine with volume — high volume on the breakout confirms it.",
       },
       {
@@ -195,6 +202,7 @@ const CHAPTERS: Chapter[] = [
         title: "Volume Spikes",
         content:
           "A volume spike occurs when trading volume is 2-3x higher than the 20-period average. This signals institutional participation — large players entering or exiting positions. Spikes at key support/resistance levels are especially significant. A spike at a support level with a bullish candle = strong buying interest. A spike at resistance with a bearish candle = strong distribution.",
+        example: "volume-spike",
       },
       {
         title: "OBV (On-Balance Volume)",
@@ -211,6 +219,7 @@ const CHAPTERS: Chapter[] = [
         title: "Volume Profile (VAH / VAL / POC)",
         content:
           "Volume Profile shows the total volume traded at each price level over a period, displayed as a horizontal histogram. POC (Point of Control) is the price level with the MOST volume — it acts as a magnet that price tends to return to. VAH (Value Area High) and VAL (Value Area Low) define the range where 70% of all trading occurred. Price tends to oscillate within the Value Area.",
+        example: "volume-profile",
         tip: "When price breaks above VAH with strong volume, it often accelerates. When it falls below VAL, it often cascades. These are high-probability breakout levels.",
       },
       {
@@ -245,23 +254,27 @@ const CHAPTERS: Chapter[] = [
         title: "Order Blocks",
         content:
           "An order block is a price zone where institutions placed significant buy or sell orders. It appears as the last bearish candle before a strong bullish move (bullish OB) or the last bullish candle before a strong bearish move (bearish OB). When price returns to these zones, institutions often defend their positions, causing bounces. VISION detects and displays these automatically on the chart.",
+        example: "order-block",
         tip: "The strongest order blocks are those that caused a Break of Structure (BoS). When price returns to one of these after a BoS, it's a high-probability entry.",
       },
       {
         title: "Fair Value Gaps (FVG)",
         content:
           "A Fair Value Gap is a three-candle pattern where the middle candle is so large that it creates an imbalance — the first and third candles don't overlap. This gap represents an area where price moved too fast for the market to fairly price, and price often returns to fill it. VISION marks FVGs on the chart. When price fills an FVG and then reverses, it's a high-quality entry signal.",
+        example: "fvg",
       },
       {
         title: "Break of Structure (BoS) vs Change of Character (ChoCH)",
         content:
           "BoS (Break of Structure) occurs when price breaks a previous swing high (bullish BoS) or swing low (bearish BoS), confirming the existing trend. ChoCH (Change of Character) is a BoS in the OPPOSITE direction of the current trend — it signals a potential trend reversal. ChoCH is the first warning sign that the trend may be shifting. VISION's Zones Overlay widget tracks both.",
+        example: "bos-choch",
         warning: "A single ChoCH doesn't guarantee a reversal. Wait for a retest of the broken structure level with confirmation (e.g., bullish candle at a bullish ChoCH level).",
       },
       {
         title: "Supply & Demand Zones",
         content:
           "Supply zones are price areas where selling pressure overwhelmed buyers, causing price to drop. Demand zones are where buying pressure overwhelmed sellers, causing price to rise. They differ from support/resistance because they represent areas of UNFILLED orders — when price returns, those orders may still be waiting. The Zones Overlay widget shows supply zones (red), demand zones (green), their strength, and how many times they've been tested.",
+        example: "supply-demand",
       },
       {
         title: "Support, Resistance, Pivots & Fibonacci",
@@ -290,6 +303,7 @@ const CHAPTERS: Chapter[] = [
         title: "Stop-Loss Heatmap",
         content:
           "The Stop Heatmap is a 2D thermal overlay (time x price) showing the density of estimated stop-loss orders. The color scale ranges from dark (low density) through purple and red to bright yellow (highest density). Bright zones represent areas where many traders have their stop losses — these are the exact levels institutions target for stop hunts. Toggle this with the 'Stops' button.",
+        example: "heatmap-example",
         warning: "Institutions deliberately push price into stop-loss clusters to trigger cascading liquidations, then reverse direction. Place your stops BEYOND these clusters, not inside them.",
       },
       {
@@ -425,6 +439,7 @@ const CHAPTERS: Chapter[] = [
         title: "Risk:Reward Ratio",
         content:
           "Risk:Reward (R:R) compares potential loss (entry to SL) against potential gain (entry to TP). An R:R of 1:2 means you risk $1 to make $2. VISION enforces minimum R:R by asset: BTC requires 1.8:1 (higher volatility needs more reward), crypto 1.5:1, and forex 1.3:1. A trader can be profitable with just 40% win rate if their average R:R is above 1.5:1. Focus on R:R, not just win rate.",
+        example: "risk-reward",
         warning: "Never enter a trade with R:R below 1:1. Even 'sure things' can fail. A good R:R ensures that your winners compensate for your losers over time.",
       },
       {
@@ -503,6 +518,551 @@ const CHAPTERS: Chapter[] = [
 ];
 
 /* ═══════════════════════════════════════════════════════
+   VISUAL EXAMPLE DIAGRAMS (SVG)
+   ═══════════════════════════════════════════════════════ */
+
+const D = {
+  bull: "#10b981", bear: "#ef4444", cyan: "#06b6d4", purple: "#8b5cf6",
+  blue: "#3b82f6", amber: "#f59e0b", green: "#10b981", orange: "#f97316",
+  text: "#e2e8f0", textSec: "#94a3b8", muted: "#64748b",
+  bg: "#111827", bgCard: "#151c2c", border: "#1e293b",
+  grid: "rgba(59,130,246,0.06)",
+} as const;
+const FONT = "'JetBrains Mono', monospace";
+
+/* ── 1. Candlestick Anatomy ── */
+function CandlestickDiagram() {
+  return (
+    <svg viewBox="0 0 420 190" width="100%" role="img" aria-label="Candlestick anatomy diagram showing OHLC parts, bullish vs bearish">
+      <rect width="420" height="190" fill={D.bg} rx="6" />
+      {/* grid */}
+      {[40,70,100,130,160].map(y=><line key={y} x1="0" y1={y} x2="420" y2={y} stroke={D.grid} />)}
+      {/* Large annotated candle */}
+      <line x1="90" y1="25" x2="90" y2="60" stroke={D.bull} strokeWidth="2" />
+      <rect x="75" y="60" width="30" height="55" fill={D.bull} rx="2" />
+      <line x1="90" y1="115" x2="90" y2="160" stroke={D.bull} strokeWidth="2" />
+      {/* labels */}
+      <line x1="110" y1="25" x2="135" y2="25" stroke={D.muted} strokeDasharray="3" />
+      <text x="138" y="29" fill={D.text} fontSize="10" fontFamily={FONT}>High</text>
+      <line x1="110" y1="60" x2="135" y2="60" stroke={D.muted} strokeDasharray="3" />
+      <text x="138" y="64" fill={D.bull} fontSize="10" fontFamily={FONT}>Open</text>
+      <line x1="110" y1="115" x2="135" y2="115" stroke={D.muted} strokeDasharray="3" />
+      <text x="138" y="119" fill={D.bull} fontSize="10" fontFamily={FONT}>Close</text>
+      <line x1="110" y1="160" x2="135" y2="160" stroke={D.muted} strokeDasharray="3" />
+      <text x="138" y="164" fill={D.text} fontSize="10" fontFamily={FONT}>Low</text>
+      {/* body/wick labels */}
+      <text x="25" y="92" fill={D.textSec} fontSize="9" fontFamily={FONT}>Body</text>
+      <line x1="50" y1="90" x2="73" y2="90" stroke={D.textSec} strokeDasharray="2" />
+      <text x="20" y="38" fill={D.textSec} fontSize="9" fontFamily={FONT}>Wick</text>
+      <line x1="50" y1="36" x2="88" y2="36" stroke={D.textSec} strokeDasharray="2" />
+      {/* divider */}
+      <line x1="210" y1="15" x2="210" y2="175" stroke={D.border} strokeDasharray="4" />
+      {/* Bullish candle */}
+      <text x="260" y="22" fill={D.bull} fontSize="10" fontFamily={FONT} textAnchor="middle">BULLISH</text>
+      <line x1="260" y1="35" x2="260" y2="55" stroke={D.bull} strokeWidth="2" />
+      <rect x="247" y="55" width="26" height="45" fill={D.bull} rx="2" />
+      <line x1="260" y1="100" x2="260" y2="125" stroke={D.bull} strokeWidth="2" />
+      <text x="260" y="140" fill={D.textSec} fontSize="9" fontFamily={FONT} textAnchor="middle">Close &gt; Open</text>
+      <text x="260" y="152" fill={D.textSec} fontSize="9" fontFamily={FONT} textAnchor="middle">Price went UP</text>
+      {/* Bearish candle */}
+      <text x="360" y="22" fill={D.bear} fontSize="10" fontFamily={FONT} textAnchor="middle">BEARISH</text>
+      <line x1="360" y1="35" x2="360" y2="55" stroke={D.bear} strokeWidth="2" />
+      <rect x="347" y="55" width="26" height="45" fill={D.bear} rx="2" />
+      <line x1="360" y1="100" x2="360" y2="125" stroke={D.bear} strokeWidth="2" />
+      <text x="360" y="140" fill={D.textSec} fontSize="9" fontFamily={FONT} textAnchor="middle">Close &lt; Open</text>
+      <text x="360" y="152" fill={D.textSec} fontSize="9" fontFamily={FONT} textAnchor="middle">Price went DOWN</text>
+      <text x="210" y="185" fill={D.muted} fontSize="8" fontFamily={FONT} textAnchor="middle">Candlestick Anatomy — OHLC (Open, High, Low, Close)</text>
+    </svg>
+  );
+}
+
+/* ── 2. Trading Sessions ── */
+function SessionBands() {
+  const w = 400, pad = 30;
+  const hourToX = (h: number) => pad + (h / 24) * (w - pad * 2);
+  return (
+    <svg viewBox={`0 0 ${w} 110`} width="100%" role="img" aria-label="Trading sessions timeline: Tokyo, London, New York">
+      <rect width={w} height="110" fill={D.bg} rx="6" />
+      {/* time axis */}
+      <line x1={pad} y1="85" x2={w - pad} y2="85" stroke={D.border} />
+      {[0,3,6,9,12,15,18,21,24].map(h => (
+        <g key={h}><line x1={hourToX(h)} y1="82" x2={hourToX(h)} y2="88" stroke={D.muted} />
+        <text x={hourToX(h)} y="98" fill={D.muted} fontSize="8" fontFamily={FONT} textAnchor="middle">{h}:00</text></g>
+      ))}
+      {/* sessions */}
+      <rect x={hourToX(0)} y="20" width={hourToX(9)-hourToX(0)} height="16" rx="3" fill={D.purple} opacity="0.25" />
+      <text x={(hourToX(0)+hourToX(9))/2} y="15" fill={D.purple} fontSize="9" fontFamily={FONT} textAnchor="middle">TOKYO</text>
+      <rect x={hourToX(7)} y="38" width={hourToX(16)-hourToX(7)} height="16" rx="3" fill={D.blue} opacity="0.25" />
+      <text x={(hourToX(7)+hourToX(16))/2} y="33" fill={D.blue} fontSize="9" fontFamily={FONT} textAnchor="middle">LONDON</text>
+      <rect x={hourToX(13)} y="56" width={hourToX(22)-hourToX(13)} height="16" rx="3" fill={D.green} opacity="0.25" />
+      <text x={(hourToX(13)+hourToX(22))/2} y="51" fill={D.green} fontSize="9" fontFamily={FONT} textAnchor="middle">NEW YORK</text>
+      {/* overlap highlight */}
+      <rect x={hourToX(13)} y="18" width={hourToX(16)-hourToX(13)} height="58" rx="2" fill={D.amber} opacity="0.12" stroke={D.amber} strokeWidth="1" strokeDasharray="3" />
+      <text x={(hourToX(13)+hourToX(16))/2} y="105" fill={D.amber} fontSize="8" fontFamily={FONT} textAnchor="middle">OVERLAP</text>
+    </svg>
+  );
+}
+
+/* ── 3. Moving Average Cross ── */
+function MovingAverageCross() {
+  return (
+    <svg viewBox="0 0 420 165" width="100%" role="img" aria-label="Golden Cross (buy) vs Death Cross (sell) diagram">
+      <rect width="420" height="165" fill={D.bg} rx="6" />
+      {/* left: golden cross */}
+      <text x="105" y="18" fill={D.bull} fontSize="10" fontFamily={FONT} textAnchor="middle">GOLDEN CROSS</text>
+      <polyline points="20,110 50,105 80,95 110,80 140,60 170,45" fill="none" stroke={D.bull} strokeWidth="2" />
+      <polyline points="20,100 50,100 80,98 110,92 140,82 170,70" fill="none" stroke={D.muted} strokeWidth="1.5" strokeDasharray="4" />
+      <circle cx="105" cy="86" r="5" fill={D.bull} opacity="0.8" />
+      <text x="105" y="130" fill={D.bull} fontSize="9" fontFamily={FONT} textAnchor="middle">Short MA crosses ABOVE</text>
+      <text x="105" y="142" fill={D.bull} fontSize="10" fontFamily={FONT} textAnchor="middle" fontWeight="bold">BUY SIGNAL</text>
+      {/* divider */}
+      <line x1="210" y1="10" x2="210" y2="155" stroke={D.border} strokeDasharray="4" />
+      {/* right: death cross */}
+      <text x="315" y="18" fill={D.bear} fontSize="10" fontFamily={FONT} textAnchor="middle">DEATH CROSS</text>
+      <polyline points="230,45 260,55 290,70 320,85 350,100 380,115" fill="none" stroke={D.bear} strokeWidth="2" />
+      <polyline points="230,60 260,62 290,68 320,78 350,90 380,100" fill="none" stroke={D.muted} strokeWidth="1.5" strokeDasharray="4" />
+      <circle cx="310" cy="82" r="5" fill={D.bear} opacity="0.8" />
+      <text x="315" y="130" fill={D.bear} fontSize="9" fontFamily={FONT} textAnchor="middle">Short MA crosses BELOW</text>
+      <text x="315" y="142" fill={D.bear} fontSize="10" fontFamily={FONT} textAnchor="middle" fontWeight="bold">SELL SIGNAL</text>
+      {/* legend */}
+      <line x1="140" y1="158" x2="155" y2="158" stroke={D.cyan} strokeWidth="2" />
+      <text x="160" y="161" fill={D.textSec} fontSize="8" fontFamily={FONT}>Short MA (8)</text>
+      <line x1="230" y1="158" x2="245" y2="158" stroke={D.muted} strokeWidth="1.5" strokeDasharray="4" />
+      <text x="250" y="161" fill={D.textSec} fontSize="8" fontFamily={FONT}>Long MA (50)</text>
+    </svg>
+  );
+}
+
+/* ── 4. RSI Zones ── */
+function RSIZones() {
+  const pts = "20,75 50,65 80,50 110,35 130,28 150,32 180,55 210,80 240,95 260,105 280,110 310,95 340,75 370,65";
+  return (
+    <svg viewBox="0 0 400 155" width="100%" role="img" aria-label="RSI indicator with overbought and oversold zones">
+      <rect width="400" height="155" fill={D.bg} rx="6" />
+      {/* zones */}
+      <rect x="20" y="10" width="360" height="25" fill={D.bear} opacity="0.08" />
+      <rect x="20" y="100" width="360" height="30" fill={D.bull} opacity="0.08" />
+      {/* grid lines */}
+      <line x1="20" y1="10" x2="380" y2="10" stroke={D.bear} strokeDasharray="3" opacity="0.4" />
+      <line x1="20" y1="35" x2="380" y2="35" stroke={D.bear} strokeDasharray="3" opacity="0.4" />
+      <line x1="20" y1="62" x2="380" y2="62" stroke={D.muted} strokeDasharray="2" opacity="0.3" />
+      <line x1="20" y1="100" x2="380" y2="100" stroke={D.bull} strokeDasharray="3" opacity="0.4" />
+      <line x1="20" y1="130" x2="380" y2="130" stroke={D.bull} strokeDasharray="3" opacity="0.3" />
+      {/* labels */}
+      <text x="5" y="14" fill={D.muted} fontSize="8" fontFamily={FONT}>100</text>
+      <text x="10" y="38" fill={D.bear} fontSize="8" fontFamily={FONT}>70</text>
+      <text x="10" y="66" fill={D.muted} fontSize="8" fontFamily={FONT}>50</text>
+      <text x="10" y="103" fill={D.bull} fontSize="8" fontFamily={FONT}>30</text>
+      <text x="13" y="133" fill={D.muted} fontSize="8" fontFamily={FONT}>0</text>
+      {/* zone labels */}
+      <text x="385" y="26" fill={D.bear} fontSize="8" fontFamily={FONT} opacity="0.7">OB</text>
+      <text x="385" y="118" fill={D.bull} fontSize="8" fontFamily={FONT} opacity="0.7">OS</text>
+      {/* RSI line */}
+      <polyline points={pts} fill="none" stroke={D.purple} strokeWidth="2.5" strokeLinejoin="round" />
+      {/* peak dot */}
+      <circle cx="130" cy="28" r="4" fill={D.bear} />
+      <text x="130" y="22" fill={D.bear} fontSize="8" fontFamily={FONT} textAnchor="middle">Sell signal</text>
+      {/* trough dot */}
+      <circle cx="280" cy="110" r="4" fill={D.bull} />
+      <text x="280" y="125" fill={D.bull} fontSize="8" fontFamily={FONT} textAnchor="middle">Buy signal</text>
+      <text x="200" y="150" fill={D.muted} fontSize="8" fontFamily={FONT} textAnchor="middle">RSI (14) — Overbought above 70, Oversold below 30</text>
+    </svg>
+  );
+}
+
+/* ── 5. MACD Example ── */
+function MACDExample() {
+  const bars = [-3,-5,-8,-6,-3,-1,2,5,8,10,8,5,3,1,-1,-3,-5,-4,-2,0];
+  const maxBar = 10;
+  const barW = 14, gap = 4, startX = 30;
+  return (
+    <svg viewBox="0 0 400 150" width="100%" role="img" aria-label="MACD indicator with histogram, signal line, and crossover">
+      <rect width="400" height="150" fill={D.bg} rx="6" />
+      {/* zero line */}
+      <line x1="25" y1="72" x2="390" y2="72" stroke={D.muted} strokeDasharray="3" opacity="0.4" />
+      <text x="10" y="76" fill={D.muted} fontSize="8" fontFamily={FONT}>0</text>
+      {/* histogram */}
+      {bars.map((v, i) => {
+        const x = startX + i * (barW + gap);
+        const h = Math.abs(v) / maxBar * 40;
+        const y = v >= 0 ? 72 - h : 72;
+        return <rect key={i} x={x} y={y} width={barW} height={h} fill={v >= 0 ? D.bull : D.bear} opacity="0.5" rx="1" />;
+      })}
+      {/* MACD line */}
+      <polyline points="37,95 55,100 73,108 91,102 109,90 127,78 145,65 163,52 181,40 199,35 217,40 235,50 253,60 271,68 289,78 307,85 325,92 343,88 361,80 379,72" fill="none" stroke={D.cyan} strokeWidth="2" />
+      {/* Signal line (lagging) */}
+      <polyline points="37,90 55,95 73,102 91,105 109,98 127,85 145,72 163,60 181,48 199,42 217,42 235,48 253,56 271,65 289,75 307,82 325,88 343,90 361,85 379,78" fill="none" stroke={D.orange} strokeWidth="1.5" strokeDasharray="4" />
+      {/* crossover */}
+      <circle cx="127" cy="78" r="5" fill="none" stroke={D.bull} strokeWidth="2" />
+      <text x="127" y="25" fill={D.bull} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">BUY SIGNAL</text>
+      <line x1="127" y1="28" x2="127" y2="72" stroke={D.bull} strokeDasharray="2" opacity="0.4" />
+      {/* legend */}
+      <line x1="80" y1="142" x2="95" y2="142" stroke={D.cyan} strokeWidth="2" />
+      <text x="100" y="145" fill={D.textSec} fontSize="8" fontFamily={FONT}>MACD</text>
+      <line x1="155" y1="142" x2="170" y2="142" stroke={D.orange} strokeWidth="1.5" strokeDasharray="4" />
+      <text x="175" y="145" fill={D.textSec} fontSize="8" fontFamily={FONT}>Signal</text>
+      <rect x="235" y="138" width="10" height="8" fill={D.bull} opacity="0.5" rx="1" />
+      <text x="250" y="145" fill={D.textSec} fontSize="8" fontFamily={FONT}>Histogram</text>
+    </svg>
+  );
+}
+
+/* ── 6. Bollinger Bands ── */
+function BollingerBandsDiagram() {
+  const mid = "20,80 60,78 100,75 140,74 180,73 220,72 260,68 300,55 340,45 380,50";
+  const upper = "20,55 60,55 100,58 140,62 180,64 220,60 260,42 300,20 340,12 380,18";
+  const lower = "20,105 60,102 100,92 140,86 180,82 220,84 260,94 300,90 340,78 380,82";
+  return (
+    <svg viewBox="0 0 400 155" width="100%" role="img" aria-label="Bollinger Bands showing squeeze and expansion">
+      <rect width="400" height="155" fill={D.bg} rx="6" />
+      {/* band fill */}
+      <polygon points={`${upper},380,82 ${lower.split(" ").reverse().join(" ")}`} fill={D.blue} opacity="0.06" />
+      {/* bands */}
+      <polyline points={upper} fill="none" stroke={D.muted} strokeWidth="1" strokeDasharray="4" />
+      <polyline points={mid} fill="none" stroke={D.blue} strokeWidth="1.5" />
+      <polyline points={lower} fill="none" stroke={D.muted} strokeWidth="1" strokeDasharray="4" />
+      {/* price line */}
+      <polyline points="20,82 60,76 100,70 140,72 180,74 220,65 260,55 300,30 340,38 380,52" fill="none" stroke={D.text} strokeWidth="2" />
+      {/* squeeze annotation */}
+      <rect x="130" y="60" width="60" height="26" fill={D.amber} opacity="0.1" rx="3" stroke={D.amber} strokeDasharray="3" strokeWidth="1" />
+      <text x="160" y="105" fill={D.amber} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">SQUEEZE</text>
+      <text x="160" y="115" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">Low volatility</text>
+      {/* expansion annotation */}
+      <text x="320" y="108" fill={D.cyan} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">EXPANSION</text>
+      <text x="320" y="118" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">High volatility</text>
+      {/* legend */}
+      <line x1="80" y1="148" x2="95" y2="148" stroke={D.blue} strokeWidth="1.5" />
+      <text x="100" y="151" fill={D.textSec} fontSize="8" fontFamily={FONT}>SMA (20)</text>
+      <line x1="180" y1="148" x2="195" y2="148" stroke={D.muted} strokeWidth="1" strokeDasharray="4" />
+      <text x="200" y="151" fill={D.textSec} fontSize="8" fontFamily={FONT}>Upper/Lower (2 SD)</text>
+    </svg>
+  );
+}
+
+/* ── 7. Volume Spike ── */
+function VolumeSpike() {
+  const vols = [25,30,22,28,35,20,25,90,30,22,18,28,25,20];
+  const colors = [D.bull,D.bear,D.bear,D.bull,D.bull,D.bear,D.bull,D.bull,D.bear,D.bull,D.bear,D.bull,D.bear,D.bull];
+  const avg = 26;
+  return (
+    <svg viewBox="0 0 400 125" width="100%" role="img" aria-label="Volume spike chart showing institutional activity">
+      <rect width="400" height="125" fill={D.bg} rx="6" />
+      {vols.map((v, i) => {
+        const x = 30 + i * 25;
+        const h = v;
+        const isSpike = v > avg * 2.5;
+        return (
+          <g key={i}>
+            <rect x={x} y={110 - h} width="18" height={h} fill={colors[i]} opacity={isSpike ? 0.9 : 0.35} rx="1" />
+            {isSpike && <>
+              <rect x={x - 2} y={110 - h - 2} width="22" height={h + 2} fill="none" stroke={D.cyan} strokeWidth="1.5" strokeDasharray="3" rx="2" />
+              <text x={x + 9} y="12" fill={D.cyan} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">VOLUME SPIKE</text>
+              <text x={x + 9} y="23" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">3.5x average</text>
+              <line x1={x + 9} y1="25" x2={x + 9} y2={110 - h - 4} stroke={D.cyan} strokeDasharray="2" opacity="0.5" />
+            </>}
+          </g>
+        );
+      })}
+      {/* average line */}
+      <line x1="25" y1={110 - avg} x2="385" y2={110 - avg} stroke={D.amber} strokeDasharray="4" opacity="0.6" />
+      <text x="388" y={113 - avg} fill={D.amber} fontSize="8" fontFamily={FONT}>AVG</text>
+      <text x="200" y="122" fill={D.muted} fontSize="8" fontFamily={FONT} textAnchor="middle">2-3x average volume = institutional participation</text>
+    </svg>
+  );
+}
+
+/* ── 8. Volume Profile ── */
+function VolumeProfileDiagram() {
+  const levels = [
+    { price: "2,680", w: 40 }, { price: "2,675", w: 55 }, { price: "2,670", w: 80 },
+    { price: "2,665", w: 120 }, { price: "2,660", w: 170 }, { price: "2,655", w: 140 },
+    { price: "2,650", w: 90 }, { price: "2,645", w: 60 }, { price: "2,640", w: 35 },
+  ];
+  const pocIdx = 4;
+  const vahIdx = 2;
+  const valIdx = 6;
+  return (
+    <svg viewBox="0 0 400 165" width="100%" role="img" aria-label="Volume Profile with POC, VAH, VAL levels">
+      <rect width="400" height="165" fill={D.bg} rx="6" />
+      {/* value area shading */}
+      <rect x="60" y={22 + vahIdx * 16} width="250" height={(valIdx - vahIdx + 1) * 16} fill={D.blue} opacity="0.06" />
+      {/* bars */}
+      {levels.map((l, i) => {
+        const y = 22 + i * 16;
+        const isPOC = i === pocIdx;
+        return (
+          <g key={i}>
+            <text x="5" y={y + 11} fill={D.textSec} fontSize="8" fontFamily={FONT}>{l.price}</text>
+            <rect x="60" y={y + 2} width={l.w} height="12" fill={isPOC ? D.cyan : D.blue} opacity={isPOC ? 0.8 : 0.4} rx="1" />
+          </g>
+        );
+      })}
+      {/* POC line */}
+      <line x1="60" y1={22 + pocIdx * 16 + 8} x2="380" y2={22 + pocIdx * 16 + 8} stroke={D.cyan} strokeDasharray="4" />
+      <text x="250" y={22 + pocIdx * 16 + 6} fill={D.cyan} fontSize="9" fontFamily={FONT} fontWeight="bold">POC (Point of Control)</text>
+      {/* VAH */}
+      <line x1="60" y1={22 + vahIdx * 16} x2="380" y2={22 + vahIdx * 16} stroke={D.bull} strokeDasharray="3" opacity="0.6" />
+      <text x="250" y={22 + vahIdx * 16 - 3} fill={D.bull} fontSize="8" fontFamily={FONT}>VAH (Value Area High)</text>
+      {/* VAL */}
+      <line x1="60" y1={22 + (valIdx + 1) * 16} x2="380" y2={22 + (valIdx + 1) * 16} stroke={D.bear} strokeDasharray="3" opacity="0.6" />
+      <text x="250" y={22 + (valIdx + 1) * 16 + 12} fill={D.bear} fontSize="8" fontFamily={FONT}>VAL (Value Area Low)</text>
+      {/* 70% label */}
+      <text x="340" y={22 + (vahIdx + 2) * 16 + 8} fill={D.textSec} fontSize="8" fontFamily={FONT}>70% vol</text>
+      <text x="200" y="160" fill={D.muted} fontSize="8" fontFamily={FONT} textAnchor="middle">Horizontal histogram — volume traded at each price level</text>
+    </svg>
+  );
+}
+
+/* ── 9. Order Block ── */
+function OrderBlockDiagram() {
+  /* simplified candlestick rendering */
+  const candles: [number, number, number, number, boolean][] = [
+    /* [x, top, bodyH, wickH, isBull] */
+    [30, 95, 15, 25, false], [60, 90, 18, 22, false], [90, 100, 20, 28, false], // down trend
+    [120, 70, 35, 45, true], [150, 50, 30, 40, true], [180, 35, 25, 35, true], // impulse up
+    [220, 50, 20, 28, false], [250, 65, 18, 24, false], // pullback to OB
+    [280, 55, 25, 35, true], [310, 40, 20, 30, true], // bounce
+  ];
+  return (
+    <svg viewBox="0 0 380 170" width="100%" role="img" aria-label="Order Block diagram showing institutional zone and retest entry">
+      <rect width="380" height="170" fill={D.bg} rx="6" />
+      {/* OB zone */}
+      <rect x="75" y="92" width="260" height="28" fill={D.amber} opacity="0.12" stroke={D.amber} strokeDasharray="3" strokeWidth="1" rx="2" />
+      <text x="345" y="110" fill={D.amber} fontSize="8" fontFamily={FONT}>OB ZONE</text>
+      {/* candles */}
+      {candles.map(([x, top, bH, wH, bull], i) => (
+        <g key={i}>
+          <line x1={x + 10} y1={top - (wH - bH) / 2} x2={x + 10} y2={top + bH + (wH - bH) / 2} stroke={bull ? D.bull : D.bear} strokeWidth="1.5" />
+          <rect x={x} y={top} width="20" height={bH} fill={bull ? D.bull : D.bear} rx="1" />
+        </g>
+      ))}
+      {/* annotations */}
+      <text x="90" y="140" fill={D.amber} fontSize="9" fontFamily={FONT} fontWeight="bold">ORDER BLOCK</text>
+      <text x="90" y="150" fill={D.textSec} fontSize="8" fontFamily={FONT}>Last bearish before impulse</text>
+      {/* retest arrow */}
+      <text x="235" y="145" fill={D.cyan} fontSize="9" fontFamily={FONT} textAnchor="middle">RETEST</text>
+      <line x1="235" y1="140" x2="235" y2="122" stroke={D.cyan} strokeDasharray="2" opacity="0.5" />
+      {/* entry label */}
+      <text x="295" y="32" fill={D.bull} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">ENTRY</text>
+      <text x="295" y="165" fill={D.muted} fontSize="8" fontFamily={FONT} textAnchor="middle">Price returns to OB zone → institutions defend → bounce</text>
+    </svg>
+  );
+}
+
+/* ── 10. Fair Value Gap ── */
+function FVGDiagram() {
+  return (
+    <svg viewBox="0 0 400 170" width="100%" role="img" aria-label="Fair Value Gap — 3-candle imbalance pattern">
+      <rect width="400" height="170" fill={D.bg} rx="6" />
+      {/* Candle 1 */}
+      <line x1="60" y1="80" x2="60" y2="130" stroke={D.bull} strokeWidth="1.5" />
+      <rect x="50" y="90" width="20" height="30" fill={D.bull} rx="1" />
+      <text x="60" y="145" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">C1</text>
+      {/* Candle 2 (large impulse) */}
+      <line x1="110" y1="25" x2="110" y2="120" stroke={D.bull} strokeWidth="1.5" />
+      <rect x="100" y="35" width="20" height="75" fill={D.bull} rx="1" />
+      <text x="110" y="145" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">C2</text>
+      {/* Candle 3 */}
+      <line x1="160" y1="20" x2="160" y2="75" stroke={D.bull} strokeWidth="1.5" />
+      <rect x="150" y="30" width="20" height="35" fill={D.bull} rx="1" />
+      <text x="160" y="145" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">C3</text>
+      {/* FVG zone: C1 high to C3 low */}
+      <rect x="45" y="65" width="140" height="25" fill={D.cyan} opacity="0.15" stroke={D.cyan} strokeDasharray="3" strokeWidth="1" rx="2" />
+      {/* labels for gap */}
+      <line x1="185" y1="65" x2="220" y2="65" stroke={D.cyan} strokeDasharray="2" />
+      <text x="225" y="63" fill={D.cyan} fontSize="8" fontFamily={FONT}>C3 Low</text>
+      <line x1="185" y1="90" x2="220" y2="90" stroke={D.cyan} strokeDasharray="2" />
+      <text x="225" y="88" fill={D.cyan} fontSize="8" fontFamily={FONT}>C1 High</text>
+      <text x="225" y="78" fill={D.cyan} fontSize="9" fontFamily={FONT} fontWeight="bold">FVG</text>
+      {/* divider */}
+      <line x1="280" y1="15" x2="280" y2="155" stroke={D.border} strokeDasharray="4" />
+      {/* fill scenario */}
+      <text x="340" y="18" fill={D.textSec} fontSize="9" fontFamily={FONT} textAnchor="middle">PRICE FILLS GAP</text>
+      {/* price line returning */}
+      <polyline points="290,35 310,40 325,50 340,65 345,78 340,70 335,55 330,45" fill="none" stroke={D.text} strokeWidth="2" />
+      <rect x="295" y="65" width="80" height="25" fill={D.cyan} opacity="0.1" stroke={D.cyan} strokeDasharray="3" strokeWidth="1" rx="2" />
+      <circle cx="340" cy="78" r="4" fill={D.bull} />
+      <text x="340" y="108" fill={D.bull} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">REVERSAL</text>
+      <text x="200" y="165" fill={D.muted} fontSize="8" fontFamily={FONT} textAnchor="middle">Gap between C1 high and C3 low — price returns to fill it</text>
+    </svg>
+  );
+}
+
+/* ── 11. BoS vs ChoCH ── */
+function BoSChoCHDiagram() {
+  return (
+    <svg viewBox="0 0 420 170" width="100%" role="img" aria-label="Break of Structure (continuation) vs Change of Character (reversal)">
+      <rect width="420" height="170" fill={D.bg} rx="6" />
+      {/* BoS — left */}
+      <text x="105" y="16" fill={D.bull} fontSize="10" fontFamily={FONT} textAnchor="middle" fontWeight="bold">BoS (Continuation)</text>
+      {/* uptrend zigzag */}
+      <polyline points="20,130 50,100 70,115 100,80 120,95 150,55 170,70" fill="none" stroke={D.text} strokeWidth="2" />
+      {/* swing high level */}
+      <line x1="85" y1="80" x2="175" y2="80" stroke={D.bull} strokeDasharray="3" />
+      <text x="178" y="83" fill={D.bull} fontSize="8" fontFamily={FONT}>Swing High</text>
+      {/* break circle */}
+      <circle cx="150" cy="55" r="5" fill={D.bull} />
+      <text x="150" y="45" fill={D.bull} fontSize="9" fontFamily={FONT} textAnchor="middle">BoS</text>
+      {/* HH/HL labels */}
+      <text x="100" y="74" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">HH</text>
+      <text x="70" y="128" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">HL</text>
+      <text x="150" y="48" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle" dy="-8">HH</text>
+      <text x="105" y="150" fill={D.bull} fontSize="9" fontFamily={FONT} textAnchor="middle">Trend continues ↑</text>
+      {/* divider */}
+      <line x1="210" y1="10" x2="210" y2="160" stroke={D.border} strokeDasharray="4" />
+      {/* ChoCH — right */}
+      <text x="315" y="16" fill={D.bear} fontSize="10" fontFamily={FONT} textAnchor="middle" fontWeight="bold">ChoCH (Reversal)</text>
+      {/* uptrend then fail */}
+      <polyline points="225,120 255,85 275,100 305,65 325,80 340,95 370,115 395,135" fill="none" stroke={D.text} strokeWidth="2" />
+      {/* swing low level */}
+      <line x1="260" y1="100" x2="400" y2="100" stroke={D.bear} strokeDasharray="3" />
+      <text x="258" y="108" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="end">Swing Low</text>
+      {/* break point */}
+      <circle cx="355" cy="100" r="5" fill={D.bear} />
+      <text x="355" y="90" fill={D.bear} fontSize="9" fontFamily={FONT} textAnchor="middle">ChoCH</text>
+      <text x="315" y="150" fill={D.bear} fontSize="9" fontFamily={FONT} textAnchor="middle">Trend reverses ↓</text>
+    </svg>
+  );
+}
+
+/* ── 12. Supply & Demand Zones ── */
+function SupplyDemandZones() {
+  return (
+    <svg viewBox="0 0 400 170" width="100%" role="img" aria-label="Supply and Demand zones with price reaction">
+      <rect width="400" height="170" fill={D.bg} rx="6" />
+      {/* Supply zone (top) */}
+      <rect x="20" y="15" width="360" height="25" fill={D.bear} opacity="0.1" rx="2" />
+      <line x1="20" y1="15" x2="380" y2="15" stroke={D.bear} opacity="0.3" />
+      <line x1="20" y1="40" x2="380" y2="40" stroke={D.bear} opacity="0.3" />
+      <text x="385" y="32" fill={D.bear} fontSize="8" fontFamily={FONT}>SUPPLY</text>
+      {/* Demand zone (bottom) */}
+      <rect x="20" y="130" width="360" height="25" fill={D.bull} opacity="0.1" rx="2" />
+      <line x1="20" y1="130" x2="380" y2="130" stroke={D.bull} opacity="0.3" />
+      <line x1="20" y1="155" x2="380" y2="155" stroke={D.bull} opacity="0.3" />
+      <text x="385" y="147" fill={D.bull} fontSize="8" fontFamily={FONT}>DEMAND</text>
+      {/* price action */}
+      <polyline points="30,85 60,70 90,55 110,35 125,42 140,60 170,80 200,100 230,120 255,135 270,128 290,110 320,85 350,70 370,55" fill="none" stroke={D.text} strokeWidth="2" />
+      {/* rejection at supply */}
+      <circle cx="110" cy="35" r="4" fill={D.bear} />
+      <text x="110" y="55" fill={D.bear} fontSize="8" fontFamily={FONT} textAnchor="middle">Sell pressure</text>
+      {/* bounce at demand */}
+      <circle cx="255" cy="135" r="4" fill={D.bull} />
+      <text x="255" y="122" fill={D.bull} fontSize="8" fontFamily={FONT} textAnchor="middle">Buy pressure</text>
+      {/* arrows */}
+      <text x="140" y="92" fill={D.bear} fontSize="14" fontFamily={FONT}>↓</text>
+      <text x="290" y="100" fill={D.bull} fontSize="14" fontFamily={FONT}>↑</text>
+      <text x="200" y="167" fill={D.muted} fontSize="8" fontFamily={FONT} textAnchor="middle">Price rejects at Supply, bounces at Demand</text>
+    </svg>
+  );
+}
+
+/* ── 13. Heatmap Example ── */
+function HeatmapExample() {
+  const rows = 8, cols = 14;
+  const heat = [
+    [0,0,1,1,0,0,0,1,0,0,0,0,0,0],
+    [0,1,2,2,1,0,0,1,1,0,0,0,0,0],
+    [1,2,3,4,2,1,0,1,2,1,0,0,0,0],
+    [0,2,4,5,4,2,1,0,1,2,3,2,1,0],
+    [0,1,3,4,3,1,0,0,0,1,4,5,3,1],
+    [0,0,2,2,1,0,0,0,0,0,2,3,2,0],
+    [0,0,0,1,0,0,0,0,0,0,1,2,1,0],
+    [0,0,0,0,0,0,0,0,0,0,0,1,0,0],
+  ];
+  const colors = ["transparent", "#3b0764", "#7e22ce", "#dc2626", "#f59e0b", "#fbbf24"];
+  return (
+    <svg viewBox="0 0 400 145" width="100%" role="img" aria-label="Stop-loss heatmap showing stop cluster density">
+      <rect width="400" height="145" fill={D.bg} rx="6" />
+      {/* grid */}
+      {heat.map((row, r) => row.map((v, c) => (
+        <rect key={`${r}-${c}`} x={40 + c * 22} y={10 + r * 14} width="21" height="13" fill={colors[v]} opacity={v === 0 ? 0 : 0.7} rx="1" />
+      )))}
+      {/* price axis */}
+      {["2,680","2,675","2,670","2,665","2,660","2,655","2,650","2,645"].map((p,i) => (
+        <text key={i} x="5" y={20 + i * 14} fill={D.muted} fontSize="7" fontFamily={FONT}>{p}</text>
+      ))}
+      {/* hot spot annotation */}
+      <circle cx={40 + 3 * 22 + 10} cy={10 + 3 * 14 + 7} r="10" fill="none" stroke={D.amber} strokeWidth="1.5" strokeDasharray="3" />
+      <text x={40 + 3 * 22 + 10} y={10 + 3 * 14 - 6} fill={D.amber} fontSize="8" fontFamily={FONT} textAnchor="middle">Stop cluster</text>
+      {/* legend */}
+      <text x="360" y="22" fill={D.textSec} fontSize="8" fontFamily={FONT}>HIGH</text>
+      {[5,4,3,2,1].map((v,i) => (
+        <rect key={v} x="360" y={28 + i * 12} width="18" height="10" fill={colors[v]} opacity="0.7" rx="1" />
+      ))}
+      <text x="360" y="96" fill={D.textSec} fontSize="8" fontFamily={FONT}>LOW</text>
+      <text x="200" y="140" fill={D.muted} fontSize="8" fontFamily={FONT} textAnchor="middle">Bright zones = stop-loss clusters — institutional hunt targets</text>
+    </svg>
+  );
+}
+
+/* ── 14. Risk:Reward Diagram ── */
+function RiskRewardDiagram() {
+  return (
+    <svg viewBox="0 0 400 170" width="100%" role="img" aria-label="Risk:Reward ratio showing entry, stop loss, and take profit levels">
+      <rect width="400" height="170" fill={D.bg} rx="6" />
+      {/* reward zone */}
+      <rect x="40" y="20" width="220" height="55" fill={D.bull} opacity="0.08" rx="2" />
+      {/* risk zone */}
+      <rect x="40" y="95" width="220" height="40" fill={D.bear} opacity="0.08" rx="2" />
+      {/* TP line */}
+      <line x1="40" y1="20" x2="260" y2="20" stroke={D.bull} strokeWidth="2" strokeDasharray="5" />
+      <text x="270" y="24" fill={D.bull} fontSize="10" fontFamily={FONT} fontWeight="bold">TP — $2,660</text>
+      {/* Entry line */}
+      <line x1="40" y1="75" x2="260" y2="75" stroke={D.cyan} strokeWidth="2" />
+      <text x="270" y="79" fill={D.cyan} fontSize="10" fontFamily={FONT} fontWeight="bold">ENTRY — $2,640</text>
+      {/* SL line */}
+      <line x1="40" y1="135" x2="260" y2="135" stroke={D.bear} strokeWidth="2" strokeDasharray="5" />
+      <text x="270" y="139" fill={D.bear} fontSize="10" fontFamily={FONT} fontWeight="bold">SL — $2,630</text>
+      {/* reward bracket */}
+      <line x1="30" y1="22" x2="30" y2="73" stroke={D.bull} strokeWidth="1.5" />
+      <line x1="25" y1="22" x2="35" y2="22" stroke={D.bull} strokeWidth="1.5" />
+      <line x1="25" y1="73" x2="35" y2="73" stroke={D.bull} strokeWidth="1.5" />
+      <text x="18" y="52" fill={D.bull} fontSize="9" fontFamily={FONT} textAnchor="middle" transform="rotate(-90, 18, 52)">+$20</text>
+      {/* risk bracket */}
+      <line x1="30" y1="77" x2="30" y2="133" stroke={D.bear} strokeWidth="1.5" />
+      <line x1="25" y1="77" x2="35" y2="77" stroke={D.bear} strokeWidth="1.5" />
+      <line x1="25" y1="133" x2="35" y2="133" stroke={D.bear} strokeWidth="1.5" />
+      <text x="18" y="108" fill={D.bear} fontSize="9" fontFamily={FONT} textAnchor="middle" transform="rotate(-90, 18, 108)">-$10</text>
+      {/* R:R label */}
+      <rect x="130" y="148" width="140" height="20" fill={D.amber} opacity="0.15" rx="10" stroke={D.amber} strokeWidth="1" />
+      <text x="200" y="162" fill={D.amber} fontSize="11" fontFamily={FONT} textAnchor="middle" fontWeight="bold">R:R = 1:2</text>
+      <text x="80" y="162" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">Win 40% → Profit</text>
+    </svg>
+  );
+}
+
+/* ── Example Diagram Renderer ── */
+const EXAMPLE_COMPONENTS: Record<string, React.FC> = {
+  "candlestick-anatomy": CandlestickDiagram,
+  "session-bands": SessionBands,
+  "ma-cross": MovingAverageCross,
+  "rsi-zones": RSIZones,
+  "macd-example": MACDExample,
+  "bollinger-bands": BollingerBandsDiagram,
+  "volume-spike": VolumeSpike,
+  "volume-profile": VolumeProfileDiagram,
+  "order-block": OrderBlockDiagram,
+  "fvg": FVGDiagram,
+  "bos-choch": BoSChoCHDiagram,
+  "supply-demand": SupplyDemandZones,
+  "heatmap-example": HeatmapExample,
+  "risk-reward": RiskRewardDiagram,
+};
+
+function ExampleDiagram({ exampleKey }: { exampleKey: string }) {
+  const Component = EXAMPLE_COMPONENTS[exampleKey];
+  if (!Component) return null;
+  return (
+    <div className="mt-3 mb-2 rounded-md overflow-hidden border" style={{
+      borderColor: "var(--color-border-primary)",
+      backgroundColor: "color-mix(in srgb, var(--color-bg-card) 80%, transparent)",
+    }}>
+      <Component />
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════
    COMPONENTS
    ═══════════════════════════════════════════════════════ */
 
@@ -552,6 +1112,7 @@ function SubSectionCard({ section }: { section: SubSection }) {
       <p className="text-[12px] leading-[1.7] text-[var(--color-text-secondary)] pl-5">
         {section.content}
       </p>
+      {section.example && <div className="pl-5"><ExampleDiagram exampleKey={section.example} /></div>}
       {section.tip && <div className="pl-5"><ProTip text={section.tip} /></div>}
       {section.warning && <div className="pl-5"><Warning text={section.warning} /></div>}
     </div>
