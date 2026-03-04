@@ -444,24 +444,24 @@ export default function Header() {
               )}
             </div>
 
-            {/* Active price */}
-            <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm font-mono bg-[var(--color-bg-hover)]/50 min-h-[36px]">
-              <span className="text-[var(--color-text-primary)] tabular-nums font-semibold">
-                {live ? formatPrice(live.price, activeSymbol) : "—"}
-              </span>
-              <span className={`text-xs tabular-nums font-medium ${priceColor(live?.change ?? 0)}`}>
-                {live ? formatChange(live.change) : ""}
-              </span>
-              {live && (
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-neon-green)] animate-pulse" />
-              )}
-            </div>
           </div>
 
-          {/* LIVE badge */}
-          <div className="flex items-center gap-1.5 ml-2 shrink-0">
-            <div className="w-2 h-2 rounded-full bg-[var(--color-neon-green)] pulse-live" />
-            <span className="text-xs font-bold text-[var(--color-text-muted)]">LIVE</span>
+          {/* LIVE badge + Price */}
+          <div className="flex items-center gap-2 ml-auto shrink-0">
+            <div className="flex items-center gap-1.5">
+              <div className="w-2 h-2 rounded-full bg-[var(--color-neon-green)] pulse-live" />
+              <span className="text-xs font-bold text-[var(--color-text-muted)]">LIVE</span>
+            </div>
+            {live && (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-sm font-mono bg-[var(--color-bg-hover)]/50">
+                <span className="text-[var(--color-text-primary)] tabular-nums font-semibold">
+                  {formatPrice(live.price, activeSymbol)}
+                </span>
+                <span className={`text-xs tabular-nums font-medium ${priceColor(live.change)}`}>
+                  {formatChange(live.change)}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -562,17 +562,6 @@ export default function Header() {
             )}
           </div>
 
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded text-[12px] font-mono bg-[var(--color-bg-hover)]/50">
-            <span className="text-[var(--color-text-secondary)] tabular-nums">
-              {live ? formatPrice(live.price, activeSymbol) : "—"}
-            </span>
-            <span className={`text-[11px] tabular-nums ${priceColor(live?.change ?? 0)}`}>
-              {live ? formatChange(live.change) : ""}
-            </span>
-            {live && (
-              <span className="w-1 h-1 rounded-full bg-[var(--color-neon-green)] animate-pulse" />
-            )}
-          </div>
         </div>
 
         {/* Right — community + status + user */}
@@ -631,6 +620,16 @@ export default function Header() {
             <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-neon-green)] pulse-live" />
             <span className="text-[11px] text-[var(--color-text-muted)]">LIVE</span>
           </div>
+          {live && (
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded text-[12px] font-mono bg-[var(--color-bg-hover)]/50">
+              <span className="text-[var(--color-text-primary)] tabular-nums font-semibold">
+                {formatPrice(live.price, activeSymbol)}
+              </span>
+              <span className={`text-[11px] tabular-nums ${priceColor(live.change)}`}>
+                {formatChange(live.change)}
+              </span>
+            </div>
+          )}
           <span className="text-[11px] text-[var(--color-text-muted)] font-mono tabular-nums">
             {clock ? clock.toLocaleTimeString("en-US", { hour12: false }) : "--:--:--"}
           </span>
