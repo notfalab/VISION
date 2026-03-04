@@ -88,6 +88,8 @@ class Settings(BaseSettings):
     massive_api_key: str = ""
     cryptocompare_api_key: str = ""
     coinglass_api_key: str = ""  # Liquidation heatmaps (free tier available)
+    myfxbook_email: str = ""  # MyFxBook community outlook (free forex positioning data)
+    myfxbook_password: str = ""
 
     # Alerts
     sendgrid_api_key: str = ""

@@ -224,6 +224,7 @@ async def lifespan(app: FastAPI):
     from backend.app.data.oanda_adapter import OandaAdapter
     from backend.app.data.massive_adapter import MassiveAdapter
     from backend.app.data.cryptocompare_adapter import CryptoCompareAdapter
+    from backend.app.data.myfxbook_adapter import MyFxBookAdapter
 
     data_registry.register(BinanceAdapter())
     data_registry.register(GoldAPIAdapter())
@@ -231,6 +232,7 @@ async def lifespan(app: FastAPI):
     data_registry.register(OandaAdapter())
     data_registry.register(MassiveAdapter())
     data_registry.register(CryptoCompareAdapter())
+    data_registry.register(MyFxBookAdapter())
 
     # Route gold/silver to OANDA (accurate intraday + real-time data)
     # Massive API returns daily-level data even when 5m is requested for C:XAUUSD
@@ -261,11 +263,12 @@ async def lifespan(app: FastAPI):
     data_registry.set_orderbook_route("XAUUSD", "binance")
     data_registry.set_orderbook_route("XAGUSD", "binance")
 
-    # Forex orderbook → OANDA (when API key has orderbook permissions)
-    # Currently returns 404 if OANDA practice key lacks access
+    # Forex orderbook → MyFxBook (real trader positioning from verified accounts)
+    # OANDA orderBook requires premium API key (401 on practice accounts)
+    # MyFxBook Community Outlook provides: % long/short, volumes, avg prices
     for pair in ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD",
                  "EURGBP", "EURJPY", "GBPJPY"]:
-        data_registry.set_orderbook_route(pair, "oanda")
+        data_registry.set_orderbook_route(pair, "myfxbook")
 
     for pair in ["ETHBTC", "XRPUSD"]:
         data_registry.set_route(pair, "cryptocompare")
@@ -395,7 +398,8 @@ def create_app() -> FastAPI:
         test_cases = {
             "binance_BTCUSD": ("binance", "BTCUSD"),
             "binance_XAUUSD": ("binance", "XAUUSD"),
-            "oanda_EURUSD": ("oanda", "EURUSD"),
+            "myfxbook_EURUSD": ("myfxbook", "EURUSD"),
+            "myfxbook_USDJPY": ("myfxbook", "USDJPY"),
         }
         for label, (adapter_name, sym) in test_cases.items():
             try:
