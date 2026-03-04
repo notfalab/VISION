@@ -197,4 +197,26 @@ export const api = {
       crypto_fear_greed: null, market_fear_greed: null,
       news_sentiment: null,
     }),
+
+  // ── Premium Features ──
+
+  // AI Market Narrator
+  narrator: (symbol: string, timeframe = "1d") =>
+    fetchAPISafe<any>(`/api/v1/narrator/${symbol}?timeframe=${timeframe}`, null),
+
+  // Volume Profile (VAH/VAL/POC)
+  volumeProfile: (symbol: string, timeframe = "1d", limit = 200, buckets = 50) =>
+    fetchAPISafe<any>(`/api/v1/prices/${symbol}/volume-profile?timeframe=${timeframe}&limit=${limit}&buckets=${buckets}`, null),
+
+  // Predictive Volatility
+  volatilityForecast: (symbol: string, timeframe = "1d") =>
+    fetchAPISafe<any>(`/api/v1/ml/${symbol}/volatility?timeframe=${timeframe}`, null),
+
+  // Institutional vs Retail Divergence
+  divergence: (symbol: string) =>
+    fetchAPISafe<any>(`/api/v1/divergence/${symbol}`, null),
+
+  // Predictive Liquidity Heatmap
+  liquidityForecast: (symbol: string, timeframe = "1h", limit = 200) =>
+    fetchAPISafe<any>(`/api/v1/prices/${symbol}/liquidity-forecast?timeframe=${timeframe}&limit=${limit}`, null),
 };

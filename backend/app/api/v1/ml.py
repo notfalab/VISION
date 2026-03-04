@@ -123,6 +123,28 @@ async def train_model(
     }
 
 
+@router.get("/{symbol}/volatility")
+async def volatility_forecast(
+    symbol: str,
+    timeframe: str = Query("1d"),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Predictive Volatility Dashboard — EWMA forecast, regime classification,
+    term structure, and implied move range.
+    """
+    from backend.app.core.ml.volatility import calculate_volatility_forecast
+
+    df = await _get_ohlcv_df(db, symbol, timeframe, limit=500)
+    result = calculate_volatility_forecast(df)
+
+    return {
+        "symbol": symbol.upper(),
+        "timeframe": timeframe,
+        **result,
+    }
+
+
 @router.get("/{symbol}/orderflow")
 async def order_flow(
     symbol: str,

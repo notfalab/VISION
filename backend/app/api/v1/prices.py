@@ -1004,3 +1004,118 @@ async def get_liquidation_heatmap(
     grid["symbol"] = symbol.upper()
     grid["timeframe"] = timeframe
     return grid
+
+
+# ── Volume Profile ─────────────────────────────────────────────
+
+
+@router.get("/{symbol}/volume-profile")
+async def get_volume_profile(
+    symbol: str,
+    timeframe: str = Query("1d"),
+    limit: int = Query(200, ge=20, le=2000),
+    buckets: int = Query(50, ge=10, le=200),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Volume Profile — price-bucketed volume distribution with POC, VAH, VAL.
+    Shows where most trading volume occurred across price levels.
+    """
+    import pandas as pd
+    from backend.app.core.indicators.volume_profile import calculate_volume_profile
+
+    result = await db.execute(select(Asset).where(Asset.symbol == symbol.upper()))
+    asset = result.scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail=f"Asset {symbol} not found")
+
+    try:
+        tf = Timeframe(timeframe)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid timeframe: {timeframe}")
+
+    rows = await db.execute(
+        select(OHLCVData)
+        .where(OHLCVData.asset_id == asset.id, OHLCVData.timeframe == tf)
+        .order_by(OHLCVData.timestamp.desc())
+        .limit(limit)
+    )
+    ohlcv = list(rows.scalars().all())
+
+    if len(ohlcv) < 10:
+        raise HTTPException(status_code=404, detail=f"Not enough data for {symbol} {timeframe}")
+
+    df = pd.DataFrame([{
+        "open": float(r.open), "high": float(r.high),
+        "low": float(r.low), "close": float(r.close),
+        "volume": float(r.volume),
+    } for r in reversed(ohlcv)])
+
+    profile = calculate_volume_profile(df, n_buckets=buckets)
+    profile["symbol"] = symbol.upper()
+    profile["timeframe"] = timeframe
+    return profile
+
+
+# ── Liquidity Forecast ─────────────────────────────────────────
+
+
+@router.get("/{symbol}/liquidity-forecast")
+async def get_liquidity_forecast(
+    symbol: str,
+    timeframe: str = Query("1h"),
+    limit: int = Query(200, ge=50, le=500),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Predictive Liquidity Heatmap — predicts where future liquidity clusters
+    will form based on swing analysis, ATR stops, round numbers, and orderbook.
+    """
+    import pandas as pd
+    from backend.app.core.ml.liquidity_predictor import calculate_liquidity_forecast
+
+    result = await db.execute(select(Asset).where(Asset.symbol == symbol.upper()))
+    asset = result.scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail=f"Asset {symbol} not found")
+
+    try:
+        tf = Timeframe(timeframe)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid timeframe: {timeframe}")
+
+    rows = await db.execute(
+        select(OHLCVData)
+        .where(OHLCVData.asset_id == asset.id, OHLCVData.timeframe == tf)
+        .order_by(OHLCVData.timestamp.desc())
+        .limit(limit)
+    )
+    ohlcv = list(rows.scalars().all())
+
+    if len(ohlcv) < 20:
+        raise HTTPException(status_code=404, detail=f"Not enough data for {symbol} {timeframe}")
+
+    df = pd.DataFrame([{
+        "timestamp": r.timestamp,
+        "open": float(r.open), "high": float(r.high),
+        "low": float(r.low), "close": float(r.close),
+        "volume": float(r.volume),
+    } for r in reversed(ohlcv)])
+
+    # Get orderbook data if available
+    ob_data = None
+    try:
+        from backend.app.data.registry import data_registry
+        ob = await data_registry.fetch_real_orderbook(symbol, 100)
+        if ob and ob.bids and ob.asks:
+            ob_data = {
+                "bids": [{"price": l.price, "quantity": l.quantity} for l in ob.bids],
+                "asks": [{"price": l.price, "quantity": l.quantity} for l in ob.asks],
+            }
+    except Exception:
+        pass
+
+    forecast = calculate_liquidity_forecast(df, orderbook_data=ob_data)
+    forecast["symbol"] = symbol.upper()
+    forecast["timeframe"] = timeframe
+    return forecast

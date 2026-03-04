@@ -31,6 +31,11 @@ const GoldMacro = dynamic(() => import("@/components/widgets/GoldMacro"), { ssr:
 const COTReport = dynamic(() => import("@/components/widgets/COTReport"), { ssr: false });
 const EconomicCalendar = dynamic(() => import("@/components/widgets/EconomicCalendar"), { ssr: false });
 const NewsSentiment = dynamic(() => import("@/components/widgets/NewsSentiment"), { ssr: false });
+const MarketNarrator = dynamic(() => import("@/components/widgets/MarketNarrator"), { ssr: false });
+const VolumeProfileWidget = dynamic(() => import("@/components/widgets/VolumeProfileWidget"), { ssr: false });
+const VolatilityForecast = dynamic(() => import("@/components/widgets/VolatilityForecast"), { ssr: false });
+const DivergenceWidget = dynamic(() => import("@/components/widgets/DivergenceWidget"), { ssr: false });
+const LiquidityForecast = dynamic(() => import("@/components/widgets/LiquidityForecast"), { ssr: false });
 
 const COMMUNITY_KEY = "vision_community_joined";
 
@@ -109,6 +114,11 @@ function DashboardContent() {
               {/* Priority 1: Loads immediately (core trading widget) */}
               <ErrorBoundary><ScalperMode /></ErrorBoundary>
 
+              {/* Priority 1.5: AI Narrator — loads early for immediate context */}
+              <LazyWidget delay={300}>
+                <ErrorBoundary><MarketNarrator /></ErrorBoundary>
+              </LazyWidget>
+
               {/* Priority 2: Loads after 500ms + when visible */}
               <LazyWidget delay={500}>
                 <ErrorBoundary><PerformanceDashboard /></ErrorBoundary>
@@ -120,6 +130,14 @@ function DashboardContent() {
                 <ErrorBoundary><TradeScore /></ErrorBoundary>
               </LazyWidget>
 
+              {/* Priority 2.5: Volume Profile + Divergence */}
+              <LazyWidget delay={700}>
+                <ErrorBoundary><VolumeProfileWidget /></ErrorBoundary>
+              </LazyWidget>
+              <LazyWidget delay={700}>
+                <ErrorBoundary><DivergenceWidget /></ErrorBoundary>
+              </LazyWidget>
+
               {/* Priority 3: Calendar + Sentiment */}
               <LazyWidget delay={1000}>
                 <ErrorBoundary><EconomicCalendar /></ErrorBoundary>
@@ -128,7 +146,10 @@ function DashboardContent() {
                 <ErrorBoundary><NewsSentiment /></ErrorBoundary>
               </LazyWidget>
 
-              {/* Priority 3.5: Heatmap + ML */}
+              {/* Priority 3.5: Volatility + ML + Flow */}
+              <LazyWidget delay={1200}>
+                <ErrorBoundary><VolatilityForecast /></ErrorBoundary>
+              </LazyWidget>
               <LazyWidget delay={1500}>
                 <ErrorBoundary><CurrencyHeatmap /></ErrorBoundary>
               </LazyWidget>
@@ -149,6 +170,11 @@ function DashboardContent() {
                   <ErrorBoundary><LiquidationWidget /></ErrorBoundary>
                 </LazyWidget>
               )}
+
+              {/* Priority 3.8: Liquidity Forecast */}
+              <LazyWidget delay={1500}>
+                <ErrorBoundary><LiquidityForecast /></ErrorBoundary>
+              </LazyWidget>
 
               {/* Priority 4: Loads after 2s + when visible */}
               <LazyWidget delay={2000}>
