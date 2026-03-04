@@ -732,8 +732,9 @@ async def get_mbo_profile(
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"MBO profile failed: {str(e)}")
 
-    # Bucket size: adaptive to price magnitude (~0.02% of price)
-    bucket_size = current_price * 0.0002
+    # Bucket size: adaptive to price magnitude (~0.15% of price)
+    # Larger buckets → fewer levels → clearly visible bars on the chart
+    bucket_size = current_price * 0.0015
     mag = 10 ** math.floor(math.log10(max(bucket_size, 1e-10)))
     bucket_size = max(round(bucket_size / mag) * mag, mag)
 

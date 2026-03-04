@@ -39,12 +39,18 @@ export interface MBOProfileData {
   bucket_size: number;
 }
 
-/* ── Colors by segment ── */
-const MBO_SEGMENT_COLORS: Record<string, string> = {
-  institutional: "rgba(236, 72, 153, 0.80)",  // bright pink
-  large:         "rgba(219, 39, 119, 0.65)",   // magenta
-  medium:        "rgba(168, 85, 247, 0.50)",   // purple
-  small:         "rgba(139, 92, 246, 0.30)",   // faded violet
+/* ── Colors by segment and side ── */
+const BID_SEGMENT_COLORS: Record<string, string> = {
+  institutional: "rgba(16, 185, 129, 0.85)",   // bright green
+  large:         "rgba(16, 185, 129, 0.65)",   // green
+  medium:        "rgba(16, 185, 129, 0.45)",   // muted green
+  small:         "rgba(16, 185, 129, 0.25)",   // faded green
+};
+const ASK_SEGMENT_COLORS: Record<string, string> = {
+  institutional: "rgba(239, 68, 68, 0.85)",    // bright red
+  large:         "rgba(239, 68, 68, 0.65)",    // red
+  medium:        "rgba(239, 68, 68, 0.45)",    // muted red
+  small:         "rgba(239, 68, 68, 0.25)",    // faded red
 };
 
 /* ── Bar info for rendering ── */
@@ -76,31 +82,29 @@ class MBOProfileRenderer implements IPrimitivePaneRenderer {
 
     target.useMediaCoordinateSpace(({ context: ctx, mediaSize }) => {
       const rightEdge = mediaSize.width;
+      const barH = Math.max(1, this._bars[0]?.h ?? 4);
 
       for (const bar of this._bars) {
         const x = rightEdge - bar.width;
+        const h = Math.max(2, bar.h - 1); // 1px gap between bars
 
-        // Fill bar
+        // Fill bar with rounded right edge
         ctx.fillStyle = bar.color;
-        ctx.fillRect(x, bar.y, bar.width, Math.max(1, bar.h));
-
-        // Thin border
-        ctx.strokeStyle = bar.side === "bid"
-          ? "rgba(16, 185, 129, 0.25)"
-          : "rgba(239, 68, 68, 0.25)";
-        ctx.lineWidth = 0.5;
-        ctx.strokeRect(x, bar.y, bar.width, Math.max(1, bar.h));
+        ctx.beginPath();
+        const r = Math.min(2, h / 2);
+        ctx.roundRect(x, bar.y, bar.width, h, [r, 0, 0, r]);
+        ctx.fill();
 
         // Order count number when bar is wide enough
-        if (bar.width > 25 && bar.h >= 8) {
-          ctx.font = "bold 8px JetBrains Mono, monospace";
-          ctx.fillStyle = "rgba(255,255,255,0.85)";
+        if (bar.width > 30 && h >= 8) {
+          ctx.font = "bold 9px JetBrains Mono, monospace";
+          ctx.fillStyle = "rgba(255,255,255,0.9)";
           ctx.textAlign = "right";
           ctx.textBaseline = "middle";
           ctx.fillText(
             `${bar.orders}`,
-            rightEdge - 3,
-            bar.y + bar.h / 2,
+            rightEdge - 4,
+            bar.y + h / 2,
           );
         }
       }
@@ -122,43 +126,47 @@ class MBOProfileView implements IPrimitivePaneView {
   }
 
   renderer(): IPrimitivePaneRenderer | null {
-    const { _series, _data, _visible, _chart } = this._source;
-    if (!_visible || !_data || !_series || !_chart) {
+    const { _series, _data, _visible } = this._source;
+    if (!_visible || !_data || !_series) {
       this._renderer.setBars([], 0);
       return this._renderer;
     }
 
     const bars: Bar[] = [];
-    const maxBarWidth = 150; // max pixels width for bars
+    const maxBarWidth = 200; // max pixels width for largest bar
 
-    // Cell height from bucket_size
-    let cellHeight = 2;
+    // Cell height from bucket_size — enforce minimum 4px for visibility
+    let cellHeight = 4;
     if (_data.bucket_size > 0) {
       const y1 = _series.priceToCoordinate(_data.current_price);
       const y2 = _series.priceToCoordinate(
         _data.current_price + _data.bucket_size,
       );
       if (y1 !== null && y2 !== null) {
-        cellHeight = Math.max(1, Math.abs(y2 - y1));
+        cellHeight = Math.max(4, Math.abs(y2 - y1));
       }
     }
 
     const halfH = cellHeight / 2;
     const maxVol = _data.max_volume || 1;
+    const minBarWidth = 6; // minimum bar width so small levels are still visible
 
     const processLevels = (levels: MBOLevel[]) => {
       for (const level of levels) {
         const y = _series!.priceToCoordinate(level.price);
         if (y === null) continue;
 
-        const barWidth = (level.volume / maxVol) * maxBarWidth;
+        // Sqrt scaling — makes small bars more visible vs. linear
+        const ratio = level.volume / maxVol;
+        const barWidth = Math.sqrt(ratio) * maxBarWidth;
         if (barWidth < 1) continue;
 
+        const palette = level.side === "bid" ? BID_SEGMENT_COLORS : ASK_SEGMENT_COLORS;
         bars.push({
           y: y - halfH,
           h: cellHeight,
-          width: barWidth,
-          color: MBO_SEGMENT_COLORS[level.segment] || MBO_SEGMENT_COLORS.small,
+          width: Math.max(minBarWidth, barWidth),
+          color: palette[level.segment] || palette.small,
           orders: level.orders,
           side: level.side,
         });
@@ -176,7 +184,6 @@ class MBOProfileView implements IPrimitivePaneView {
 /* ── Primitive ── */
 export class MBOProfilePrimitive implements ISeriesPrimitive<Time> {
   _series: ISeriesApi<SeriesType, Time> | null = null;
-  _chart: any = null;
   _data: MBOProfileData | null = null;
   _visible = false;
 
@@ -188,13 +195,11 @@ export class MBOProfilePrimitive implements ISeriesPrimitive<Time> {
 
   attached(param: SeriesAttachedParameter<Time, SeriesType>): void {
     this._series = param.series;
-    this._chart = param.chart;
     this._requestUpdate = param.requestUpdate;
   }
 
   detached(): void {
     this._series = null;
-    this._chart = null;
     this._requestUpdate = null;
   }
 
