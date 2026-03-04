@@ -1,17 +1,17 @@
 @import "tailwindcss";
 
 @theme {
-  /* Bloomberg Terminal-inspired dark palette */
-  --color-bg-primary: #0a0e17;
-  --color-bg-secondary: #111827;
-  --color-bg-card: #151c2c;
-  --color-bg-elevated: #1a2236;
-  --color-bg-hover: #1e293b;
+  /* Purple-accent deep dark palette */
+  --color-bg-primary: #060010;
+  --color-bg-secondary: #0a0014;
+  --color-bg-card: #060010;
+  --color-bg-elevated: #0e0820;
+  --color-bg-hover: #1c1530;
 
   /* Borders */
-  --color-border-primary: #1e293b;
-  --color-border-accent: #2563eb33;
-  --color-border-glow: #3b82f680;
+  --color-border-primary: #1c1530;
+  --color-border-accent: rgba(139, 92, 246, 0.2);
+  --color-border-glow: rgba(139, 92, 246, 0.5);
 
   /* Text */
   --color-text-primary: #e2e8f0;
@@ -19,22 +19,22 @@
   --color-text-muted: #64748b;
 
   /* Accent / Neon */
-  --color-neon-blue: #3b82f6;
-  --color-neon-cyan: #06b6d4;
+  --color-neon-blue: #a78bfa;
+  --color-neon-cyan: #c4b5fd;
   --color-neon-green: #10b981;
-  --color-neon-red: #ef4444;
+  --color-neon-red: #8b5cf6;
   --color-neon-amber: #f59e0b;
   --color-neon-purple: #8b5cf6;
 
   /* Semantic */
   --color-bull: #10b981;
-  --color-bear: #ef4444;
-  --color-neutral: #6366f1;
+  --color-bear: #8b5cf6;
+  --color-neutral: #a78bfa;
 
-  /* Card/pattern colors (theme-switchable) */
-  --color-glass-from: rgba(21, 28, 44, 0.9);
-  --color-glass-to: rgba(17, 24, 39, 0.95);
-  --color-grid-line: rgba(59, 130, 246, 0.03);
+  /* Card/pattern colors */
+  --color-glass-from: rgba(6, 0, 16, 0.95);
+  --color-glass-to: rgba(10, 0, 20, 0.95);
+  --color-grid-line: rgba(139, 92, 246, 0.03);
   --color-neon-orange: #f97316;
 }
 

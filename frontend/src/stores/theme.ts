@@ -31,9 +31,9 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
 }));
 
 /* ── CSS variable overrides per theme ── */
-// "dark" = null means use @theme defaults from globals.css
+// "dark" = null means use @theme defaults from globals.css (purple-accent theme)
 export const THEME_CSS_VARS: Record<ThemeName, Record<string, string> | null> = {
-  dark: null, // default values from @theme (blue-accent dark theme)
+  dark: null, // purple-accent theme from @theme defaults
   night: {
     "--color-bg-primary": "#000000",
     "--color-bg-secondary": "#050505",
@@ -109,24 +109,24 @@ export interface CanvasColors {
 export const THEME_CANVAS: Record<ThemeName, CanvasColors> = {
   dark: {
     bull: "#10b981",
-    bear: "#ef4444",
+    bear: "#8b5cf6",
     bullAlpha: "rgba(16, 185, 129, 0.3)",
-    bearAlpha: "rgba(239, 68, 68, 0.3)",
-    grid: "rgba(30, 41, 59, 0.5)",
+    bearAlpha: "rgba(139, 92, 246, 0.3)",
+    grid: "rgba(28, 21, 48, 0.6)",
     textMuted: "#64748b",
-    priceLine: "#3b82f6",
-    patternBull: "#00e676",
-    patternBear: "#ff1744",
+    priceLine: "#a78bfa",
+    patternBull: "#10b981",
+    patternBear: "#8b5cf6",
     patternNeutral: "#ffab00",
     zonesBuy: [16, 185, 129],
-    zonesSell: [239, 68, 68],
+    zonesSell: [139, 92, 246],
     shiftNew: [250, 204, 21],
     shiftGrowing: [16, 185, 129],
-    shiftShrinking: [239, 68, 68],
+    shiftShrinking: [139, 92, 246],
     shiftGone: [148, 163, 184],
     tpZone: [0, 230, 118],
-    slZone: [255, 152, 0],
-    liqLong: [239, 68, 68],
+    slZone: [255, 171, 0],
+    liqLong: [139, 92, 246],
     liqShort: [16, 185, 129],
   },
   night: {
