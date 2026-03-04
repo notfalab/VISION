@@ -12,6 +12,7 @@ We convert it into OrderBook format for consistency with other adapters.
 
 import time
 from datetime import datetime, timezone
+from urllib.parse import unquote
 
 import httpx
 import pandas as pd
@@ -97,7 +98,9 @@ class MyFxBookAdapter(DataSourceAdapter):
             )
             data = resp.json()
             if not data.get("error", True):
-                self._session_id = data["session"]
+                # Session ID comes URL-encoded from MyFxBook — decode it
+                # so httpx doesn't double-encode when passing as param
+                self._session_id = unquote(data["session"])
                 self._session_time = time.time()
                 logger.info("myfxbook_connected", session=self._session_id[:8] + "...")
             else:
