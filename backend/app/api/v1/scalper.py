@@ -21,7 +21,7 @@ router = APIRouter(prefix="/scalper", tags=["scalper"])
 
 # Minimum confidence to broadcast signals to Discord/Telegram channels.
 # Signals below this are still saved for analytics but NOT sent to groups.
-MIN_NOTIFY_CONFIDENCE = 0.70
+MIN_NOTIFY_CONFIDENCE = 0.75
 
 # Valid scalper timeframes (1d included for assets without intraday data, e.g. gold on free tier)
 SCALPER_TIMEFRAMES = {"5m": Timeframe.M5, "15m": Timeframe.M15, "30m": Timeframe.M30, "1d": Timeframe.D1}

@@ -16,7 +16,7 @@ logger = get_logger("tasks.scalper_scan")
 # Minimum confidence to broadcast signals to Discord/Telegram channels.
 # Signals below this threshold are still saved for analytics/journal,
 # but NOT sent to public groups to avoid noisy low-quality alerts.
-MIN_NOTIFY_CONFIDENCE = 0.70
+MIN_NOTIFY_CONFIDENCE = 0.75
 
 
 def _run_async(coro):

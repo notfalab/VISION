@@ -227,7 +227,8 @@ export default function ScalperMode() {
     }
   };
 
-  const allSignals = [...scanResult, ...signals.filter(s => !scanResult.find(r => r.id === s.id))];
+  const allSignals = [...scanResult, ...signals.filter(s => !scanResult.find(r => r.id === s.id))]
+    .filter(s => s.confidence >= 0.75);
 
   return (
     <div className="card-glass rounded-lg overflow-hidden">
