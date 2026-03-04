@@ -2468,35 +2468,82 @@ function KnowledgeQuiz() {
   // ── Not started ──
   if (!started) {
     return (
-      <div className="card-glass rounded-lg overflow-hidden">
-        <div className="p-6 text-center">
-          <Trophy className="w-8 h-8 text-[var(--color-neon-amber)] mx-auto mb-3" />
-          <h3
-            className="text-xl font-bold mb-2"
-            style={{
-              background: "linear-gradient(135deg, var(--color-neon-amber), var(--color-neon-green))",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-            }}
-          >
-            KNOWLEDGE TEST
-          </h3>
-          <p className="text-[13px] text-[var(--color-text-secondary)] mb-1">
-            Test what you learned from the Academy chapters.
-          </p>
-          <p className="text-[12px] text-[var(--color-text-muted)] mb-5">
-            {total} questions • Earn XP • Build streaks for bonus points
-          </p>
+      <div className="card-glass rounded-lg overflow-hidden relative">
+        {/* Decorative corner accents */}
+        <div className="absolute top-0 left-0 w-16 h-16 opacity-20" style={{
+          background: "linear-gradient(135deg, var(--color-neon-cyan) 0%, transparent 60%)",
+        }} />
+        <div className="absolute bottom-0 right-0 w-20 h-20 opacity-10" style={{
+          background: "radial-gradient(circle at bottom right, var(--color-neon-green), transparent 70%)",
+        }} />
+
+        <div className="p-5 relative z-10">
+          {/* Top row: icon + stats preview */}
+          <div className="flex items-start gap-4 mb-4">
+            <div className="w-11 h-11 rounded-lg flex items-center justify-center shrink-0" style={{
+              background: "linear-gradient(135deg, color-mix(in srgb, var(--color-neon-cyan) 15%, transparent), color-mix(in srgb, var(--color-neon-green) 10%, transparent))",
+              border: "1px solid color-mix(in srgb, var(--color-neon-cyan) 25%, transparent)",
+            }}>
+              <Crosshair className="w-5 h-5" style={{ color: "var(--color-neon-cyan)" }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h3 className="text-[15px] font-bold font-mono tracking-wide text-[var(--color-text-primary)] mb-0.5">
+                KNOWLEDGE CHECK
+              </h3>
+              <p className="text-[12px] text-[var(--color-text-muted)] leading-relaxed">
+                Prove you understood the material. No guessing — each answer reveals the logic behind it.
+              </p>
+            </div>
+          </div>
+
+          {/* Stats grid */}
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            <div className="rounded-md p-2 text-center" style={{
+              background: "color-mix(in srgb, var(--color-bg-secondary) 60%, transparent)",
+              border: "1px solid var(--color-border-primary)",
+            }}>
+              <div className="text-[16px] font-bold font-mono text-[var(--color-neon-cyan)]">{total}</div>
+              <div className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider">Questions</div>
+            </div>
+            <div className="rounded-md p-2 text-center" style={{
+              background: "color-mix(in srgb, var(--color-bg-secondary) 60%, transparent)",
+              border: "1px solid var(--color-border-primary)",
+            }}>
+              <div className="text-[16px] font-bold font-mono text-[var(--color-neon-amber)]">XP</div>
+              <div className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider">Streak bonus</div>
+            </div>
+            <div className="rounded-md p-2 text-center" style={{
+              background: "color-mix(in srgb, var(--color-bg-secondary) 60%, transparent)",
+              border: "1px solid var(--color-border-primary)",
+            }}>
+              <div className="text-[16px] font-bold font-mono text-[var(--color-neon-green)]">4</div>
+              <div className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider">Ranks</div>
+            </div>
+          </div>
+
+          {/* Topics covered */}
+          <div className="flex flex-wrap gap-1.5 mb-4">
+            {["Chart Reading", "Indicators", "Volume", "Smart Money", "AI/ML", "Scalper"].map((t) => (
+              <span key={t} className="text-[10px] font-mono px-2 py-0.5 rounded-full text-[var(--color-text-muted)]" style={{
+                border: "1px solid var(--color-border-primary)",
+                background: "var(--color-bg-secondary)",
+              }}>
+                {t}
+              </span>
+            ))}
+          </div>
+
+          {/* CTA */}
           <button
             onClick={() => setStarted(true)}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-md text-[13px] font-bold font-mono uppercase transition-all hover:brightness-110"
+            className="w-full py-2.5 rounded-md text-[13px] font-bold font-mono uppercase transition-all hover:brightness-110 flex items-center justify-center gap-2"
             style={{
               color: "black",
-              background: "linear-gradient(135deg, var(--color-neon-amber), var(--color-neon-green))",
+              background: "linear-gradient(90deg, var(--color-neon-cyan), var(--color-neon-green))",
             }}
           >
-            <Zap className="w-4 h-4" />
-            Start Quiz
+            <Target className="w-4 h-4" />
+            Begin Test
           </button>
         </div>
       </div>
@@ -2506,50 +2553,68 @@ function KnowledgeQuiz() {
   // ── Finished ──
   if (finished) {
     return (
-      <div className="card-glass rounded-lg overflow-hidden">
-        <div className="p-6 text-center">
-          {/* Grade badge */}
-          <div
-            className="w-16 h-16 rounded-full mx-auto mb-3 flex items-center justify-center"
-            style={{
-              backgroundColor: `color-mix(in srgb, ${grade.color} 15%, transparent)`,
-              border: `2px solid ${grade.color}`,
-            }}
-          >
-            <GradeIcon className="w-8 h-8" style={{ color: grade.color }} />
+      <div className="card-glass rounded-lg overflow-hidden relative">
+        {/* Subtle decorative gradient */}
+        <div className="absolute inset-0 opacity-5" style={{
+          background: `radial-gradient(circle at 30% 20%, ${grade.color}, transparent 50%)`,
+        }} />
+
+        <div className="p-5 relative z-10">
+          {/* Top: Rank + Score side by side */}
+          <div className="flex items-center gap-4 mb-4">
+            <div
+              className="w-14 h-14 rounded-lg flex items-center justify-center shrink-0"
+              style={{
+                background: `color-mix(in srgb, ${grade.color} 12%, transparent)`,
+                border: `1px solid color-mix(in srgb, ${grade.color} 30%, transparent)`,
+              }}
+            >
+              <GradeIcon className="w-7 h-7" style={{ color: grade.color }} />
+            </div>
+            <div className="flex-1">
+              <div className="text-[11px] font-mono font-bold uppercase tracking-widest" style={{ color: grade.color }}>
+                {grade.label}
+              </div>
+              <div className="text-2xl font-bold font-mono" style={{ color: grade.color }}>
+                {pct}%
+              </div>
+              <div className="text-[12px] text-[var(--color-text-muted)]">
+                {score}/{total} correct
+              </div>
+            </div>
           </div>
-          <div className="text-[11px] font-mono font-bold uppercase tracking-widest mb-1" style={{ color: grade.color }}>
-            {grade.label}
-          </div>
-          <div className="text-3xl font-bold font-mono mb-1" style={{ color: grade.color }}>
-            {pct}%
-          </div>
-          <p className="text-[13px] text-[var(--color-text-secondary)] mb-4">
-            {score} of {total} correct
-          </p>
 
           {/* Stats row */}
-          <div className="grid grid-cols-3 gap-2 mb-5 max-w-xs mx-auto">
-            <div className="rounded-md bg-[var(--color-bg-secondary)] p-2 border border-[var(--color-border-primary)]">
-              <div className="text-[10px] text-[var(--color-text-muted)] uppercase">XP Earned</div>
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            <div className="rounded-md p-2 text-center" style={{
+              background: "color-mix(in srgb, var(--color-bg-secondary) 60%, transparent)",
+              border: "1px solid var(--color-border-primary)",
+            }}>
               <div className="text-[16px] font-bold font-mono text-[var(--color-neon-amber)]">{xp}</div>
+              <div className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider">XP</div>
             </div>
-            <div className="rounded-md bg-[var(--color-bg-secondary)] p-2 border border-[var(--color-border-primary)]">
-              <div className="text-[10px] text-[var(--color-text-muted)] uppercase">Best Streak</div>
+            <div className="rounded-md p-2 text-center" style={{
+              background: "color-mix(in srgb, var(--color-bg-secondary) 60%, transparent)",
+              border: "1px solid var(--color-border-primary)",
+            }}>
               <div className="text-[16px] font-bold font-mono text-[var(--color-neon-green)]">{maxStreak}</div>
+              <div className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider">Best Streak</div>
             </div>
-            <div className="rounded-md bg-[var(--color-bg-secondary)] p-2 border border-[var(--color-border-primary)]">
-              <div className="text-[10px] text-[var(--color-text-muted)] uppercase">Accuracy</div>
+            <div className="rounded-md p-2 text-center" style={{
+              background: "color-mix(in srgb, var(--color-bg-secondary) 60%, transparent)",
+              border: "1px solid var(--color-border-primary)",
+            }}>
               <div className="text-[16px] font-bold font-mono" style={{ color: grade.color }}>{pct}%</div>
+              <div className="text-[10px] text-[var(--color-text-muted)] uppercase tracking-wider">Accuracy</div>
             </div>
           </div>
 
-          {/* Answer review dots */}
-          <div className="flex justify-center gap-1 mb-5">
+          {/* Answer review — compact bar */}
+          <div className="flex gap-0.5 mb-4 rounded overflow-hidden">
             {answers.map((a, i) => (
               <div
                 key={i}
-                className="w-3 h-3 rounded-full"
+                className="h-1.5 flex-1"
                 style={{
                   backgroundColor: a === true ? "var(--color-bull)" : a === false ? "var(--color-bear)" : "var(--color-bg-hover)",
                 }}
@@ -2561,21 +2626,24 @@ function KnowledgeQuiz() {
           {/* Message */}
           <p className="text-[12px] text-[var(--color-text-muted)] mb-4">
             {pct >= 90
-              ? "Outstanding! You have mastered VISION's trading tools."
+              ? "Outstanding — you've mastered VISION's tools."
               : pct >= 75
-                ? "Great job! You have a strong understanding of the platform."
+                ? "Solid performance. You understand the platform well."
                 : pct >= 60
-                  ? "Good progress! Review the chapters you missed and try again."
-                  : "Keep learning! Re-read the chapters above and retake the quiz."}
+                  ? "Good start. Review the chapters you missed and retry."
+                  : "Re-read the chapters above, then retake."}
           </p>
 
           <button
             onClick={handleRestart}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-[13px] font-bold font-mono uppercase transition-colors hover:bg-[var(--color-bg-hover)] border border-[var(--color-border-primary)]"
-            style={{ color: "var(--color-text-primary)" }}
+            className="w-full py-2.5 rounded-md text-[13px] font-bold font-mono uppercase transition-all hover:bg-[var(--color-bg-hover)] flex items-center justify-center gap-2"
+            style={{
+              color: "var(--color-text-primary)",
+              border: "1px solid var(--color-border-primary)",
+            }}
           >
-            <RotateCcw className="w-4 h-4" />
-            Retake Quiz
+            <RotateCcw className="w-3.5 h-3.5" />
+            Retake
           </button>
         </div>
       </div>
@@ -2870,46 +2938,39 @@ export default function TradingAcademy() {
 
         {/* ── Knowledge Quiz ── */}
         <div className="mt-8 mb-4">
-          <div className="text-center mb-4">
-            <h2
-              className="text-lg font-bold"
-              style={{
-                background: "linear-gradient(135deg, var(--color-neon-amber), var(--color-neon-green))",
-                WebkitBackgroundClip: "text",
-                WebkitTextFillColor: "transparent",
-              }}
-            >
-              Test Your Knowledge
-            </h2>
-            <p className="text-[12px] text-[var(--color-text-muted)]">
-              Did you absorb everything? Take the quiz to find out.
-            </p>
+          <div className="flex items-center gap-2 mb-3">
+            <div className="h-px flex-1" style={{ background: "linear-gradient(90deg, transparent, var(--color-border-primary))" }} />
+            <span className="text-[11px] font-mono font-bold tracking-widest text-[var(--color-text-muted)] uppercase">
+              Final checkpoint
+            </span>
+            <div className="h-px flex-1" style={{ background: "linear-gradient(90deg, var(--color-border-primary), transparent)" }} />
           </div>
           <KnowledgeQuiz />
         </div>
 
         {/* ── Footer CTA ── */}
-        <div className="mt-10 mb-8 text-center">
-          <div className="card-glass rounded-lg p-6 max-w-lg mx-auto">
-            <Zap className="w-6 h-6 text-[var(--color-neon-green)] mx-auto mb-2" />
-            <h3 className="text-[15px] font-bold text-[var(--color-text-primary)] mb-1">
-              Ready to Start Trading?
-            </h3>
-            <p className="text-[12px] text-[var(--color-text-muted)] mb-4">
-              Head back to the dashboard and put your knowledge into action. Start with the Market Narrator for an AI overview, then use Scalper Mode to find your first setup.
-            </p>
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-md text-[13px] font-bold font-mono uppercase transition-colors"
-              style={{
-                color: "black",
-                backgroundColor: "var(--color-neon-cyan)",
-              }}
-            >
-              <LineChart className="w-4 h-4" />
-              Go to Dashboard
-            </Link>
-          </div>
+        <div className="mt-8 mb-8">
+          <Link
+            href="/"
+            className="card-glass rounded-lg p-4 flex items-center gap-4 group transition-all hover:border-[color-mix(in_srgb,var(--color-neon-cyan)_30%,transparent)]"
+            style={{ display: "flex", textDecoration: "none", border: "1px solid var(--color-border-primary)" }}
+          >
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 transition-transform group-hover:scale-105" style={{
+              background: "linear-gradient(135deg, color-mix(in srgb, var(--color-neon-cyan) 15%, transparent), color-mix(in srgb, var(--color-neon-green) 10%, transparent))",
+              border: "1px solid color-mix(in srgb, var(--color-neon-cyan) 20%, transparent)",
+            }}>
+              <LineChart className="w-5 h-5" style={{ color: "var(--color-neon-cyan)" }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[13px] font-bold text-[var(--color-text-primary)] font-mono">
+                Open Dashboard
+              </div>
+              <div className="text-[11px] text-[var(--color-text-muted)]">
+                Put your knowledge into action — start with Market Narrator, then find setups in Scalper Mode.
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-[var(--color-text-muted)] shrink-0 group-hover:text-[var(--color-neon-cyan)] transition-colors" />
+          </Link>
         </div>
       </div>
     </div>

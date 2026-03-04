@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type ThemeName = "dim" | "dark";
+export type ThemeName = "dark" | "night";
 
 interface ThemeState {
   theme: ThemeName;
@@ -11,9 +11,10 @@ interface ThemeState {
 const STORAGE_KEY = "vision_theme";
 
 function readStored(): ThemeName {
-  if (typeof window === "undefined") return "dim";
+  if (typeof window === "undefined") return "dark";
   const v = localStorage.getItem(STORAGE_KEY);
-  return v === "dark" ? "dark" : "dim";
+  if (v === "night") return "night";
+  return "dark";
 }
 
 export const useThemeStore = create<ThemeState>((set, get) => ({
@@ -24,50 +25,55 @@ export const useThemeStore = create<ThemeState>((set, get) => ({
     set({ theme: t });
   },
   toggleTheme: () => {
-    const next = get().theme === "dim" ? "dark" : "dim";
+    const next = get().theme === "dark" ? "night" : "dark";
     get().setTheme(next);
   },
 }));
 
 /* ── CSS variable overrides per theme ── */
-// "dim" = null means use @theme defaults from globals.css
+// "dark" = null means use @theme defaults from globals.css
 export const THEME_CSS_VARS: Record<ThemeName, Record<string, string> | null> = {
-  dim: null, // default values from @theme
-  dark: {
-    "--color-bg-primary": "#060010",
-    "--color-bg-secondary": "#0a0014",
-    "--color-bg-card": "#060010",
-    "--color-bg-elevated": "#0e0820",
-    "--color-bg-hover": "#1c1530",
-    "--color-border-primary": "#1c1530",
-    "--color-border-accent": "rgba(139, 92, 246, 0.2)",
-    "--color-border-glow": "rgba(139, 92, 246, 0.5)",
-    "--color-neon-blue": "#a78bfa",
-    "--color-neon-cyan": "#c4b5fd",
-    "--color-neon-red": "#8b5cf6",
+  dark: null, // default values from @theme (blue-accent dark theme)
+  night: {
+    "--color-bg-primary": "#000000",
+    "--color-bg-secondary": "#050505",
+    "--color-bg-card": "#080808",
+    "--color-bg-elevated": "#0e0e0e",
+    "--color-bg-hover": "#151515",
+    "--color-border-primary": "#1a1a1a",
+    "--color-border-accent": "rgba(255, 255, 255, 0.06)",
+    "--color-border-glow": "rgba(255, 255, 255, 0.12)",
+    "--color-text-primary": "#d4d4d8",
+    "--color-text-secondary": "#7a7a82",
+    "--color-text-muted": "#505058",
+    "--color-neon-blue": "#3b82f6",
+    "--color-neon-cyan": "#22d3ee",
+    "--color-neon-red": "#ef4444",
+    "--color-neon-green": "#10b981",
+    "--color-neon-amber": "#f59e0b",
+    "--color-neon-purple": "#8b5cf6",
     "--color-bull": "#10b981",
-    "--color-bear": "#8b5cf6",
-    "--color-neutral": "#a78bfa",
-    "--color-glass-from": "rgba(6, 0, 16, 0.95)",
-    "--color-glass-to": "rgba(10, 0, 20, 0.95)",
-    "--color-grid-line": "rgba(139, 92, 246, 0.03)",
+    "--color-bear": "#ef4444",
+    "--color-neutral": "#6366f1",
+    "--color-glass-from": "rgba(0, 0, 0, 0.97)",
+    "--color-glass-to": "rgba(5, 5, 5, 0.97)",
+    "--color-grid-line": "rgba(255, 255, 255, 0.015)",
   },
 };
 
-// All dark override keys for removal when switching back to dim
-const DARK_KEYS = Object.keys(THEME_CSS_VARS.dark!);
+// All override keys for removal when switching back to default
+const OVERRIDE_KEYS = Object.keys(THEME_CSS_VARS.night!);
 
 export function applyThemeVars(t: ThemeName) {
   const el = document.documentElement;
   const vars = THEME_CSS_VARS[t];
   if (vars) {
-    // Set dark overrides as inline styles (highest specificity)
     for (const [key, val] of Object.entries(vars)) {
       el.style.setProperty(key, val);
     }
   } else {
     // Remove inline overrides to let @theme defaults take over
-    for (const key of DARK_KEYS) {
+    for (const key of OVERRIDE_KEYS) {
       el.style.removeProperty(key);
     }
   }
@@ -101,7 +107,7 @@ export interface CanvasColors {
 }
 
 export const THEME_CANVAS: Record<ThemeName, CanvasColors> = {
-  dim: {
+  dark: {
     bull: "#10b981",
     bear: "#ef4444",
     bullAlpha: "rgba(16, 185, 129, 0.3)",
@@ -118,31 +124,31 @@ export const THEME_CANVAS: Record<ThemeName, CanvasColors> = {
     shiftGrowing: [16, 185, 129],
     shiftShrinking: [239, 68, 68],
     shiftGone: [148, 163, 184],
-    tpZone: [0, 230, 118],       // bright green
-    slZone: [255, 152, 0],       // amber/orange
-    liqLong: [239, 68, 68],      // red
-    liqShort: [16, 185, 129],    // green
+    tpZone: [0, 230, 118],
+    slZone: [255, 152, 0],
+    liqLong: [239, 68, 68],
+    liqShort: [16, 185, 129],
   },
-  dark: {
+  night: {
     bull: "#10b981",
-    bear: "#8b5cf6",
-    bullAlpha: "rgba(16, 185, 129, 0.3)",
-    bearAlpha: "rgba(139, 92, 246, 0.3)",
-    grid: "rgba(28, 21, 48, 0.6)",
-    textMuted: "#64748b",
-    priceLine: "#a78bfa",
+    bear: "#ef4444",
+    bullAlpha: "rgba(16, 185, 129, 0.2)",
+    bearAlpha: "rgba(239, 68, 68, 0.2)",
+    grid: "rgba(255, 255, 255, 0.03)",
+    textMuted: "#505058",
+    priceLine: "#3b82f6",
     patternBull: "#10b981",
-    patternBear: "#8b5cf6",
-    patternNeutral: "#ffab00",
+    patternBear: "#ef4444",
+    patternNeutral: "#f59e0b",
     zonesBuy: [16, 185, 129],
-    zonesSell: [139, 92, 246],
+    zonesSell: [239, 68, 68],
     shiftNew: [250, 204, 21],
     shiftGrowing: [16, 185, 129],
-    shiftShrinking: [139, 92, 246],
-    shiftGone: [148, 163, 184],
-    tpZone: [0, 230, 118],       // bright green
-    slZone: [255, 171, 0],       // amber
-    liqLong: [139, 92, 246],     // purple (matches bear)
-    liqShort: [16, 185, 129],    // green
+    shiftShrinking: [239, 68, 68],
+    shiftGone: [80, 80, 88],
+    tpZone: [0, 230, 118],
+    slZone: [255, 152, 0],
+    liqLong: [239, 68, 68],
+    liqShort: [16, 185, 129],
   },
 };

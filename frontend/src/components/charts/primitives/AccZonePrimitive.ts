@@ -267,7 +267,7 @@ class AccZoneView implements IPrimitivePaneView {
   private _series: ISeriesApi<SeriesType, Time> | null = null;
   private _zones: AccZone[] = [];
   private _shifts: ZoneShift[] = [];
-  private _tc: CanvasColors = THEME_CANVAS.dim;
+  private _tc: CanvasColors = THEME_CANVAS.dark;
 
   setParams(
     series: ISeriesApi<SeriesType, Time>,

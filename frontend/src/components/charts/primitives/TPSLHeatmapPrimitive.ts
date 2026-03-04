@@ -139,7 +139,7 @@ class TPSLView implements IPrimitivePaneView {
   private _tp: TPSLCluster[] = [];
   private _sl: TPSLCluster[] = [];
   private _roundLevels: RoundLevel[] = [];
-  private _tc: CanvasColors = THEME_CANVAS.dim;
+  private _tc: CanvasColors = THEME_CANVAS.dark;
 
   setParams(
     series: ISeriesApi<SeriesType, Time>,
