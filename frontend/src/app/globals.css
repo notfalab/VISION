@@ -64,6 +64,15 @@ body {
   background: var(--color-text-muted);
 }
 
+/* Hide scrollbar on mobile toolbar (touch-scroll still works) */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 /* Glow effects */
 .glow-blue {
   box-shadow: 0 0 15px rgba(59, 130, 246, 0.15), 0 0 30px rgba(59, 130, 246, 0.05);

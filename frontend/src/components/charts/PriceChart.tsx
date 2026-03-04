@@ -987,62 +987,77 @@ export default function PriceChart() {
 
   return (
     <div className="card-glass rounded-lg flex flex-col h-full overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 md:px-4 py-2 border-b border-[var(--color-border-primary)]">
-        <div className="flex items-center gap-2 md:gap-3">
-          <span className="text-sm md:text-base font-mono font-bold text-[var(--color-text-primary)]">
-            {activeSymbol}
+      {/* Header — symbol + live badge */}
+      <div className="flex items-center gap-2 px-3 md:px-4 py-1.5 md:py-2 border-b border-[var(--color-border-primary)]">
+        <span className="text-sm md:text-base font-mono font-bold text-[var(--color-text-primary)] shrink-0">
+          {activeSymbol}
+        </span>
+        {isLive && (
+          <span className="flex items-center gap-1 shrink-0">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-bull)] animate-pulse" />
+            <span className="text-[10px] font-mono text-[var(--color-bull)] uppercase">Live</span>
           </span>
-          {isLive && (
-            <span className="flex items-center gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-bull)] animate-pulse" />
-              <span className="text-[10px] font-mono text-[var(--color-bull)] uppercase">Live</span>
-            </span>
-          )}
-          {zones.length > 0 && (
-            <span className="text-[10px] font-mono text-[var(--color-text-muted)]">
-              <span className="text-[var(--color-bull)]">{buyZoneCount}B</span>
-              {" / "}
-              <span className="text-[var(--color-bear)]">{sellZoneCount}S</span>
-              {" zones"}
-            </span>
-          )}
-          {/* MA legend */}
-          <div className="hidden md:flex items-center gap-2 text-[10px] font-mono">
-            <span style={{ color: "#f59e0b" }}>SMA 20</span>
-            <span style={{ color: "#3b82f6" }}>EMA 50</span>
-            <span style={{ color: "#8b5cf6" }}>EMA 200</span>
-          </div>
-          {hoveredCandle && (
-            <div className="hidden md:flex items-center gap-3 text-[12px] font-mono">
-              <span className="text-[var(--color-text-muted)]">
-                O <span className="text-[var(--color-text-primary)]">{formatPrice(hoveredCandle.open, activeSymbol)}</span>
-              </span>
-              <span className="text-[var(--color-text-muted)]">
-                H <span className="text-[var(--color-bull)]">{formatPrice(hoveredCandle.high, activeSymbol)}</span>
-              </span>
-              <span className="text-[var(--color-text-muted)]">
-                L <span className="text-[var(--color-bear)]">{formatPrice(hoveredCandle.low, activeSymbol)}</span>
-              </span>
-              <span className="text-[var(--color-text-muted)]">
-                C <span className="text-[var(--color-text-primary)]">{formatPrice(hoveredCandle.close, activeSymbol)}</span>
-              </span>
-              {hoveredCandle.volume > 0 && (
-                <span className="text-[var(--color-text-muted)]">
-                  V <span className="text-[var(--color-text-secondary)]">{formatVolume(hoveredCandle.volume)}</span>
-                </span>
-              )}
-            </div>
-          )}
+        )}
+        {/* MA legend — desktop only */}
+        <div className="hidden md:flex items-center gap-2 text-[10px] font-mono">
+          <span style={{ color: "#f59e0b" }}>SMA 20</span>
+          <span style={{ color: "#3b82f6" }}>EMA 50</span>
+          <span style={{ color: "#8b5cf6" }}>EMA 200</span>
         </div>
-        {/* Controls */}
-        <div className="flex items-center gap-2">
-          {/* Sessions toggle */}
+        {hoveredCandle && (
+          <div className="hidden md:flex items-center gap-3 text-[12px] font-mono">
+            <span className="text-[var(--color-text-muted)]">
+              O <span className="text-[var(--color-text-primary)]">{formatPrice(hoveredCandle.open, activeSymbol)}</span>
+            </span>
+            <span className="text-[var(--color-text-muted)]">
+              H <span className="text-[var(--color-bull)]">{formatPrice(hoveredCandle.high, activeSymbol)}</span>
+            </span>
+            <span className="text-[var(--color-text-muted)]">
+              L <span className="text-[var(--color-bear)]">{formatPrice(hoveredCandle.low, activeSymbol)}</span>
+            </span>
+            <span className="text-[var(--color-text-muted)]">
+              C <span className="text-[var(--color-text-primary)]">{formatPrice(hoveredCandle.close, activeSymbol)}</span>
+            </span>
+            {hoveredCandle.volume > 0 && (
+              <span className="text-[var(--color-text-muted)]">
+                V <span className="text-[var(--color-text-secondary)]">{formatVolume(hoveredCandle.volume)}</span>
+              </span>
+            )}
+          </div>
+        )}
+        {zones.length > 0 && (
+          <span className="hidden sm:inline text-[10px] font-mono text-[var(--color-text-muted)]">
+            <span className="text-[var(--color-bull)]">{buyZoneCount}B</span>
+            {" / "}
+            <span className="text-[var(--color-bear)]">{sellZoneCount}S</span>
+            {" zones"}
+          </span>
+        )}
+        {/* Spacer + Expand button — always visible */}
+        <div className="flex-1" />
+        <button
+          onClick={toggleChartExpanded}
+          className={`
+            shrink-0 px-2 py-1 text-sm md:text-[11px] font-mono rounded transition-all border min-h-[28px] md:min-h-[32px]
+            ${chartExpanded
+              ? "border-[var(--color-neon-blue)]/30 text-[var(--color-neon-blue)] bg-[var(--color-neon-blue)]/10"
+              : "border-[var(--color-border-primary)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+            }
+          `}
+          title={chartExpanded ? "Exit fullscreen" : "Expand chart"}
+        >
+          {chartExpanded ? "⊟" : "⊞"}
+        </button>
+      </div>
+      {/* Controls toolbar — horizontally scrollable on mobile */}
+      <div className="overflow-x-auto scrollbar-hide border-b border-[var(--color-border-primary)]">
+        <div className="flex items-center gap-1.5 px-3 md:px-4 py-1.5 min-w-max">
+          {/* Overlay toggles */}
           {isIntraday && (
             <button
               onClick={() => setShowSessions(!showSessions)}
               className={`
-                px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[32px]
+                shrink-0 px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[28px]
                 ${showSessions
                   ? "border-[var(--color-neon-purple)]/30 text-[var(--color-neon-purple)] bg-[var(--color-neon-purple)]/10"
                   : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
@@ -1052,11 +1067,10 @@ export default function PriceChart() {
               Sessions
             </button>
           )}
-          {/* TP/SL overlay toggle */}
           <button
             onClick={() => setShowTPSL(!showTPSL)}
             className={`
-              px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[32px]
+              shrink-0 px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[28px]
               ${showTPSL
                 ? "border-[var(--color-bull)]/30 text-[var(--color-bull)] bg-[var(--color-bull)]/10"
                 : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
@@ -1065,11 +1079,10 @@ export default function PriceChart() {
           >
             TP/SL
           </button>
-          {/* Liquidation heatmap overlay */}
           <button
             onClick={() => setShowLiq(!showLiq)}
             className={`
-              px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[32px]
+              shrink-0 px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[28px]
               ${showLiq
                 ? "border-orange-500/30 text-orange-500 bg-orange-500/10"
                 : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
@@ -1078,11 +1091,10 @@ export default function PriceChart() {
           >
             Liq
           </button>
-          {/* Stop Heatmap overlay */}
           <button
             onClick={() => setShowStops(!showStops)}
             className={`
-              px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[32px]
+              shrink-0 px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[28px]
               ${showStops
                 ? "border-rose-500/30 text-rose-500 bg-rose-500/10"
                 : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
@@ -1091,11 +1103,10 @@ export default function PriceChart() {
           >
             Stops
           </button>
-          {/* MBO Profile overlay */}
           <button
             onClick={() => setShowMBO(!showMBO)}
             className={`
-              px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[32px]
+              shrink-0 px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[28px]
               ${showMBO
                 ? "border-pink-500/30 text-pink-500 bg-pink-500/10"
                 : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
@@ -1104,34 +1115,25 @@ export default function PriceChart() {
           >
             MBO
           </button>
-          {/* Expand chart toggle */}
-          <button
-            onClick={toggleChartExpanded}
-            className="px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[32px] border-[var(--color-border-primary)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
-            title={chartExpanded ? "Exit fullscreen" : "Expand chart"}
-          >
-            {chartExpanded ? "⊟" : "⊞"}
-          </button>
+          {/* Separator */}
+          <div className="w-px h-5 bg-[var(--color-border-primary)] shrink-0 mx-0.5" />
           {/* Timeframe selector */}
-          <div className="flex items-center gap-0.5 md:gap-1">
-            {TIMEFRAMES.map((tf) => (
-              <button
-                key={tf.value}
-                onClick={() => setActiveTimeframe(tf.value)}
-                className={`
-                  px-2 py-1 text-xs md:text-sm font-mono rounded transition-all min-w-[32px] min-h-[32px] flex items-center justify-center
-                  ${tf.value === "1m" ? "hidden sm:flex" : ""}
-                  ${
-                    activeTimeframe === tf.value
-                      ? "bg-[var(--color-neon-blue)]/15 text-[var(--color-neon-blue)]"
-                      : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
-                  }
-                `}
-              >
-                {tf.label}
-              </button>
-            ))}
-          </div>
+          {TIMEFRAMES.map((tf) => (
+            <button
+              key={tf.value}
+              onClick={() => setActiveTimeframe(tf.value)}
+              className={`
+                shrink-0 px-2 py-1 text-[11px] md:text-sm font-mono rounded transition-all min-w-[28px] min-h-[28px] flex items-center justify-center
+                ${
+                  activeTimeframe === tf.value
+                    ? "bg-[var(--color-neon-blue)]/15 text-[var(--color-neon-blue)]"
+                    : "text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
+                }
+              `}
+            >
+              {tf.label}
+            </button>
+          ))}
         </div>
       </div>
 
