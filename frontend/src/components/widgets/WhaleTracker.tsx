@@ -1,27 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Wallet, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Loader2 } from "lucide-react";
+import { Wallet, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Loader2, AlertCircle } from "lucide-react";
 import { useMarketStore, getMarketType } from "@/stores/market";
 import { api } from "@/lib/api";
-import { formatVolume, formatTime } from "@/lib/format";
-
-interface BtcTransfer {
-  tx_hash: string;
-  block_height: number;
-  value_btc: number;
-  exchange: string | null;
-  direction: string;
-  timestamp: string;
-}
-
-interface EthTransfer {
-  tx_hash: string;
-  exchange: string;
-  direction: string;
-  value_eth: number;
-  timestamp: string;
-}
+import { formatVolume } from "@/lib/format";
 
 type Transfer = {
   tx_hash: string;
@@ -31,32 +14,6 @@ type Transfer = {
   direction: string;
   timestamp: string;
 };
-
-function normalizeTransfers(
-  chain: "bitcoin" | "ethereum",
-  data: any,
-): Transfer[] {
-  if (chain === "bitcoin") {
-    return (data.transfers ?? []).map((t: BtcTransfer) => ({
-      tx_hash: t.tx_hash,
-      value: t.value_btc,
-      unit: "BTC",
-      exchange: t.exchange,
-      direction: t.direction,
-      timestamp: t.timestamp,
-    }));
-  }
-  // ETH whale-transfers returns a flat array
-  const list = Array.isArray(data) ? data : data.transfers ?? [];
-  return list.map((t: EthTransfer) => ({
-    tx_hash: t.tx_hash,
-    value: t.value_eth,
-    unit: "ETH",
-    exchange: t.exchange,
-    direction: t.direction,
-    timestamp: t.timestamp,
-  }));
-}
 
 function directionIcon(dir: string) {
   if (dir.includes("inflow")) return <ArrowDownRight className="w-4 h-4 text-[var(--color-bear)]" />;
@@ -80,10 +37,12 @@ export default function WhaleTracker() {
   const { activeSymbol } = useMarketStore();
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [chainName, setChainName] = useState("");
+  const [supported, setSupported] = useState(true);
 
   const marketType = getMarketType(activeSymbol);
   const isCrypto = marketType === "crypto";
-  const isBtc = activeSymbol.toUpperCase().startsWith("BTC");
+  const tokenName = activeSymbol.replace("USD", "");
 
   useEffect(() => {
     if (!isCrypto) return;
@@ -91,32 +50,34 @@ export default function WhaleTracker() {
     const load = async () => {
       setLoading(true);
       try {
-        if (isBtc) {
-          const data = await api.btcWhales(10, 20);
-          setTransfers(normalizeTransfers("bitcoin", data));
+        const data = await api.cryptoWhales(activeSymbol, 20);
+        if (data) {
+          setChainName(data.chain_name || tokenName);
+          setSupported(data.supported !== false);
+          setTransfers(data.transfers ?? []);
         } else {
-          const data = await api.ethWhales(50, 20);
-          setTransfers(normalizeTransfers("ethereum", data));
+          setChainName(tokenName);
+          setSupported(false);
+          setTransfers([]);
         }
       } catch {
         setTransfers([]);
+        setSupported(false);
       } finally {
         setLoading(false);
       }
     };
     load();
-  }, [activeSymbol, isCrypto, isBtc]);
+  }, [activeSymbol, isCrypto, tokenName]);
 
   if (!isCrypto) return null;
-
-  const chainLabel = isBtc ? "Bitcoin" : "Ethereum";
 
   return (
     <div className="card-glass rounded-lg overflow-hidden">
       <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-3">
         <Wallet className="w-4 h-4 text-[var(--color-neon-orange, var(--color-neon-amber))]" />
         <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
-          {chainLabel} Whale Tracker
+          {tokenName} Whale Tracker
         </h3>
         {!loading && transfers.length > 0 && (
           <span className="text-[12px] font-mono text-[var(--color-text-muted)] ml-auto">
@@ -130,7 +91,14 @@ export default function WhaleTracker() {
           <div className="flex items-center justify-center gap-3 py-6">
             <Loader2 className="w-4 h-4 text-[var(--color-text-muted)] animate-spin" />
             <span className="text-sm text-[var(--color-text-muted)]">
-              Scanning {chainLabel.toLowerCase()} chain...
+              Scanning {chainName || tokenName} chain...
+            </span>
+          </div>
+        ) : !supported ? (
+          <div className="p-4 flex items-center gap-3">
+            <AlertCircle className="w-4 h-4 text-[var(--color-text-muted)] shrink-0" />
+            <span className="text-sm text-[var(--color-text-muted)]">
+              {chainName} on-chain tracking coming soon
             </span>
           </div>
         ) : transfers.length === 0 ? (

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { useMarketStore } from "@/stores/market";
 import { useThemeStore, THEME_CANVAS } from "@/stores/theme";
 import { api } from "@/lib/api";
-import { formatPrice, formatVolume } from "@/lib/format";
+import { formatPrice, formatVolume, formatChange } from "@/lib/format";
 import { binanceKlineWS, isBinanceSymbol } from "@/lib/binance-ws";
 import type { LiveCandle } from "@/lib/binance-ws";
 import type { OHLCV, Timeframe } from "@/types/market";
@@ -998,6 +998,16 @@ export default function PriceChart() {
             <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-bull)] animate-pulse" />
             <span className="text-[10px] font-mono text-[var(--color-bull)] uppercase">Live</span>
           </span>
+        )}
+        {livePrices[activeSymbol] && (
+          <div className="flex items-center gap-1.5 text-[12px] font-mono shrink-0">
+            <span className="text-[var(--color-text-primary)] tabular-nums font-semibold">
+              {formatPrice(livePrices[activeSymbol].price, activeSymbol)}
+            </span>
+            <span className={`text-[11px] tabular-nums ${livePrices[activeSymbol].change >= 0 ? "text-[var(--color-bull)]" : "text-[var(--color-bear)]"}`}>
+              {formatChange(livePrices[activeSymbol].change)}
+            </span>
+          </div>
         )}
         {/* MA legend — desktop only */}
         <div className="hidden md:flex items-center gap-2 text-[10px] font-mono">

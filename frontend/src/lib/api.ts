@@ -113,6 +113,9 @@ export const api = {
   ethWhales: (minEth = 100, limit = 20) =>
     fetchAPISafe<any>(`/api/v1/institutional/whale-transfers?min_value_eth=${minEth}&limit=${limit}`, null),
 
+  cryptoWhales: (symbol: string, limit = 20) =>
+    fetchAPISafe<any>(`/api/v1/institutional/crypto-whales/${symbol}?limit=${limit}`, null),
+
   cotReport: (symbol: string, limit = 52) =>
     fetchAPISafe<any>(`/api/v1/institutional/cot/${symbol}?limit=${limit}`, null),
 
