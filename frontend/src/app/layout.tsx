@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Toaster } from "sonner";
+import { Analytics } from "@vercel/analytics/react";
 import ThemeApplier from "@/components/ThemeApplier";
 import "./globals.css";
 
@@ -34,6 +35,7 @@ export default function RootLayout({
       <body className="antialiased">
         <ThemeApplier />
         {children}
+        <Analytics />
         <Toaster
           theme="dark"
           position="top-right"

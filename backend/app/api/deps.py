@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.config import get_settings
 from backend.app.database import async_session
-from backend.app.models.user import User
+from backend.app.models.user import User, UserRole
 
 security = HTTPBearer(auto_error=False)
 
@@ -59,4 +59,13 @@ async def require_user(
     """Dependency that requires authentication."""
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+    return user
+
+
+async def require_admin(
+    user: User = Depends(require_user),
+) -> User:
+    """Dependency that requires admin role."""
+    if user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
     return user

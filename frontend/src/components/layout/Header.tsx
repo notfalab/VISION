@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { ChevronDown, LogOut, User, Palette, GraduationCap } from "lucide-react";
+import { ChevronDown, LogOut, User, Palette, GraduationCap, Shield } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -277,6 +277,16 @@ export default function Header() {
                         {user.role}
                       </span>
                     </div>
+                    {user.role === "admin" && (
+                      <Link
+                        href="/admin"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-mono text-[var(--color-neon-purple)] transition-colors hover:bg-[var(--color-bg-hover)]"
+                      >
+                        <Shield className="w-4 h-4" />
+                        Admin Panel
+                      </Link>
+                    )}
                     <button
                       onClick={handleLogout}
                       className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-mono text-[var(--color-bear)] transition-colors hover:bg-[var(--color-bg-hover)]"
@@ -299,7 +309,6 @@ export default function Header() {
               <button
                 onClick={() => setSelectorOpen(!selectorOpen)}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-mono font-bold transition-colors hover:bg-[var(--color-bg-hover)] border border-transparent hover:border-[var(--color-border-primary)] min-h-[36px]"
-                style={{ color: activeOption.color }}
               >
                 {activeOption.label}
                 <ChevronDown className="w-4 h-4 opacity-60" />
@@ -330,7 +339,7 @@ export default function Header() {
                             className={`w-2 h-2 rounded-full shrink-0 ${open ? "bg-[var(--color-neon-green)]" : "bg-[var(--color-bear)]"}`}
                             title={open ? "Market Open" : "Market Closed"}
                           />
-                          <span className="font-bold" style={{ color: opt.color }}>{opt.label}</span>
+                          <span className="font-bold text-[var(--color-text-primary)]">{opt.label}</span>
                           {livePrices[opt.symbol] && (
                             <span className="text-[var(--color-text-secondary)] tabular-nums ml-auto text-xs">
                               {formatPrice(livePrices[opt.symbol].price, opt.symbol)}
@@ -380,8 +389,7 @@ export default function Header() {
           <div className="relative" ref={selectorRef}>
             <button
               onClick={() => setSelectorOpen(!selectorOpen)}
-              className="flex items-center gap-1 px-2 py-1 rounded text-[12px] font-mono font-semibold transition-colors hover:bg-[var(--color-bg-hover)] border border-transparent hover:border-[var(--color-border-primary)]"
-              style={{ color: activeOption.color }}
+              className="flex items-center gap-1 px-2 py-1 rounded text-[12px] font-mono font-semibold transition-colors hover:bg-[var(--color-bg-hover)] border border-transparent hover:border-[var(--color-border-primary)] text-[var(--color-text-primary)]"
             >
               {activeOption.label}
               <ChevronDown className="w-3.5 h-3.5 opacity-60" />
@@ -412,7 +420,7 @@ export default function Header() {
                           className={`w-1.5 h-1.5 rounded-full shrink-0 ${open ? "bg-[var(--color-neon-green)]" : "bg-[var(--color-bear)]"}`}
                           title={open ? "Market Open" : "Market Closed"}
                         />
-                        <span className="font-semibold" style={{ color: opt.color }}>{opt.label}</span>
+                        <span className="font-semibold text-[var(--color-text-primary)]">{opt.label}</span>
                         {livePrices[opt.symbol] && (
                           <span className="text-[var(--color-text-secondary)] tabular-nums ml-auto">
                             {formatPrice(livePrices[opt.symbol].price, opt.symbol)}
@@ -532,6 +540,16 @@ export default function Header() {
                       <p className="text-[11px] font-mono text-[var(--color-text-primary)]">{user.username}</p>
                       <p className="text-[9px] text-[var(--color-text-muted)]">{user.email}</p>
                     </div>
+                    {user.role === "admin" && (
+                      <Link
+                        href="/admin"
+                        onClick={() => setUserMenuOpen(false)}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-mono text-[var(--color-neon-purple)] transition-colors hover:bg-[var(--color-bg-hover)]"
+                      >
+                        <Shield className="w-3.5 h-3.5" />
+                        Admin Panel
+                      </Link>
+                    )}
                     <button
                       onClick={handleLogout}
                       className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-mono text-[var(--color-bear)] transition-colors hover:bg-[var(--color-bg-hover)]"
