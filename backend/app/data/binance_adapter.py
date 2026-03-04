@@ -13,6 +13,7 @@ from backend.app.logging_config import get_logger
 logger = get_logger("binance")
 
 REST_URL = "https://api.binance.com/api/v3"
+REST_URL_US = "https://api.binance.us/api/v3"  # Fallback for US servers (451 on .com)
 WS_URL = "wss://stream.binance.com:9443/ws"
 
 # Map our timeframes to Binance intervals
@@ -135,21 +136,42 @@ class BinanceAdapter(DataSourceAdapter):
         return df
 
     async def fetch_orderbook(self, symbol: str, depth: int = 20) -> OrderBook:
-        """Fetch current order book snapshot."""
+        """Fetch current order book snapshot.
+
+        Tries api.binance.com first, falls back to api.binance.us
+        if the main API returns HTTP 451 (blocked in US).
+        """
         if not self._client:
             await self.connect()
 
         binance_symbol = to_binance_symbol(symbol)
         params = {"symbol": binance_symbol, "limit": min(depth, 1000)}
-        resp = await self._client.get(f"{REST_URL}/depth", params=params)
-        resp.raise_for_status()
-        data = resp.json()
 
-        return OrderBook(
-            symbol=symbol.upper(),
-            timestamp=datetime.now(timezone.utc),
-            bids=[OrderBookLevel(price=float(b[0]), quantity=float(b[1])) for b in data["bids"]],
-            asks=[OrderBookLevel(price=float(a[0]), quantity=float(a[1])) for a in data["asks"]],
+        # Try main Binance first, fallback to US if 451
+        for base_url in [REST_URL, REST_URL_US]:
+            try:
+                resp = await self._client.get(f"{base_url}/depth", params=params)
+                if resp.status_code == 451:
+                    logger.info("binance_451_fallback", url=base_url, symbol=symbol)
+                    continue
+                resp.raise_for_status()
+                data = resp.json()
+                return OrderBook(
+                    symbol=symbol.upper(),
+                    timestamp=datetime.now(timezone.utc),
+                    bids=[OrderBookLevel(price=float(b[0]), quantity=float(b[1])) for b in data["bids"]],
+                    asks=[OrderBookLevel(price=float(a[0]), quantity=float(a[1])) for a in data["asks"]],
+                )
+            except httpx.HTTPStatusError as e:
+                if e.response.status_code == 451:
+                    logger.info("binance_451_fallback", url=base_url, symbol=symbol)
+                    continue
+                raise
+
+        raise httpx.HTTPStatusError(
+            "Binance depth blocked (451) on all endpoints",
+            request=httpx.Request("GET", f"{REST_URL}/depth"),
+            response=httpx.Response(451),
         )
 
     async def fetch_ticker(self, symbol: str) -> dict:
