@@ -255,11 +255,14 @@ async def lifespan(app: FastAPI):
     for pair in ["BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD"]:
         data_registry.set_orderbook_route(pair, "binance")
 
-    # Gold/silver orderbook → OANDA (real trader positioning data)
-    data_registry.set_orderbook_route("XAUUSD", "oanda")
-    data_registry.set_orderbook_route("XAGUSD", "oanda")
+    # Gold/silver orderbook → Binance via PAXG token (1:1 gold-backed)
+    # OANDA orderBook endpoint requires premium API access (returns 401 on practice)
+    # PAXG/USDT on Binance provides REAL L2 depth for a gold-tracking asset
+    data_registry.set_orderbook_route("XAUUSD", "binance")
+    data_registry.set_orderbook_route("XAGUSD", "binance")
 
-    # Forex orderbook → OANDA (real trader order data)
+    # Forex orderbook → OANDA (when API key has orderbook permissions)
+    # Currently returns 404 if OANDA practice key lacks access
     for pair in ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD",
                  "EURGBP", "EURJPY", "GBPJPY"]:
         data_registry.set_orderbook_route(pair, "oanda")
@@ -391,7 +394,7 @@ def create_app() -> FastAPI:
         # Test specific adapter orderbook calls
         test_cases = {
             "binance_BTCUSD": ("binance", "BTCUSD"),
-            "oanda_XAUUSD": ("oanda", "XAUUSD"),
+            "binance_XAUUSD": ("binance", "XAUUSD"),
             "oanda_EURUSD": ("oanda", "EURUSD"),
         }
         for label, (adapter_name, sym) in test_cases.items():
