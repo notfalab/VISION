@@ -29,24 +29,23 @@ MASSIVE_TIMEFRAMES = {
 
 # Map our symbols to Massive ticker format
 SYMBOL_TO_MASSIVE = {
-    # Forex pairs use C: prefix
-    "XAUUSD": "C:XAUUSD",
-    "XAGUSD": "C:XAGUSD",
-    "EURUSD": "C:EURUSD",
-    "GBPUSD": "C:GBPUSD",
-    "USDJPY": "C:USDJPY",
-    "USDCHF": "C:USDCHF",
-    "AUDUSD": "C:AUDUSD",
-    "USDCAD": "C:USDCAD",
+    # Commodities (C: prefix)
+    "XAUUSD": "C:XAUUSD", "XAGUSD": "C:XAGUSD",
+    # Forex Majors (C: prefix)
+    "EURUSD": "C:EURUSD", "GBPUSD": "C:GBPUSD", "USDJPY": "C:USDJPY",
+    "USDCHF": "C:USDCHF", "AUDUSD": "C:AUDUSD", "USDCAD": "C:USDCAD",
     "NZDUSD": "C:NZDUSD",
-    "EURGBP": "C:EURGBP",
-    "EURJPY": "C:EURJPY",
-    "GBPJPY": "C:GBPJPY",
-    # Crypto uses X: prefix
-    "BTCUSD": "X:BTCUSD",
-    "ETHUSD": "X:ETHUSD",
-    "SOLUSD": "X:SOLUSD",
-    "XRPUSD": "X:XRPUSD",
+    # Forex Minors (C: prefix)
+    "EURGBP": "C:EURGBP", "EURJPY": "C:EURJPY", "GBPJPY": "C:GBPJPY",
+    "EURCHF": "C:EURCHF", "GBPAUD": "C:GBPAUD", "EURAUD": "C:EURAUD",
+    "GBPCAD": "C:GBPCAD", "AUDNZD": "C:AUDNZD", "AUDCAD": "C:AUDCAD",
+    "AUDJPY": "C:AUDJPY", "NZDJPY": "C:NZDJPY", "CADJPY": "C:CADJPY",
+    "CADCHF": "C:CADCHF", "NZDCAD": "C:NZDCAD", "EURNZD": "C:EURNZD",
+    "GBPCHF": "C:GBPCHF", "GBPNZD": "C:GBPNZD", "EURCAD": "C:EURCAD",
+    "AUDCHF": "C:AUDCHF", "NZDCHF": "C:NZDCHF", "CHFJPY": "C:CHFJPY",
+    # Crypto (X: prefix)
+    "BTCUSD": "X:BTCUSD", "ETHUSD": "X:ETHUSD",
+    "SOLUSD": "X:SOLUSD", "XRPUSD": "X:XRPUSD",
 }
 
 SUPPORTED_SYMBOLS = set(SYMBOL_TO_MASSIVE.keys())

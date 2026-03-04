@@ -5,8 +5,15 @@ import type { LivePrice } from "@/lib/binance-ws";
 export type MarketType = "commodity" | "crypto" | "forex";
 
 const CRYPTO_SYMBOLS = ["BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "ETHBTC"];
-const FOREX_SYMBOLS = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDCHF",
-                       "EURGBP", "EURJPY", "GBPJPY"];
+const FOREX_SYMBOLS = [
+  // Majors
+  "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDCHF",
+  // Minors (crosses)
+  "EURGBP", "EURJPY", "GBPJPY", "EURCHF", "GBPAUD", "EURAUD",
+  "GBPCAD", "AUDNZD", "AUDCAD", "AUDJPY", "NZDJPY", "CADJPY",
+  "CADCHF", "NZDCAD", "EURNZD", "GBPCHF", "GBPNZD", "EURCAD",
+  "AUDCHF", "NZDCHF", "CHFJPY",
+];
 
 /** Determine market type from symbol */
 export function getMarketType(symbol: string): MarketType {

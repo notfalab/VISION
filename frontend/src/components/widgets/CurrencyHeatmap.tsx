@@ -22,13 +22,18 @@ interface PairCorrelation {
 const CURRENCIES = ["USD", "EUR", "GBP", "JPY", "AUD", "CAD", "NZD", "CHF"];
 
 const FOREX_PAIRS: Record<string, [string, string]> = {
-  EURUSD: ["EUR", "USD"],
-  GBPUSD: ["GBP", "USD"],
-  USDJPY: ["USD", "JPY"],
-  AUDUSD: ["AUD", "USD"],
-  USDCAD: ["USD", "CAD"],
-  NZDUSD: ["NZD", "USD"],
+  // Majors
+  EURUSD: ["EUR", "USD"], GBPUSD: ["GBP", "USD"], USDJPY: ["USD", "JPY"],
+  AUDUSD: ["AUD", "USD"], USDCAD: ["USD", "CAD"], NZDUSD: ["NZD", "USD"],
   USDCHF: ["USD", "CHF"],
+  // Minors
+  EURGBP: ["EUR", "GBP"], EURJPY: ["EUR", "JPY"], GBPJPY: ["GBP", "JPY"],
+  EURCHF: ["EUR", "CHF"], GBPAUD: ["GBP", "AUD"], EURAUD: ["EUR", "AUD"],
+  GBPCAD: ["GBP", "CAD"], AUDNZD: ["AUD", "NZD"], AUDCAD: ["AUD", "CAD"],
+  AUDJPY: ["AUD", "JPY"], NZDJPY: ["NZD", "JPY"], CADJPY: ["CAD", "JPY"],
+  CADCHF: ["CAD", "CHF"], NZDCAD: ["NZD", "CAD"], EURNZD: ["EUR", "NZD"],
+  GBPCHF: ["GBP", "CHF"], GBPNZD: ["GBP", "NZD"], EURCAD: ["EUR", "CAD"],
+  AUDCHF: ["AUD", "CHF"], NZDCHF: ["NZD", "CHF"], CHFJPY: ["CHF", "JPY"],
 };
 
 const CURRENCY_FLAGS: Record<string, string> = {

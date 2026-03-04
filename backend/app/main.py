@@ -15,7 +15,14 @@ from backend.app.logging_config import setup_logging, get_logger
 SCAN_INTERVAL = 300  # 5 minutes
 DAILY_SUMMARY_HOUR = 22  # 22:00 UTC
 
-FOREX_PAIRS = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDCHF"]
+FOREX_MAJORS = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDCHF"]
+FOREX_MINORS = [
+    "EURGBP", "EURJPY", "GBPJPY", "EURCHF", "GBPAUD", "EURAUD",
+    "GBPCAD", "AUDNZD", "AUDCAD", "AUDJPY", "NZDJPY", "CADJPY",
+    "CADCHF", "NZDCAD", "EURNZD", "GBPCHF", "GBPNZD", "EURCAD",
+    "AUDCHF", "NZDCHF", "CHFJPY",
+]
+FOREX_PAIRS = FOREX_MAJORS + FOREX_MINORS
 
 
 async def _forex_price_refresh(logger):
@@ -132,9 +139,25 @@ async def _background_scanner(logger):
                 except Exception as e:
                     logger.error("auto_scan_error", symbol=symbol, error=str(e))
 
-            # Scan forex every other cycle (~10 min) to avoid API overload
+            # Scan forex majors every other cycle (~10 min)
             if scan_count % 2 == 0:
-                for symbol in FOREX_PAIRS:
+                for symbol in FOREX_MAJORS:
+                    try:
+                        result = await _async_scan(symbol)
+                        signals = result.get("signals_generated", 0)
+                        outcomes = result.get("outcomes_resolved", 0)
+                        logger.info(
+                            "auto_scan_done",
+                            symbol=symbol,
+                            signals=signals,
+                            outcomes=outcomes,
+                        )
+                    except Exception as e:
+                        logger.error("auto_scan_error", symbol=symbol, error=str(e))
+
+            # Scan forex minors every 4th cycle (~20 min) to avoid API overload
+            if scan_count % 4 == 0:
+                for symbol in FOREX_MINORS:
                     try:
                         result = await _async_scan(symbol)
                         signals = result.get("signals_generated", 0)
@@ -246,8 +269,7 @@ async def lifespan(app: FastAPI):
         data_registry.set_route(pair, "cryptocompare")
 
     # Route forex pairs to Massive (paid plan, full intraday data)
-    for pair in ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD",
-                 "EURGBP", "EURJPY", "GBPJPY"]:
+    for pair in FOREX_PAIRS:
         data_registry.set_route(pair, "massive")
 
     # ── Orderbook-specific routes (real exchange data only) ──
@@ -266,8 +288,7 @@ async def lifespan(app: FastAPI):
     # Forex orderbook → MyFxBook (real trader positioning from verified accounts)
     # OANDA orderBook requires premium API key (401 on practice accounts)
     # MyFxBook Community Outlook provides: % long/short, volumes, avg prices
-    for pair in ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD",
-                 "EURGBP", "EURJPY", "GBPJPY"]:
+    for pair in FOREX_PAIRS:
         data_registry.set_orderbook_route(pair, "myfxbook")
 
     for pair in ["ETHBTC", "XRPUSD"]:

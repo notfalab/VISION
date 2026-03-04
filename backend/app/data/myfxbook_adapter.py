@@ -26,28 +26,40 @@ logger = get_logger("myfxbook")
 API_BASE = "https://www.myfxbook.com/api"
 
 # Map our symbols to MyFxBook format
+# MyFxBook Community Outlook supports 186+ forex symbols — we map the ones we use
 SYMBOL_MAP = {
-    "EURUSD": "EURUSD",
-    "GBPUSD": "GBPUSD",
-    "USDJPY": "USDJPY",
-    "AUDUSD": "AUDUSD",
-    "USDCAD": "USDCAD",
-    "NZDUSD": "NZDUSD",
+    # Majors
+    "EURUSD": "EURUSD", "GBPUSD": "GBPUSD", "USDJPY": "USDJPY",
+    "AUDUSD": "AUDUSD", "USDCAD": "USDCAD", "NZDUSD": "NZDUSD",
     "USDCHF": "USDCHF",
-    "EURGBP": "EURGBP",
-    "EURJPY": "EURJPY",
-    "GBPJPY": "GBPJPY",
-    "XAUUSD": "XAUUSD",
-    "XAGUSD": "XAGUSD",
+    # Minors (crosses)
+    "EURGBP": "EURGBP", "EURJPY": "EURJPY", "GBPJPY": "GBPJPY",
+    "EURCHF": "EURCHF", "GBPAUD": "GBPAUD", "EURAUD": "EURAUD",
+    "GBPCAD": "GBPCAD", "AUDNZD": "AUDNZD", "AUDCAD": "AUDCAD",
+    "AUDJPY": "AUDJPY", "NZDJPY": "NZDJPY", "CADJPY": "CADJPY",
+    "CADCHF": "CADCHF", "NZDCAD": "NZDCAD", "EURNZD": "EURNZD",
+    "GBPCHF": "GBPCHF", "GBPNZD": "GBPNZD", "EURCAD": "EURCAD",
+    "AUDCHF": "AUDCHF", "NZDCHF": "NZDCHF", "CHFJPY": "CHFJPY",
+    # Commodities
+    "XAUUSD": "XAUUSD", "XAGUSD": "XAGUSD",
 }
 
 SUPPORTED_SYMBOLS = set(SYMBOL_MAP.keys())
 
 # Typical pip sizes for generating price levels
 PIP_SIZE = {
+    # Standard 4-decimal pairs
     "EURUSD": 0.0001, "GBPUSD": 0.0001, "AUDUSD": 0.0001,
     "NZDUSD": 0.0001, "USDCAD": 0.0001, "USDCHF": 0.0001,
-    "EURGBP": 0.0001, "USDJPY": 0.01, "EURJPY": 0.01, "GBPJPY": 0.01,
+    "EURGBP": 0.0001, "EURCHF": 0.0001, "GBPAUD": 0.0001,
+    "EURAUD": 0.0001, "GBPCAD": 0.0001, "AUDNZD": 0.0001,
+    "AUDCAD": 0.0001, "CADCHF": 0.0001, "NZDCAD": 0.0001,
+    "EURNZD": 0.0001, "GBPCHF": 0.0001, "GBPNZD": 0.0001,
+    "EURCAD": 0.0001, "AUDCHF": 0.0001, "NZDCHF": 0.0001,
+    # JPY pairs (2-decimal)
+    "USDJPY": 0.01, "EURJPY": 0.01, "GBPJPY": 0.01,
+    "AUDJPY": 0.01, "NZDJPY": 0.01, "CADJPY": 0.01, "CHFJPY": 0.01,
+    # Commodities
     "XAUUSD": 0.10, "XAGUSD": 0.01,
 }
 

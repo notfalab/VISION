@@ -33,18 +33,20 @@ OANDA_GRANULARITY = {
 
 # Map our symbol format to OANDA instrument format
 SYMBOL_TO_OANDA = {
-    "XAUUSD": "XAU_USD",
-    "XAGUSD": "XAG_USD",
-    "EURUSD": "EUR_USD",
-    "GBPUSD": "GBP_USD",
-    "USDJPY": "USD_JPY",
-    "AUDUSD": "AUD_USD",
-    "USDCAD": "USD_CAD",
-    "NZDUSD": "NZD_USD",
+    # Commodities
+    "XAUUSD": "XAU_USD", "XAGUSD": "XAG_USD",
+    # Majors
+    "EURUSD": "EUR_USD", "GBPUSD": "GBP_USD", "USDJPY": "USD_JPY",
+    "AUDUSD": "AUD_USD", "USDCAD": "USD_CAD", "NZDUSD": "NZD_USD",
     "USDCHF": "USD_CHF",
-    "EURGBP": "EUR_GBP",
-    "EURJPY": "EUR_JPY",
-    "GBPJPY": "GBP_JPY",
+    # Minors (crosses)
+    "EURGBP": "EUR_GBP", "EURJPY": "EUR_JPY", "GBPJPY": "GBP_JPY",
+    "EURCHF": "EUR_CHF", "GBPAUD": "GBP_AUD", "EURAUD": "EUR_AUD",
+    "GBPCAD": "GBP_CAD", "AUDNZD": "AUD_NZD", "AUDCAD": "AUD_CAD",
+    "AUDJPY": "AUD_JPY", "NZDJPY": "NZD_JPY", "CADJPY": "CAD_JPY",
+    "CADCHF": "CAD_CHF", "NZDCAD": "NZD_CAD", "EURNZD": "EUR_NZD",
+    "GBPCHF": "GBP_CHF", "GBPNZD": "GBP_NZD", "EURCAD": "EUR_CAD",
+    "AUDCHF": "AUD_CHF", "NZDCHF": "NZD_CHF", "CHFJPY": "CHF_JPY",
 }
 
 SUPPORTED_SYMBOLS = set(SYMBOL_TO_OANDA.keys())

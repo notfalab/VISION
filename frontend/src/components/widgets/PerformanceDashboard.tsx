@@ -55,7 +55,14 @@ interface Analytics {
   equity_curve: { date: string; pnl: number }[];
 }
 
-const ALL_SYMBOLS = ["XAUUSD", "BTCUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDCHF"];
+const ALL_SYMBOLS = [
+  "XAUUSD", "BTCUSD",
+  "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDCHF",
+  "EURGBP", "EURJPY", "GBPJPY", "EURCHF", "GBPAUD", "EURAUD",
+  "GBPCAD", "AUDNZD", "AUDCAD", "AUDJPY", "NZDJPY", "CADJPY",
+  "CADCHF", "NZDCAD", "EURNZD", "GBPCHF", "GBPNZD", "EURCAD",
+  "AUDCHF", "NZDCHF", "CHFJPY",
+];
 
 export default function PerformanceDashboard() {
   const activeSymbol = useMarketStore((s) => s.activeSymbol);

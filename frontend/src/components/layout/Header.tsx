@@ -11,15 +11,40 @@ import { binanceWS, isBinanceSymbol } from "@/lib/binance-ws";
 import { formatPrice, formatChange, priceColor } from "@/lib/format";
 
 const ASSET_OPTIONS = [
-  { symbol: "XAUUSD", label: "XAU/USD", color: "var(--color-neon-amber, #F59E0B)" },
-  { symbol: "BTCUSD", label: "BTC/USD", color: "var(--color-neon-orange, #F97316)" },
-  { symbol: "EURUSD", label: "EUR/USD", color: "#3B82F6" },
-  { symbol: "GBPUSD", label: "GBP/USD", color: "#EC4899" },
-  { symbol: "USDJPY", label: "USD/JPY", color: "#EF4444" },
-  { symbol: "AUDUSD", label: "AUD/USD", color: "#10B981" },
-  { symbol: "USDCAD", label: "USD/CAD", color: "#8B5CF6" },
-  { symbol: "NZDUSD", label: "NZD/USD", color: "#06B6D4" },
-  { symbol: "USDCHF", label: "USD/CHF", color: "#F43F5E" },
+  // Commodities
+  { symbol: "XAUUSD", label: "XAU/USD", color: "var(--color-neon-amber, #F59E0B)", group: "Commodities" },
+  // Crypto
+  { symbol: "BTCUSD", label: "BTC/USD", color: "var(--color-neon-orange, #F97316)", group: "Crypto" },
+  // Forex Majors
+  { symbol: "EURUSD", label: "EUR/USD", color: "#3B82F6", group: "Forex Majors" },
+  { symbol: "GBPUSD", label: "GBP/USD", color: "#EC4899", group: "Forex Majors" },
+  { symbol: "USDJPY", label: "USD/JPY", color: "#EF4444", group: "Forex Majors" },
+  { symbol: "AUDUSD", label: "AUD/USD", color: "#10B981", group: "Forex Majors" },
+  { symbol: "USDCAD", label: "USD/CAD", color: "#8B5CF6", group: "Forex Majors" },
+  { symbol: "NZDUSD", label: "NZD/USD", color: "#06B6D4", group: "Forex Majors" },
+  { symbol: "USDCHF", label: "USD/CHF", color: "#F43F5E", group: "Forex Majors" },
+  // Forex Minors (crosses)
+  { symbol: "EURGBP", label: "EUR/GBP", color: "#818CF8", group: "Forex Minors" },
+  { symbol: "EURJPY", label: "EUR/JPY", color: "#F472B6", group: "Forex Minors" },
+  { symbol: "GBPJPY", label: "GBP/JPY", color: "#FB923C", group: "Forex Minors" },
+  { symbol: "EURCHF", label: "EUR/CHF", color: "#34D399", group: "Forex Minors" },
+  { symbol: "GBPAUD", label: "GBP/AUD", color: "#A78BFA", group: "Forex Minors" },
+  { symbol: "EURAUD", label: "EUR/AUD", color: "#38BDF8", group: "Forex Minors" },
+  { symbol: "GBPCAD", label: "GBP/CAD", color: "#E879F9", group: "Forex Minors" },
+  { symbol: "AUDNZD", label: "AUD/NZD", color: "#2DD4BF", group: "Forex Minors" },
+  { symbol: "AUDCAD", label: "AUD/CAD", color: "#FBBF24", group: "Forex Minors" },
+  { symbol: "AUDJPY", label: "AUD/JPY", color: "#4ADE80", group: "Forex Minors" },
+  { symbol: "NZDJPY", label: "NZD/JPY", color: "#67E8F9", group: "Forex Minors" },
+  { symbol: "CADJPY", label: "CAD/JPY", color: "#C084FC", group: "Forex Minors" },
+  { symbol: "CADCHF", label: "CAD/CHF", color: "#FDA4AF", group: "Forex Minors" },
+  { symbol: "NZDCAD", label: "NZD/CAD", color: "#86EFAC", group: "Forex Minors" },
+  { symbol: "EURNZD", label: "EUR/NZD", color: "#93C5FD", group: "Forex Minors" },
+  { symbol: "GBPCHF", label: "GBP/CHF", color: "#FCA5A5", group: "Forex Minors" },
+  { symbol: "GBPNZD", label: "GBP/NZD", color: "#D8B4FE", group: "Forex Minors" },
+  { symbol: "EURCAD", label: "EUR/CAD", color: "#FDBA74", group: "Forex Minors" },
+  { symbol: "AUDCHF", label: "AUD/CHF", color: "#A7F3D0", group: "Forex Minors" },
+  { symbol: "NZDCHF", label: "NZD/CHF", color: "#BAE6FD", group: "Forex Minors" },
+  { symbol: "CHFJPY", label: "CHF/JPY", color: "#FDE68A", group: "Forex Minors" },
 ];
 
 /**
@@ -264,31 +289,38 @@ export default function Header() {
               </button>
 
               {selectorOpen && (
-                <div className="absolute top-full left-0 mt-1 z-50 min-w-[180px] rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-bg-secondary)] shadow-lg overflow-hidden">
-                  {ASSET_OPTIONS.map((opt) => {
+                <div className="absolute top-full left-0 mt-1 z-50 min-w-[200px] max-h-[70vh] overflow-y-auto rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-bg-secondary)] shadow-lg">
+                  {ASSET_OPTIONS.map((opt, i) => {
                     const open = isMarketOpen(opt.symbol);
+                    const showHeader = i === 0 || ASSET_OPTIONS[i - 1].group !== opt.group;
                     return (
-                      <button
-                        key={opt.symbol}
-                        onClick={() => {
-                          setActiveSymbol(opt.symbol);
-                          setSelectorOpen(false);
-                        }}
-                        className={`w-full flex items-center gap-2.5 px-4 py-3 text-sm font-mono transition-colors hover:bg-[var(--color-bg-hover)] ${
-                          opt.symbol === activeSymbol ? "bg-[var(--color-bg-hover)]" : ""
-                        }`}
-                      >
-                        <span
-                          className={`w-2 h-2 rounded-full shrink-0 ${open ? "bg-[var(--color-neon-green)]" : "bg-[var(--color-bear)]"}`}
-                          title={open ? "Market Open" : "Market Closed"}
-                        />
-                        <span className="font-bold" style={{ color: opt.color }}>{opt.label}</span>
-                        {livePrices[opt.symbol] && (
-                          <span className="text-[var(--color-text-secondary)] tabular-nums ml-auto text-xs">
-                            {formatPrice(livePrices[opt.symbol].price, opt.symbol)}
-                          </span>
+                      <div key={opt.symbol}>
+                        {showHeader && (
+                          <div className="px-4 py-1.5 text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider bg-[var(--color-bg-primary)]/50 border-t border-[var(--color-border-primary)] first:border-t-0">
+                            {opt.group}
+                          </div>
                         )}
-                      </button>
+                        <button
+                          onClick={() => {
+                            setActiveSymbol(opt.symbol);
+                            setSelectorOpen(false);
+                          }}
+                          className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-mono transition-colors hover:bg-[var(--color-bg-hover)] ${
+                            opt.symbol === activeSymbol ? "bg-[var(--color-bg-hover)]" : ""
+                          }`}
+                        >
+                          <span
+                            className={`w-2 h-2 rounded-full shrink-0 ${open ? "bg-[var(--color-neon-green)]" : "bg-[var(--color-bear)]"}`}
+                            title={open ? "Market Open" : "Market Closed"}
+                          />
+                          <span className="font-bold" style={{ color: opt.color }}>{opt.label}</span>
+                          {livePrices[opt.symbol] && (
+                            <span className="text-[var(--color-text-secondary)] tabular-nums ml-auto text-xs">
+                              {formatPrice(livePrices[opt.symbol].price, opt.symbol)}
+                            </span>
+                          )}
+                        </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -339,31 +371,38 @@ export default function Header() {
             </button>
 
             {selectorOpen && (
-              <div className="absolute top-full left-0 mt-1 z-50 min-w-[160px] rounded-md border border-[var(--color-border-primary)] bg-[var(--color-bg-secondary)] shadow-lg overflow-hidden">
-                {ASSET_OPTIONS.map((opt) => {
+              <div className="absolute top-full left-0 mt-1 z-50 min-w-[180px] max-h-[70vh] overflow-y-auto rounded-md border border-[var(--color-border-primary)] bg-[var(--color-bg-secondary)] shadow-lg">
+                {ASSET_OPTIONS.map((opt, i) => {
                   const open = isMarketOpen(opt.symbol);
+                  const showHeader = i === 0 || ASSET_OPTIONS[i - 1].group !== opt.group;
                   return (
-                    <button
-                      key={opt.symbol}
-                      onClick={() => {
-                        setActiveSymbol(opt.symbol);
-                        setSelectorOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-2 px-3 py-2 text-[12px] font-mono transition-colors hover:bg-[var(--color-bg-hover)] ${
-                        opt.symbol === activeSymbol ? "bg-[var(--color-bg-hover)]" : ""
-                      }`}
-                    >
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${open ? "bg-[var(--color-neon-green)]" : "bg-[var(--color-bear)]"}`}
-                        title={open ? "Market Open" : "Market Closed"}
-                      />
-                      <span className="font-semibold" style={{ color: opt.color }}>{opt.label}</span>
-                      {livePrices[opt.symbol] && (
-                        <span className="text-[var(--color-text-secondary)] tabular-nums ml-auto">
-                          {formatPrice(livePrices[opt.symbol].price, opt.symbol)}
-                        </span>
+                    <div key={opt.symbol}>
+                      {showHeader && (
+                        <div className="px-3 py-1 text-[9px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider bg-[var(--color-bg-primary)]/50 border-t border-[var(--color-border-primary)] first:border-t-0">
+                          {opt.group}
+                        </div>
                       )}
-                    </button>
+                      <button
+                        onClick={() => {
+                          setActiveSymbol(opt.symbol);
+                          setSelectorOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-2 px-3 py-1.5 text-[12px] font-mono transition-colors hover:bg-[var(--color-bg-hover)] ${
+                          opt.symbol === activeSymbol ? "bg-[var(--color-bg-hover)]" : ""
+                        }`}
+                      >
+                        <span
+                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${open ? "bg-[var(--color-neon-green)]" : "bg-[var(--color-bear)]"}`}
+                          title={open ? "Market Open" : "Market Closed"}
+                        />
+                        <span className="font-semibold" style={{ color: opt.color }}>{opt.label}</span>
+                        {livePrices[opt.symbol] && (
+                          <span className="text-[var(--color-text-secondary)] tabular-nums ml-auto">
+                            {formatPrice(livePrices[opt.symbol].price, opt.symbol)}
+                          </span>
+                        )}
+                      </button>
+                    </div>
                   );
                 })}
               </div>
