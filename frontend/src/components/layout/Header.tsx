@@ -10,12 +10,54 @@ import { useAuthStore } from "@/stores/auth";
 import { useThemeStore } from "@/stores/theme";
 import { binanceWS, isBinanceSymbol } from "@/lib/binance-ws";
 import { formatPrice, formatChange, priceColor } from "@/lib/format";
+import { isBinanceSymbol as isCrypto } from "@/lib/binance-ws";
+
+const CRYPTO_OPTIONS = [
+  { symbol: "BTCUSD", label: "BTC/USD" },
+  { symbol: "ETHUSD", label: "ETH/USD" },
+  { symbol: "SOLUSD", label: "SOL/USD" },
+  { symbol: "XRPUSD", label: "XRP/USD" },
+  { symbol: "DOGEUSD", label: "DOGE/USD" },
+  { symbol: "BNBUSD", label: "BNB/USD" },
+  { symbol: "ADAUSD", label: "ADA/USD" },
+  { symbol: "PEPEUSD", label: "PEPE/USD" },
+  { symbol: "TRXUSD", label: "TRX/USD" },
+  { symbol: "SUIUSD", label: "SUI/USD" },
+  { symbol: "NEARUSD", label: "NEAR/USD" },
+  { symbol: "AVAXUSD", label: "AVAX/USD" },
+  { symbol: "LINKUSD", label: "LINK/USD" },
+  { symbol: "LTCUSD", label: "LTC/USD" },
+  { symbol: "AAVEUSD", label: "AAVE/USD" },
+  { symbol: "TAOUSD", label: "TAO/USD" },
+  { symbol: "BCHUSD", label: "BCH/USD" },
+  { symbol: "UNIUSD", label: "UNI/USD" },
+  { symbol: "DOTUSD", label: "DOT/USD" },
+  { symbol: "ICPUSD", label: "ICP/USD" },
+  { symbol: "APTUSD", label: "APT/USD" },
+  { symbol: "SHIBUSD", label: "SHIB/USD" },
+  { symbol: "HBARUSD", label: "HBAR/USD" },
+  { symbol: "FILUSD", label: "FIL/USD" },
+  { symbol: "XLMUSD", label: "XLM/USD" },
+  { symbol: "ARBUSD", label: "ARB/USD" },
+  { symbol: "SEIUSD", label: "SEI/USD" },
+  { symbol: "TONUSD", label: "TON/USD" },
+  { symbol: "ONDOUSD", label: "ONDO/USD" },
+  { symbol: "BONKUSD", label: "BONK/USD" },
+  { symbol: "ENAUSD", label: "ENA/USD" },
+  { symbol: "WLDUSD", label: "WLD/USD" },
+  { symbol: "TIAUSD", label: "TIA/USD" },
+  { symbol: "RENDERUSD", label: "RENDER/USD" },
+  { symbol: "FTMUSD", label: "FTM/USD" },
+  { symbol: "INJUSD", label: "INJ/USD" },
+  { symbol: "OPUSD", label: "OP/USD" },
+  { symbol: "MATICUSD", label: "MATIC/USD" },
+  { symbol: "ATOMUSD", label: "ATOM/USD" },
+  { symbol: "WIFUSD", label: "WIF/USD" },
+];
 
 const ASSET_OPTIONS = [
   // Commodities
-  { symbol: "XAUUSD", label: "XAU/USD", color: "var(--color-neon-amber, #F59E0B)", group: "Commodities" },
-  // Crypto
-  { symbol: "BTCUSD", label: "BTC/USD", color: "var(--color-neon-orange, #F97316)", group: "Crypto" },
+  { symbol: "XAUUSD", label: "XAU/USD", color: "", group: "Commodities" },
   // Forex Majors
   { symbol: "EURUSD", label: "EUR/USD", color: "#3B82F6", group: "Forex Majors" },
   { symbol: "GBPUSD", label: "GBP/USD", color: "#EC4899", group: "Forex Majors" },
@@ -62,7 +104,7 @@ function isMarketOpen(symbol: string): boolean {
   const hour = now.getUTCHours();
 
   // Crypto is always open
-  if (symbol === "BTCUSD") return true;
+  if (isCrypto(symbol)) return true;
 
   // Indices: US market hours Mon-Fri (~14:30-21:00 UTC)
   if (symbol === "NAS100" || symbol === "SPX500") {
@@ -93,10 +135,13 @@ export default function Header() {
   const router = useRouter();
   const [clock, setClock] = useState<Date | null>(null);
   const [selectorOpen, setSelectorOpen] = useState(false);
+  const [cryptoOpen, setCryptoOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [signalsOpen, setSignalsOpen] = useState(false);
   const selectorRef = useRef<HTMLDivElement>(null);
   const selectorMobileRef = useRef<HTMLDivElement>(null);
+  const cryptoRef = useRef<HTMLDivElement>(null);
+  const cryptoMobileRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const signalsMobileRef = useRef<HTMLDivElement>(null);
   const signalsDesktopRef = useRef<HTMLDivElement>(null);
@@ -107,7 +152,8 @@ export default function Header() {
     if (wsConnected.current) return;
     wsConnected.current = true;
 
-    const wsSymbols = watchlist.filter(isBinanceSymbol);
+    const allCrypto = CRYPTO_OPTIONS.map((c) => c.symbol);
+    const wsSymbols = [...new Set([...watchlist.filter(isBinanceSymbol), ...allCrypto])];
     binanceWS.connect(wsSymbols, (symbol, data) => {
       updateLivePrice(symbol, data);
     });
@@ -166,12 +212,17 @@ export default function Header() {
 
   // Close dropdowns on click outside
   useEffect(() => {
-    if (!selectorOpen && !userMenuOpen && !signalsOpen) return;
+    if (!selectorOpen && !cryptoOpen && !userMenuOpen && !signalsOpen) return;
     const handler = (e: MouseEvent) => {
       if (selectorOpen) {
         const inDesktop = selectorRef.current?.contains(e.target as Node);
         const inMobile = selectorMobileRef.current?.contains(e.target as Node);
         if (!inDesktop && !inMobile) setSelectorOpen(false);
+      }
+      if (cryptoOpen) {
+        const inDesktop = cryptoRef.current?.contains(e.target as Node);
+        const inMobile = cryptoMobileRef.current?.contains(e.target as Node);
+        if (!inDesktop && !inMobile) setCryptoOpen(false);
       }
       if (userMenuOpen && userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setUserMenuOpen(false);
@@ -184,9 +235,12 @@ export default function Header() {
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [selectorOpen, userMenuOpen, signalsOpen]);
+  }, [selectorOpen, cryptoOpen, userMenuOpen, signalsOpen]);
 
-  const activeOption = ASSET_OPTIONS.find((a) => a.symbol === activeSymbol) ?? ASSET_OPTIONS[0];
+  const cryptoMatch = CRYPTO_OPTIONS.find((c) => c.symbol === activeSymbol);
+  const activeOption = ASSET_OPTIONS.find((a) => a.symbol === activeSymbol)
+    ?? (cryptoMatch ? { ...cryptoMatch, color: "", group: "Crypto" } : null)
+    ?? ASSET_OPTIONS[0];
   const live = livePrices[activeSymbol];
 
   const handleLogout = () => {
@@ -353,6 +407,42 @@ export default function Header() {
               )}
             </div>
 
+            {/* Crypto dropdown */}
+            <div className="relative" ref={cryptoMobileRef}>
+              <button
+                onClick={() => setCryptoOpen(!cryptoOpen)}
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-mono font-bold transition-colors hover:bg-[var(--color-bg-hover)] border border-transparent hover:border-[var(--color-border-primary)] min-h-[36px] text-[var(--color-neon-orange)]"
+              >
+                Crypto
+                <ChevronDown className="w-4 h-4 opacity-60" />
+              </button>
+
+              {cryptoOpen && (
+                <div className="absolute top-full left-0 mt-1 z-50 min-w-[200px] max-h-[70vh] overflow-y-auto rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-bg-secondary)] shadow-lg">
+                  {CRYPTO_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.symbol}
+                      onClick={() => {
+                        setActiveSymbol(opt.symbol);
+                        setCryptoOpen(false);
+                      }}
+                      className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-mono transition-colors hover:bg-[var(--color-bg-hover)] ${
+                        opt.symbol === activeSymbol ? "bg-[var(--color-bg-hover)]" : ""
+                      }`}
+                    >
+                      <span className="w-2 h-2 rounded-full shrink-0 bg-[var(--color-neon-green)]" />
+                      <span className="font-bold text-[var(--color-text-primary)]">{opt.label}</span>
+                      {livePrices[opt.symbol] && (
+                        <span className="text-[var(--color-text-secondary)] tabular-nums ml-auto text-xs">
+                          {formatPrice(livePrices[opt.symbol].price, opt.symbol)}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Active price */}
             <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-sm font-mono bg-[var(--color-bg-hover)]/50 min-h-[36px]">
               <span className="text-[var(--color-text-primary)] tabular-nums font-semibold">
@@ -430,6 +520,42 @@ export default function Header() {
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </div>
+
+          {/* Crypto dropdown */}
+          <div className="relative" ref={cryptoRef}>
+            <button
+              onClick={() => setCryptoOpen(!cryptoOpen)}
+              className="flex items-center gap-1 px-2 py-1 rounded text-[12px] font-mono font-semibold transition-colors hover:bg-[var(--color-bg-hover)] border border-transparent hover:border-[var(--color-border-primary)] text-[var(--color-neon-orange)]"
+            >
+              Crypto
+              <ChevronDown className="w-3.5 h-3.5 opacity-60" />
+            </button>
+
+            {cryptoOpen && (
+              <div className="absolute top-full left-0 mt-1 z-50 min-w-[180px] max-h-[70vh] overflow-y-auto rounded-md border border-[var(--color-border-primary)] bg-[var(--color-bg-secondary)] shadow-lg">
+                {CRYPTO_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.symbol}
+                    onClick={() => {
+                      setActiveSymbol(opt.symbol);
+                      setCryptoOpen(false);
+                    }}
+                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-[12px] font-mono transition-colors hover:bg-[var(--color-bg-hover)] ${
+                      opt.symbol === activeSymbol ? "bg-[var(--color-bg-hover)]" : ""
+                    }`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-[var(--color-neon-green)]" />
+                    <span className="font-semibold text-[var(--color-text-primary)]">{opt.label}</span>
+                    {livePrices[opt.symbol] && (
+                      <span className="text-[var(--color-text-secondary)] tabular-nums ml-auto">
+                        {formatPrice(livePrices[opt.symbol].price, opt.symbol)}
+                      </span>
+                    )}
+                  </button>
+                ))}
               </div>
             )}
           </div>
