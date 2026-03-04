@@ -70,6 +70,114 @@ minors:
     quote_currency: JPY
     tick_size: "0.001"
 
+  - symbol: EURCHF
+    name: Euro / Swiss Franc
+    base_currency: EUR
+    quote_currency: CHF
+    tick_size: "0.00001"
+
+  - symbol: GBPAUD
+    name: British Pound / Australian Dollar
+    base_currency: GBP
+    quote_currency: AUD
+    tick_size: "0.00001"
+
+  - symbol: EURAUD
+    name: Euro / Australian Dollar
+    base_currency: EUR
+    quote_currency: AUD
+    tick_size: "0.00001"
+
+  - symbol: GBPCAD
+    name: British Pound / Canadian Dollar
+    base_currency: GBP
+    quote_currency: CAD
+    tick_size: "0.00001"
+
+  - symbol: AUDNZD
+    name: Australian Dollar / New Zealand Dollar
+    base_currency: AUD
+    quote_currency: NZD
+    tick_size: "0.00001"
+
+  - symbol: AUDCAD
+    name: Australian Dollar / Canadian Dollar
+    base_currency: AUD
+    quote_currency: CAD
+    tick_size: "0.00001"
+
+  - symbol: AUDJPY
+    name: Australian Dollar / Japanese Yen
+    base_currency: AUD
+    quote_currency: JPY
+    tick_size: "0.001"
+
+  - symbol: NZDJPY
+    name: New Zealand Dollar / Japanese Yen
+    base_currency: NZD
+    quote_currency: JPY
+    tick_size: "0.001"
+
+  - symbol: CADJPY
+    name: Canadian Dollar / Japanese Yen
+    base_currency: CAD
+    quote_currency: JPY
+    tick_size: "0.001"
+
+  - symbol: CADCHF
+    name: Canadian Dollar / Swiss Franc
+    base_currency: CAD
+    quote_currency: CHF
+    tick_size: "0.00001"
+
+  - symbol: NZDCAD
+    name: New Zealand Dollar / Canadian Dollar
+    base_currency: NZD
+    quote_currency: CAD
+    tick_size: "0.00001"
+
+  - symbol: EURNZD
+    name: Euro / New Zealand Dollar
+    base_currency: EUR
+    quote_currency: NZD
+    tick_size: "0.00001"
+
+  - symbol: GBPCHF
+    name: British Pound / Swiss Franc
+    base_currency: GBP
+    quote_currency: CHF
+    tick_size: "0.00001"
+
+  - symbol: GBPNZD
+    name: British Pound / New Zealand Dollar
+    base_currency: GBP
+    quote_currency: NZD
+    tick_size: "0.00001"
+
+  - symbol: EURCAD
+    name: Euro / Canadian Dollar
+    base_currency: EUR
+    quote_currency: CAD
+    tick_size: "0.00001"
+
+  - symbol: AUDCHF
+    name: Australian Dollar / Swiss Franc
+    base_currency: AUD
+    quote_currency: CHF
+    tick_size: "0.00001"
+
+  - symbol: NZDCHF
+    name: New Zealand Dollar / Swiss Franc
+    base_currency: NZD
+    quote_currency: CHF
+    tick_size: "0.00001"
+
+  - symbol: CHFJPY
+    name: Swiss Franc / Japanese Yen
+    base_currency: CHF
+    quote_currency: JPY
+    tick_size: "0.001"
+
 benchmarks:
   - symbol: DXY
     name: US Dollar Index

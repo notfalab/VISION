@@ -52,7 +52,7 @@ async def seed_assets():
         # Quick check — skip if already fully seeded
         result = await session.execute(select(func.count(Asset.id)))
         existing_count = result.scalar() or 0
-        if existing_count >= 17:
+        if existing_count >= 37:
             logger.info("assets_already_seeded", count=existing_count)
             return
 
@@ -80,6 +80,13 @@ async def seed_assets():
             crypto_cfg = yaml.safe_load(crypto_path.read_text())
             for item in crypto_cfg.get("pairs", []):
                 all_values.append(_asset_values(item, MarketType.CRYPTO, exchange=item.get("exchange")))
+
+        # ── Stock indices ──
+        idx_path = CONFIG_DIR / "indices.yaml"
+        if idx_path.exists():
+            idx_cfg = yaml.safe_load(idx_path.read_text())
+            for item in idx_cfg.get("indices", []):
+                all_values.append(_asset_values(item, MarketType.INDEX))
 
         # Upsert each asset (ON CONFLICT DO NOTHING — safe for race conditions)
         for vals in all_values:

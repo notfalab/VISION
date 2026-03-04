@@ -393,7 +393,10 @@ async def get_analytics(symbol: str):
     """
     from backend.app.core.scalper.outcome_tracker import compute_analytics
 
-    signals = get_signals(symbol=symbol)
+    try:
+        signals = get_signals(symbol=symbol)
+    except Exception:
+        signals = []
     analytics = compute_analytics(signals)
 
     return {
