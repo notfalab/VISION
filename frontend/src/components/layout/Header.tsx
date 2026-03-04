@@ -383,7 +383,7 @@ export default function Header() {
                         <button
                           onClick={() => {
                             setActiveSymbol(opt.symbol);
-                            router.push(`/${opt.symbol}`);
+                            window.history.replaceState(null, "", `/${opt.symbol}`);
                             setSelectorOpen(false);
                           }}
                           className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-mono transition-colors hover:bg-[var(--color-bg-hover)] ${
@@ -426,7 +426,7 @@ export default function Header() {
                       key={opt.symbol}
                       onClick={() => {
                         setActiveSymbol(opt.symbol);
-                        router.push(`/${opt.symbol}`);
+                        window.history.replaceState(null, "", `/${opt.symbol}`);
                         setCryptoOpen(false);
                       }}
                       className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-mono transition-colors hover:bg-[var(--color-bg-hover)] ${
@@ -491,7 +491,7 @@ export default function Header() {
                       <button
                         onClick={() => {
                           setActiveSymbol(opt.symbol);
-                          router.push(`/${opt.symbol}`);
+                          window.history.replaceState(null, "", `/${opt.symbol}`);
                           setSelectorOpen(false);
                         }}
                         className={`w-full flex items-center gap-2 px-3 py-1.5 text-[12px] font-mono transition-colors hover:bg-[var(--color-bg-hover)] ${
@@ -534,7 +534,7 @@ export default function Header() {
                     key={opt.symbol}
                     onClick={() => {
                       setActiveSymbol(opt.symbol);
-                      router.push(`/${opt.symbol}`);
+                      window.history.replaceState(null, "", `/${opt.symbol}`);
                       setCryptoOpen(false);
                     }}
                     className={`w-full flex items-center gap-2 px-3 py-1.5 text-[12px] font-mono transition-colors hover:bg-[var(--color-bg-hover)] ${
