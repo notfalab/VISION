@@ -1,0 +1,21 @@
+/** All valid trading symbols supported by VISION. */
+export const VALID_SYMBOLS = new Set([
+  // Crypto
+  "BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "DOGEUSD", "BNBUSD", "ADAUSD",
+  "PEPEUSD", "TRXUSD", "SUIUSD", "NEARUSD", "AVAXUSD", "LINKUSD", "LTCUSD",
+  "AAVEUSD", "TAOUSD", "BCHUSD", "UNIUSD", "DOTUSD", "ICPUSD", "APTUSD",
+  "SHIBUSD", "HBARUSD", "FILUSD", "XLMUSD", "ARBUSD", "SEIUSD", "TONUSD",
+  "ONDOUSD", "BONKUSD", "ENAUSD", "WLDUSD", "TIAUSD", "RENDERUSD", "FTMUSD",
+  "INJUSD", "OPUSD", "MATICUSD", "ATOMUSD", "WIFUSD",
+  // Commodities
+  "XAUUSD",
+  // Forex Majors
+  "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDCHF",
+  // Forex Minors
+  "EURGBP", "EURJPY", "GBPJPY", "EURCHF", "GBPAUD", "EURAUD",
+  "GBPCAD", "AUDNZD", "AUDCAD", "AUDJPY", "NZDJPY", "CADJPY",
+  "CADCHF", "NZDCAD", "EURNZD", "GBPCHF", "GBPNZD", "EURCAD",
+  "AUDCHF", "NZDCHF", "CHFJPY",
+  // Indices
+  "NAS100", "SPX500",
+]);

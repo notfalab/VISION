@@ -123,7 +123,7 @@ function isMarketOpen(symbol: string): boolean {
 
 const SIGNAL_CHANNELS = [
   { label: "VISION GOLD", href: "https://t.me/+_pMYNBlFj0I0YzMx", color: "#F59E0B", gradient: "linear-gradient(to right, #F59E0B, #000)" },
-  { label: "VISION BITCOIN", href: "https://t.me/+9qAF1vBDdTkwYWVh", color: "#F97316", gradient: "linear-gradient(to right, #F97316, #000)" },
+  { label: "VISION CRYPTO", href: "https://t.me/+9qAF1vBDdTkwYWVh", color: "#8B5CF6", gradient: "linear-gradient(to right, #8B5CF6, #000)" },
   { label: "VISION FOREX", href: "https://t.me/+rV8dmhYnX804ZjY5", color: "#3B82F6", gradient: "linear-gradient(to right, #60A5FA, #000)" },
 ];
 
@@ -383,6 +383,7 @@ export default function Header() {
                         <button
                           onClick={() => {
                             setActiveSymbol(opt.symbol);
+                            router.push(`/${opt.symbol}`);
                             setSelectorOpen(false);
                           }}
                           className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-mono transition-colors hover:bg-[var(--color-bg-hover)] ${
@@ -425,6 +426,7 @@ export default function Header() {
                       key={opt.symbol}
                       onClick={() => {
                         setActiveSymbol(opt.symbol);
+                        router.push(`/${opt.symbol}`);
                         setCryptoOpen(false);
                       }}
                       className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-mono transition-colors hover:bg-[var(--color-bg-hover)] ${
@@ -489,6 +491,7 @@ export default function Header() {
                       <button
                         onClick={() => {
                           setActiveSymbol(opt.symbol);
+                          router.push(`/${opt.symbol}`);
                           setSelectorOpen(false);
                         }}
                         className={`w-full flex items-center gap-2 px-3 py-1.5 text-[12px] font-mono transition-colors hover:bg-[var(--color-bg-hover)] ${
@@ -531,6 +534,7 @@ export default function Header() {
                     key={opt.symbol}
                     onClick={() => {
                       setActiveSymbol(opt.symbol);
+                      router.push(`/${opt.symbol}`);
                       setCryptoOpen(false);
                     }}
                     className={`w-full flex items-center gap-2 px-3 py-1.5 text-[12px] font-mono transition-colors hover:bg-[var(--color-bg-hover)] ${
