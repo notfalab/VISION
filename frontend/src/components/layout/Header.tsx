@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { ChevronDown, LogOut, User, Palette } from "lucide-react";
+import { ChevronDown, LogOut, User, Palette, GraduationCap } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMarketStore } from "@/stores/market";
 import { useAuthStore } from "@/stores/auth";
@@ -243,6 +244,13 @@ export default function Header() {
             >
               <Image src="/discord.svg" alt="Discord" width={20} height={20} />
             </a>
+            <Link
+              href="/learn"
+              className="flex items-center justify-center w-9 h-9 rounded-lg transition-colors hover:bg-[var(--color-bg-hover)]"
+              title="VISION Academy"
+            >
+              <GraduationCap className="w-[18px] h-[18px] text-[var(--color-neon-cyan)]" />
+            </Link>
             <button
               onClick={toggleTheme}
               className="flex items-center justify-center w-9 h-9 rounded-lg transition-colors hover:bg-[var(--color-bg-hover)] border border-transparent hover:border-[var(--color-border-primary)]"
@@ -475,6 +483,14 @@ export default function Header() {
             <Image src="/discord.svg" alt="Discord" width={16} height={16} />
             <span>Discord</span>
           </a>
+          <Link
+            href="/learn"
+            className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-semibold uppercase tracking-wider transition-colors hover:bg-[var(--color-bg-hover)] text-[var(--color-neon-cyan)]"
+            title="VISION Academy"
+          >
+            <GraduationCap className="w-4 h-4" />
+            <span>Academy</span>
+          </Link>
           <div className="flex items-center gap-1.5">
             <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-neon-green)] pulse-live" />
             <span className="text-[11px] text-[var(--color-text-muted)]">LIVE</span>
