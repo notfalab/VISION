@@ -290,7 +290,7 @@ export default function Header() {
               )}
             </div>
             <a
-              href="https://discord.gg/eUGYdNyyvf"
+              href="https://discord.com/invite/visionmarkets"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center w-9 h-9 rounded-lg transition-colors hover:bg-[var(--color-bg-hover)]"
@@ -591,7 +591,7 @@ export default function Header() {
             )}
           </div>
           <a
-            href="https://discord.gg/eUGYdNyyvf"
+            href="https://discord.com/invite/visionmarkets"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-semibold uppercase tracking-wider transition-colors hover:bg-[var(--color-bg-hover)] text-[#5865F2]"

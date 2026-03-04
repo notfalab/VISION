@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Activity, RefreshCw, Gauge } from "lucide-react";
+import { Activity, Gauge } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
 
@@ -47,6 +47,8 @@ export default function VolatilityForecast() {
 
   useEffect(() => {
     load();
+    const interval = setInterval(load, 120000);
+    return () => clearInterval(interval);
   }, [load]);
 
   if (loading && !data) {
@@ -97,12 +99,6 @@ export default function VolatilityForecast() {
         >
           {REGIME_LABELS[data.regime] || data.regime}
         </span>
-        <button
-          onClick={load}
-          className="ml-auto p-0.5 rounded hover:bg-[var(--color-bg-hover)] transition-colors"
-        >
-          <RefreshCw className={`w-4 h-4 text-[var(--color-text-muted)] ${loading ? "animate-spin" : ""}`} />
-        </button>
       </div>
 
       <div className="p-3.5 space-y-2">

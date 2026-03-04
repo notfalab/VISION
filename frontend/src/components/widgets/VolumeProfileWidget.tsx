@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { BarChart3, RefreshCw } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
 
@@ -43,6 +43,8 @@ export default function VolumeProfileWidget() {
 
   useEffect(() => {
     load();
+    const interval = setInterval(load, 120000);
+    return () => clearInterval(interval);
   }, [load]);
 
   if (loading && !data) {
@@ -96,12 +98,6 @@ export default function VolumeProfileWidget() {
             </button>
           ))}
         </div>
-        <button
-          onClick={load}
-          className="p-0.5 rounded hover:bg-[var(--color-bg-hover)] transition-colors"
-        >
-          <RefreshCw className={`w-4 h-4 text-[var(--color-text-muted)] ${loading ? "animate-spin" : ""}`} />
-        </button>
       </div>
 
       <div className="p-3 space-y-1.5">

@@ -6,7 +6,6 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
-  RefreshCw,
   Target,
   ShieldAlert,
 } from "lucide-react";
@@ -78,7 +77,7 @@ export default function MarketNarrator() {
 
   useEffect(() => {
     load();
-    const interval = setInterval(load, 300000); // 5 min
+    const interval = setInterval(load, 120000);
     return () => clearInterval(interval);
   }, [load]);
 
@@ -120,13 +119,6 @@ export default function MarketNarrator() {
           <OutlookIcon className="w-3 h-3" />
           {data.outlook}
         </span>
-        <button
-          onClick={load}
-          className="ml-auto p-0.5 rounded hover:bg-[var(--color-bg-hover)] transition-colors"
-          title="Refresh narrative"
-        >
-          <RefreshCw className={`w-4 h-4 text-[var(--color-text-muted)] ${loading ? "animate-spin" : ""}`} />
-        </button>
       </div>
 
       <div className="p-3 space-y-2.5">

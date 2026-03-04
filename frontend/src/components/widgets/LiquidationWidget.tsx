@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Flame, RefreshCw } from "lucide-react";
+import { Flame } from "lucide-react";
 import { useMarketStore, getMarketType } from "@/stores/market";
 import { api } from "@/lib/api";
 import { formatPrice, formatVolume } from "@/lib/format";
@@ -120,13 +120,6 @@ export default function LiquidationWidget() {
         <span className="text-[10px] font-mono text-[var(--color-text-muted)] ml-auto">
           {data.levels.length} levels
         </span>
-        <button
-          onClick={load}
-          className="p-0.5 rounded hover:bg-[var(--color-bg-hover)] transition-colors"
-          title="Refresh"
-        >
-          <RefreshCw className={`w-4 h-4 text-[var(--color-text-muted)] ${loading ? "animate-spin" : ""}`} />
-        </button>
       </div>
 
       <div className="p-3 space-y-2">

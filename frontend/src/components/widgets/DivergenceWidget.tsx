@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { GitBranch, RefreshCw, AlertTriangle } from "lucide-react";
+import { GitBranch, AlertTriangle } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
 
@@ -46,7 +46,7 @@ export default function DivergenceWidget() {
 
   useEffect(() => {
     load();
-    const interval = setInterval(load, 60000); // 1 min
+    const interval = setInterval(load, 120000);
     return () => clearInterval(interval);
   }, [load]);
 
@@ -90,12 +90,6 @@ export default function DivergenceWidget() {
           {isDiverging && <AlertTriangle className="w-3 h-3" />}
           {sig.label}
         </span>
-        <button
-          onClick={load}
-          className="ml-auto p-0.5 rounded hover:bg-[var(--color-bg-hover)] transition-colors"
-        >
-          <RefreshCw className={`w-4 h-4 text-[var(--color-text-muted)] ${loading ? "animate-spin" : ""}`} />
-        </button>
       </div>
 
       <div className="p-3.5 space-y-2">

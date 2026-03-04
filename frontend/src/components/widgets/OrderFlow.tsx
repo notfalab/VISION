@@ -6,7 +6,6 @@ import {
   ShieldAlert,
   TrendingUp,
   TrendingDown,
-  RefreshCw,
 } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
@@ -91,7 +90,7 @@ export default function OrderFlow() {
   useEffect(() => {
     load();
     // Auto-refresh every 30s
-    const interval = setInterval(load, 30000);
+    const interval = setInterval(load, 120000);
     return () => clearInterval(interval);
   }, [load]);
 
@@ -149,15 +148,6 @@ export default function OrderFlow() {
         >
           {sig.label}
         </span>
-        <button
-          onClick={load}
-          className="p-0.5 rounded hover:bg-[var(--color-bg-hover)] transition-colors"
-          title="Refresh"
-        >
-          <RefreshCw
-            className={`w-4 h-4 text-[var(--color-text-muted)] ${loading ? "animate-spin" : ""}`}
-          />
-        </button>
       </div>
 
       <div className="p-3.5 space-y-2">

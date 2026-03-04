@@ -6,7 +6,6 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
-  RefreshCw,
   Activity,
   Clock,
 } from "lucide-react";
@@ -101,6 +100,8 @@ export default function MLPrediction() {
 
   useEffect(() => {
     load();
+    const interval = setInterval(load, 120000);
+    return () => clearInterval(interval);
   }, [activeSymbol, activeTimeframe]);
 
   if (loading) {
@@ -164,13 +165,6 @@ export default function MLPrediction() {
             {regime.regime.replace(/_/g, " ")}
           </span>
         )}
-        <button
-          onClick={load}
-          className="ml-auto p-0.5 rounded hover:bg-[var(--color-bg-hover)] transition-colors"
-          title="Refresh prediction"
-        >
-          <RefreshCw className="w-4 h-4 text-[var(--color-text-muted)]" />
-        </button>
       </div>
 
       <div className="p-3.5 space-y-2">

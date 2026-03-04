@@ -57,7 +57,7 @@ function SentimentGauge({ score, label }: { score: number; label: string }) {
 
   return (
     <div className="flex flex-col items-center -mt-1 -mb-2">
-      <svg viewBox="0 0 240 115" className="w-full max-w-[220px]">
+      <svg viewBox="0 0 240 130" className="w-full max-w-[220px]">
         <defs>
           <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="var(--color-bear)" />
@@ -121,7 +121,7 @@ function SentimentGauge({ score, label }: { score: number; label: string }) {
         {/* Score text */}
         <text
           x={cx}
-          y={cy - 15}
+          y={cy - 18}
           textAnchor="middle"
           className="fill-[var(--color-text-primary)]"
           fontSize="26"
@@ -134,10 +134,10 @@ function SentimentGauge({ score, label }: { score: number; label: string }) {
         {/* Label */}
         <text
           x={cx}
-          y={cy + 5}
+          y={cy + 2}
           textAnchor="middle"
           className="fill-[var(--color-text-secondary)]"
-          fontSize="11"
+          fontSize="10"
           fontWeight="500"
           style={{ textTransform: "uppercase" }}
         >
@@ -145,8 +145,8 @@ function SentimentGauge({ score, label }: { score: number; label: string }) {
         </text>
 
         {/* End labels */}
-        <text x={cx - r - 5} y={cy + 15} textAnchor="middle" fontSize="9" className="fill-[var(--color-bear)]" opacity="0.7">Fear</text>
-        <text x={cx + r + 5} y={cy + 15} textAnchor="middle" fontSize="9" className="fill-[var(--color-bull)]" opacity="0.7">Greed</text>
+        <text x={cx - r - 5} y={cy + 22} textAnchor="middle" fontSize="9" className="fill-[var(--color-bear)]" opacity="0.7">Fear</text>
+        <text x={cx + r + 5} y={cy + 22} textAnchor="middle" fontSize="9" className="fill-[var(--color-bull)]" opacity="0.7">Greed</text>
       </svg>
     </div>
   );

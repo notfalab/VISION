@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { Crosshair, RefreshCw } from "lucide-react";
+import { Crosshair } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
 import { formatPrice, formatVolume } from "@/lib/format";
@@ -97,7 +97,7 @@ export default function TPSLWidget() {
 
   useEffect(() => {
     load();
-    const interval = setInterval(load, 60000);
+    const interval = setInterval(load, 120000);
     return () => clearInterval(interval);
   }, [load]);
 
@@ -149,13 +149,6 @@ export default function TPSLWidget() {
           {" / "}
           <span className="text-[var(--color-bear)]">{slCount} SL</span>
         </span>
-        <button
-          onClick={load}
-          className="p-0.5 rounded hover:bg-[var(--color-bg-hover)] transition-colors"
-          title="Refresh"
-        >
-          <RefreshCw className={`w-4 h-4 text-[var(--color-text-muted)] ${loading ? "animate-spin" : ""}`} />
-        </button>
       </div>
 
       <div className="p-3 space-y-2">

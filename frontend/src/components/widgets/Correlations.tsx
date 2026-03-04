@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { GitCompareArrows, TrendingUp, TrendingDown, Minus, RefreshCw } from "lucide-react";
+import { GitCompareArrows, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { api } from "@/lib/api";
 
 interface CorrelationData {
@@ -122,6 +122,8 @@ export default function Correlations() {
 
   useEffect(() => {
     load();
+    const interval = setInterval(load, 120000);
+    return () => clearInterval(interval);
   }, []);
 
   if (loading && !data) {
@@ -170,14 +172,6 @@ export default function Correlations() {
         >
           {data.gold_macro_signal.toUpperCase()} FOR GOLD
         </span>
-        <button
-          onClick={load}
-          className="p-0.5 rounded hover:bg-[var(--color-bg-hover)] transition-colors"
-        >
-          <RefreshCw
-            className={`w-4 h-4 text-[var(--color-text-muted)] ${loading ? "animate-spin" : ""}`}
-          />
-        </button>
       </div>
 
       <div className="p-3.5 space-y-2">

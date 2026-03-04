@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from "react";
 import {
   Crosshair,
-  RefreshCw,
   TrendingUp,
   TrendingDown,
   Target,
@@ -163,9 +162,9 @@ export default function ScalperMode() {
     if (tab === "learning") loadLossPatterns();
   }, [tab, loadJournal, loadLossPatterns]);
 
-  // Auto-refresh signals every 60s
+  // Auto-refresh signals every 2 min
   useEffect(() => {
-    const iv = setInterval(loadSignals, 60000);
+    const iv = setInterval(loadSignals, 120000);
     return () => clearInterval(iv);
   }, [loadSignals]);
 
@@ -245,18 +244,6 @@ export default function ScalperMode() {
           }}>
           LIVE
         </span>
-        <div className="ml-auto flex items-center gap-1">
-          <button
-            onClick={handleScanAll}
-            disabled={scanning}
-            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[12px] font-bold uppercase hover:bg-[var(--color-bg-hover)] transition-colors"
-            style={{ color: "var(--color-neon-green)" }}
-            title="Scan all timeframes"
-          >
-            <Zap className={`w-3.5 h-3.5 ${scanning ? "animate-pulse" : ""}`} />
-            Scan All
-          </button>
-        </div>
       </div>
 
       {/* Tab bar */}
@@ -287,8 +274,6 @@ export default function ScalperMode() {
             signals={allSignals}
             selectedTf={selectedTf}
             setSelectedTf={setSelectedTf}
-            onScan={handleScan}
-            scanning={scanning}
           />
         )}
         {tab === "journal" && (
@@ -307,14 +292,10 @@ function SignalsTab({
   signals,
   selectedTf,
   setSelectedTf,
-  onScan,
-  scanning,
 }: {
   signals: Signal[];
   selectedTf: string;
   setSelectedTf: (tf: string) => void;
-  onScan: () => void;
-  scanning: boolean;
 }) {
   return (
     <div className="space-y-2">
@@ -333,15 +314,6 @@ function SignalsTab({
             {tf}
           </button>
         ))}
-        <button
-          onClick={onScan}
-          disabled={scanning}
-          className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded text-[12px] font-bold uppercase bg-[var(--color-bg-hover)] hover:bg-[var(--color-neon-cyan)] hover:text-black transition-all"
-          style={{ color: scanning ? "var(--color-text-muted)" : "var(--color-neon-green)" }}
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${scanning ? "animate-spin" : ""}`} />
-          {scanning ? "Scanning..." : "Scan"}
-        </button>
       </div>
 
       {/* Signal cards */}
