@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { Calendar, Clock, ChevronDown, ChevronRight, Zap } from "lucide-react";
+import { Clock, ChevronDown, ChevronRight } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
 
@@ -145,19 +145,23 @@ export default function EconomicCalendar() {
     <div className="card-glass rounded-lg overflow-hidden">
       {/* Header */}
       <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-2">
-        <Calendar className="w-4 h-4 text-[var(--color-neon-blue)]" />
+        <span className="text-[13px]">📅</span>
         <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
-          Economic Calendar
+          Calendar
         </h3>
 
-        {/* Next high-impact badge */}
+        {/* Next high-impact countdown — plain mono text */}
         {nextHighImpact && (
-          <span className="ml-auto flex items-center gap-1 text-[11px] font-mono px-1.5 py-0.5 rounded bg-red-500/15 text-red-400 border border-red-500/20">
-            <Zap className="w-3 h-3" />
-            {nextHighImpact.title.length > 12
-              ? nextHighImpact.title.slice(0, 12) + "…"
-              : nextHighImpact.title}
-            {" "}in {formatCountdown(nextHighImpact.countdown_seconds)}
+          <span className="ml-auto text-[11px] font-mono text-[var(--color-text-muted)]">
+            <span className="text-red-400">
+              {nextHighImpact.title.length > 15
+                ? nextHighImpact.title.slice(0, 15) + "…"
+                : nextHighImpact.title}
+            </span>
+            {" "}
+            <span className="text-[var(--color-text-secondary)]">
+              {formatCountdown(nextHighImpact.countdown_seconds)}
+            </span>
           </span>
         )}
       </div>
