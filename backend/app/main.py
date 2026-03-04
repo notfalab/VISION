@@ -412,7 +412,7 @@ def create_app() -> FastAPI:
             except Exception as e:
                 results["tests"][label] = {"status": "error", "error": str(e)[:200]}
 
-        # OANDA raw orderbook debug
+        # OANDA raw endpoint debug (try both orderBook and positionBook)
         try:
             import httpx
             oanda = data_registry.get_adapter("oanda")
@@ -420,14 +420,14 @@ def create_app() -> FastAPI:
             from backend.app.data.oanda_adapter import _to_oanda_instrument
             instrument = _to_oanda_instrument("XAUUSD")
             base_url = oanda._base_url
-            raw_resp = await oanda._client.get(f"{base_url}/v3/instruments/{instrument}/orderBook")
-            results["oanda_raw"] = {
-                "status_code": raw_resp.status_code,
-                "url": f"{base_url}/v3/instruments/{instrument}/orderBook",
-                "body_preview": raw_resp.text[:500] if raw_resp.status_code == 200 else raw_resp.text[:300],
-            }
+            for ep in ["orderBook", "positionBook"]:
+                raw_resp = await oanda._client.get(f"{base_url}/v3/instruments/{instrument}/{ep}")
+                results[f"oanda_{ep}"] = {
+                    "status_code": raw_resp.status_code,
+                    "body_preview": raw_resp.text[:400],
+                }
         except Exception as e:
-            results["oanda_raw"] = {"error": str(e)[:200]}
+            results["oanda_debug"] = {"error": str(e)[:200]}
 
         return results
 
