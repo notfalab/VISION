@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { memo } from "react";
 import { Flame } from "lucide-react";
 import { useMarketStore, getMarketType } from "@/stores/market";
 import { api } from "@/lib/api";
+import { useApiData } from "@/hooks/useApiData";
 import { formatPrice, formatVolume } from "@/lib/format";
 import RefreshIndicator from "@/components/RefreshIndicator";
 
@@ -22,39 +23,15 @@ interface LiqData {
   total_short_liq_usd: number;
 }
 
-export default function LiquidationWidget() {
+function LiquidationWidget() {
   const { activeSymbol } = useMarketStore();
-  const [data, setData] = useState<LiqData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
-
   const isCrypto = getMarketType(activeSymbol) === "crypto";
 
-  const load = useCallback(async () => {
-    if (!isCrypto) return;
-    setLoading(true);
-    setError(false);
-    try {
-      const result = await api.liquidationMap(activeSymbol);
-      if (result.current_price > 0 && result.levels?.length > 0) {
-        setData(result);
-      }
-    } catch {
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [activeSymbol, isCrypto]);
-
-  useEffect(() => {
-    if (!isCrypto) {
-      setData(null);
-      return;
-    }
-    load();
-    const interval = setInterval(load, 120000);
-    return () => clearInterval(interval);
-  }, [load, isCrypto]);
+  const { data, loading, error } = useApiData<LiqData>(
+    () => api.liquidationMap(activeSymbol),
+    [activeSymbol],
+    { interval: 120_000, key: `liquidation:${activeSymbol}`, enabled: isCrypto }
+  );
 
   // Hidden for non-crypto
   if (!isCrypto) return null;
@@ -197,3 +174,5 @@ export default function LiquidationWidget() {
     </div>
   );
 }
+
+export default memo(LiquidationWidget);

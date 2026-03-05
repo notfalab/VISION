@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo } from "react";
 import { Layers, TrendingUp, TrendingDown, Minus, Loader2 } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
 import RefreshIndicator from "@/components/RefreshIndicator";
+import { useApiData } from "@/hooks/useApiData";
 
 interface MTFData {
   timeframes: Record<string, {
@@ -35,31 +36,22 @@ const IND_LABELS: Record<string, string> = {
   smart_money: "SMC",
 };
 
-export default function MTFConfluence() {
+function MTFConfluence() {
   const { activeSymbol } = useMarketStore();
-  const [data, setData] = useState<MTFData | null>(null);
-  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        // Pre-fetch prices for all MTF timeframes so the backend has data to analyze
-        await Promise.allSettled([
-          api.fetchPrices(activeSymbol, "1h", 200),
-          api.fetchPrices(activeSymbol, "4h", 200),
-          api.fetchPrices(activeSymbol, "1d", 200),
-        ]);
-        const result = await api.mtfConfluence(activeSymbol);
-        setData(result);
-      } catch {
-        // keep stale data
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [activeSymbol]);
+  const { data, loading } = useApiData<MTFData>(
+    async () => {
+      // Pre-fetch prices for all MTF timeframes so the backend has data to analyze
+      await Promise.allSettled([
+        api.fetchPrices(activeSymbol, "1h", 200),
+        api.fetchPrices(activeSymbol, "4h", 200),
+        api.fetchPrices(activeSymbol, "1d", 200),
+      ]);
+      return await api.mtfConfluence(activeSymbol);
+    },
+    [activeSymbol],
+    { interval: 120_000, key: `mtf:${activeSymbol}` },
+  );
 
   const overall = data?.overall;
   const overallColor = overall?.direction.includes("bullish")
@@ -164,3 +156,5 @@ function SignalDot({ signal }: { signal: string }) {
   if (signal === "bearish") return <TrendingDown className="w-4 h-4 text-[var(--color-bear)]" />;
   return <Minus className="w-4 h-4 text-[var(--color-text-muted)]" />;
 }
+
+export default memo(MTFConfluence);

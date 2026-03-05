@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, memo } from "react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
+import { useApiData } from "@/hooks/useApiData";
 import {
   TrendingUp,
   TrendingDown,
@@ -64,146 +65,121 @@ const ALL_SYMBOLS = [
   "AUDCHF", "NZDCHF", "CHFJPY",
 ];
 
-export default function PerformanceDashboard() {
+function PerformanceDashboard() {
   const activeSymbol = useMarketStore((s) => s.activeSymbol);
-  const [data, setData] = useState<Analytics | null>(null);
-  const [globalData, setGlobalData] = useState<Analytics | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
   const [viewMode, setViewMode] = useState<"symbol" | "global">("global");
 
-  // Fetch analytics for active symbol (with periodic refresh)
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      if (!cancelled) setLoading(true);
-      if (!cancelled) setError(false);
-      try {
-        const result = await api.scalperAnalytics(activeSymbol);
-        if (!cancelled) setData(result as Analytics);
-      } catch {
-        if (!cancelled) setError(true);
-      } finally {
-        if (!cancelled) setLoading(false);
+  // Per-symbol analytics
+  const { data, loading, error } = useApiData<Analytics>(
+    () => api.scalperAnalytics(activeSymbol) as Promise<Analytics>,
+    [activeSymbol],
+    { interval: 60_000, key: `perf:symbol:${activeSymbol}` },
+  );
+
+  // Global analytics (all symbols merged)
+  const { data: globalData } = useApiData<Analytics>(
+    async () => {
+      const results = await Promise.allSettled(
+        ALL_SYMBOLS.map((s) => api.scalperAnalytics(s))
+      );
+
+      const merged: Analytics = {
+        symbol: "ALL",
+        total_signals: 0,
+        completed: 0,
+        wins: 0,
+        losses: 0,
+        pending: 0,
+        active: 0,
+        expired: 0,
+        win_rate: 0,
+        avg_pnl: 0,
+        avg_pnl_pct: 0,
+        total_pnl: 0,
+        best_trade: -Infinity,
+        worst_trade: Infinity,
+        avg_rr: 0,
+        profit_factor: 0,
+        by_timeframe: {},
+        by_direction: {},
+        equity_curve: [],
+      };
+
+      let totalRR = 0;
+      let grossWins = 0;
+      let grossLosses = 0;
+
+      for (const r of results) {
+        if (r.status !== "fulfilled" || !r.value) continue;
+        const a = r.value as Analytics;
+        merged.total_signals += a.total_signals || 0;
+        merged.completed += a.completed || 0;
+        merged.wins += a.wins || 0;
+        merged.losses += a.losses || 0;
+        merged.pending += a.pending || 0;
+        merged.active += a.active || 0;
+        merged.expired += a.expired || 0;
+        merged.total_pnl += a.total_pnl || 0;
+        if ((a.best_trade || 0) > merged.best_trade) merged.best_trade = a.best_trade || 0;
+        if ((a.worst_trade || 0) < merged.worst_trade) merged.worst_trade = a.worst_trade || 0;
+        totalRR += (a.avg_rr || 0) * (a.completed || 0);
+
+        // Merge equity curves
+        for (const pt of (a.equity_curve || [])) {
+          merged.equity_curve.push(pt);
+        }
+
+        // Accumulate for profit factor
+        for (const pt of (a.equity_curve || [])) {
+          if (pt.pnl > 0) grossWins += pt.pnl;
+          else grossLosses += Math.abs(pt.pnl);
+        }
+
+        // Merge by_timeframe
+        for (const [tf, stats] of Object.entries(a.by_timeframe || {})) {
+          if (!merged.by_timeframe[tf]) {
+            merged.by_timeframe[tf] = { total: 0, wins: 0, losses: 0, win_rate: 0, avg_pnl: 0 };
+          }
+          merged.by_timeframe[tf].total += stats.total || 0;
+          merged.by_timeframe[tf].wins += stats.wins || 0;
+          merged.by_timeframe[tf].losses += stats.losses || 0;
+        }
+
+        // Merge by_direction
+        for (const [dir, stats] of Object.entries(a.by_direction || {})) {
+          if (!merged.by_direction[dir]) {
+            merged.by_direction[dir] = { total: 0, wins: 0, win_rate: 0, avg_pnl: 0 };
+          }
+          merged.by_direction[dir].total += stats.total || 0;
+          merged.by_direction[dir].wins += stats.wins || 0;
+        }
       }
-    };
-    load();
-    // Refresh every 60s to pick up new signal results
-    const interval = setInterval(load, 60_000);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, [activeSymbol]);
 
-  // Fetch global analytics (all symbols combined, with periodic refresh)
-  useEffect(() => {
-    let cancelled = false;
-    const loadGlobal = async () => {
-      try {
-        const results = await Promise.allSettled(
-          ALL_SYMBOLS.map((s) => api.scalperAnalytics(s))
-        );
+      merged.win_rate = merged.completed > 0 ? Math.round((merged.wins / merged.completed) * 1000) / 10 : 0;
+      merged.avg_pnl = merged.completed > 0 ? Math.round((merged.total_pnl / merged.completed) * 100) / 100 : 0;
+      merged.avg_rr = merged.completed > 0 ? Math.round((totalRR / merged.completed) * 100) / 100 : 0;
+      merged.profit_factor = grossLosses > 0 ? Math.round((grossWins / grossLosses) * 100) / 100 : merged.wins > 0 ? Infinity : 0;
+      if (merged.best_trade === -Infinity) merged.best_trade = 0;
+      if (merged.worst_trade === Infinity) merged.worst_trade = 0;
 
-        const merged: Analytics = {
-          symbol: "ALL",
-          total_signals: 0,
-          completed: 0,
-          wins: 0,
-          losses: 0,
-          pending: 0,
-          active: 0,
-          expired: 0,
-          win_rate: 0,
-          avg_pnl: 0,
-          avg_pnl_pct: 0,
-          total_pnl: 0,
-          best_trade: -Infinity,
-          worst_trade: Infinity,
-          avg_rr: 0,
-          profit_factor: 0,
-          by_timeframe: {},
-          by_direction: {},
-          equity_curve: [],
-        };
-
-        let totalRR = 0;
-        let grossWins = 0;
-        let grossLosses = 0;
-
-        for (const r of results) {
-          if (r.status !== "fulfilled" || !r.value) continue;
-          const a = r.value as Analytics;
-          merged.total_signals += a.total_signals || 0;
-          merged.completed += a.completed || 0;
-          merged.wins += a.wins || 0;
-          merged.losses += a.losses || 0;
-          merged.pending += a.pending || 0;
-          merged.active += a.active || 0;
-          merged.expired += a.expired || 0;
-          merged.total_pnl += a.total_pnl || 0;
-          if ((a.best_trade || 0) > merged.best_trade) merged.best_trade = a.best_trade || 0;
-          if ((a.worst_trade || 0) < merged.worst_trade) merged.worst_trade = a.worst_trade || 0;
-          totalRR += (a.avg_rr || 0) * (a.completed || 0);
-
-          // Merge equity curves
-          for (const pt of (a.equity_curve || [])) {
-            merged.equity_curve.push(pt);
-          }
-
-          // Accumulate for profit factor
-          for (const pt of (a.equity_curve || [])) {
-            if (pt.pnl > 0) grossWins += pt.pnl;
-            else grossLosses += Math.abs(pt.pnl);
-          }
-
-          // Merge by_timeframe
-          for (const [tf, stats] of Object.entries(a.by_timeframe || {})) {
-            if (!merged.by_timeframe[tf]) {
-              merged.by_timeframe[tf] = { total: 0, wins: 0, losses: 0, win_rate: 0, avg_pnl: 0 };
-            }
-            merged.by_timeframe[tf].total += stats.total || 0;
-            merged.by_timeframe[tf].wins += stats.wins || 0;
-            merged.by_timeframe[tf].losses += stats.losses || 0;
-          }
-
-          // Merge by_direction
-          for (const [dir, stats] of Object.entries(a.by_direction || {})) {
-            if (!merged.by_direction[dir]) {
-              merged.by_direction[dir] = { total: 0, wins: 0, win_rate: 0, avg_pnl: 0 };
-            }
-            merged.by_direction[dir].total += stats.total || 0;
-            merged.by_direction[dir].wins += stats.wins || 0;
-          }
-        }
-
-        merged.win_rate = merged.completed > 0 ? Math.round((merged.wins / merged.completed) * 1000) / 10 : 0;
-        merged.avg_pnl = merged.completed > 0 ? Math.round((merged.total_pnl / merged.completed) * 100) / 100 : 0;
-        merged.avg_rr = merged.completed > 0 ? Math.round((totalRR / merged.completed) * 100) / 100 : 0;
-        merged.profit_factor = grossLosses > 0 ? Math.round((grossWins / grossLosses) * 100) / 100 : merged.wins > 0 ? Infinity : 0;
-        if (merged.best_trade === -Infinity) merged.best_trade = 0;
-        if (merged.worst_trade === Infinity) merged.worst_trade = 0;
-
-        // Recalc win rates in sub-groups
-        for (const tf of Object.keys(merged.by_timeframe)) {
-          const s = merged.by_timeframe[tf];
-          s.win_rate = s.total > 0 ? Math.round((s.wins / s.total) * 1000) / 10 : 0;
-        }
-        for (const dir of Object.keys(merged.by_direction)) {
-          const s = merged.by_direction[dir];
-          s.win_rate = s.total > 0 ? Math.round((s.wins / s.total) * 1000) / 10 : 0;
-        }
-
-        // Sort equity curve by date
-        merged.equity_curve.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-        if (!cancelled) setGlobalData(merged);
-      } catch {
-        // Silently fail for global
+      // Recalc win rates in sub-groups
+      for (const tf of Object.keys(merged.by_timeframe)) {
+        const s = merged.by_timeframe[tf];
+        s.win_rate = s.total > 0 ? Math.round((s.wins / s.total) * 1000) / 10 : 0;
       }
-    };
-    loadGlobal();
-    // Refresh every 60s
-    const interval = setInterval(loadGlobal, 60_000);
-    return () => { cancelled = true; clearInterval(interval); };
-  }, []);
+      for (const dir of Object.keys(merged.by_direction)) {
+        const s = merged.by_direction[dir];
+        s.win_rate = s.total > 0 ? Math.round((s.wins / s.total) * 1000) / 10 : 0;
+      }
+
+      // Sort equity curve by date
+      merged.equity_curve.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      return merged;
+    },
+    [],
+    { interval: 60_000, key: `perf:global` },
+  );
 
   const analytics = viewMode === "global" ? globalData : data;
 
@@ -619,3 +595,5 @@ function KPICard({
     </div>
   );
 }
+
+export default memo(PerformanceDashboard);

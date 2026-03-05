@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useMemo, memo } from "react";
 import { TrendingUp, ExternalLink, Newspaper } from "lucide-react";
 import { useMarketStore, getMarketType } from "@/stores/market";
 import { api } from "@/lib/api";
 import RefreshIndicator from "@/components/RefreshIndicator";
+import { useApiData } from "@/hooks/useApiData";
 
 interface Article {
   title: string;
@@ -198,24 +199,15 @@ function timeAgo(isoString: string): string {
   }
 }
 
-export default function NewsSentiment() {
+function NewsSentiment() {
   const activeSymbol = useMarketStore((s) => s.activeSymbol);
   const marketType = getMarketType(activeSymbol);
-  const [data, setData] = useState<SentimentData | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      const result = await api.newsSentiment(activeSymbol);
-      setData(result);
-      setLoading(false);
-    };
-    load();
-    // Refresh every 60s
-    const interval = setInterval(load, 60_000);
-    return () => clearInterval(interval);
-  }, [activeSymbol]);
+  const { data, loading } = useApiData<SentimentData>(
+    () => api.newsSentiment(activeSymbol),
+    [activeSymbol],
+    { interval: 120_000, key: `sentiment:${activeSymbol}` },
+  );
 
   const scoreBadgeColor = useMemo(() => {
     if (!data) return "var(--color-text-muted)";
@@ -408,3 +400,5 @@ export default function NewsSentiment() {
     </div>
   );
 }
+
+export default memo(NewsSentiment);

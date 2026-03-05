@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo } from "react";
 import {
   Zap,
   TrendingUp,
@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useMarketStore, getMarketType } from "@/stores/market";
 import { api } from "@/lib/api";
+import { useApiData } from "@/hooks/useApiData";
 
 interface RegimeData {
   regime: string;
@@ -80,17 +81,11 @@ const DIRECTION_CONFIG: Record<string, { label: string; color: string; icon: typ
   strong_sell: { label: "STRONG SELL", color: "var(--color-bear)", icon: TrendingDown },
 };
 
-export default function TradeScore() {
+function TradeScore() {
   const { activeSymbol, activeTimeframe } = useMarketStore();
-  const [result, setResult] = useState<CompositeResult | null>(null);
-  const [regime, setRegime] = useState<RegimeData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      setError(false);
+  const { data: scoreData, loading, error } = useApiData<{ result: CompositeResult; regime: RegimeData | null }>(
+    async () => {
       try {
         // Ensure price data exists for this timeframe
         await api.fetchPrices(activeSymbol, activeTimeframe, 200);
@@ -98,24 +93,27 @@ export default function TradeScore() {
           api.compositeScore(activeSymbol, activeTimeframe),
           api.mlRegime(activeSymbol, activeTimeframe),
         ]);
-        if (compositeData.status === "fulfilled") setResult(compositeData.value);
-        if (regimeData.status === "fulfilled") setRegime(regimeData.value);
+        const result = compositeData.status === "fulfilled" ? compositeData.value : null;
+        const regime = regimeData.status === "fulfilled" ? regimeData.value : null;
+        if (result) return { result, regime };
       } catch {
         // Fallback to basic indicators
         try {
           const data = await api.indicators(activeSymbol, activeTimeframe, 200);
           const indicators = data?.indicators || [];
-          setResult(computeFallbackScore(indicators, activeSymbol));
+          return { result: computeFallbackScore(indicators, activeSymbol), regime: null };
         } catch {
-          setError(true);
-          setResult(null);
+          // fall through
         }
-      } finally {
-        setLoading(false);
       }
-    };
-    load();
-  }, [activeSymbol, activeTimeframe]);
+      return null;
+    },
+    [activeSymbol, activeTimeframe],
+    { interval: 120_000, key: `tradeScore:${activeSymbol}:${activeTimeframe}` },
+  );
+
+  const result = scoreData?.result ?? null;
+  const regime = scoreData?.regime ?? null;
 
   if (loading) {
     return (
@@ -335,3 +333,5 @@ function computeFallbackScore(indicators: any[], symbol: string): CompositeResul
     },
   };
 }
+
+export default memo(TradeScore);

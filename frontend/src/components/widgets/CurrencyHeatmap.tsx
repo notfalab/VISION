@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useMarketStore } from "@/stores/market";
+import { useState, memo } from "react";
 import { api } from "@/lib/api";
 import { Grid3X3, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import RefreshIndicator from "@/components/RefreshIndicator";
+import { useApiData } from "@/hooks/useApiData";
 
 interface CurrencyStrength {
   currency: string;
@@ -68,160 +68,154 @@ function getCorrelationColor(corr: number): string {
   return "var(--color-bg-hover)";
 }
 
-export default function CurrencyHeatmap() {
-  const [strengths, setStrengths] = useState<CurrencyStrength[]>([]);
-  const [correlations, setCorrelations] = useState<PairCorrelation[]>([]);
-  const [loading, setLoading] = useState(true);
+interface HeatmapData {
+  strengths: CurrencyStrength[];
+  correlations: PairCorrelation[];
+}
+
+function CurrencyHeatmap() {
   const [tab, setTab] = useState<"strength" | "correlation">("strength");
 
-  useEffect(() => {
-    const calculate = async () => {
-      setLoading(true);
-      try {
-        // Fetch recent price data for all forex pairs
-        const pairData: Record<string, { change1h: number; change4h: number; change1d: number; prices: number[] }> = {};
+  const { data, loading } = useApiData<HeatmapData>(
+    async () => {
+      // Fetch recent price data for all forex pairs
+      const pairData: Record<string, { change1h: number; change4h: number; change1d: number; prices: number[] }> = {};
 
-        const results = await Promise.allSettled(
-          Object.keys(FOREX_PAIRS).map(async (pair) => {
-            try {
-              // Fetch 1d candles for daily change
-              const candles1d = await api.prices(pair, "1d", 2);
-              // Fetch 1h candles for hourly changes
-              const candles1h = await api.prices(pair, "1h", 24);
+      await Promise.allSettled(
+        Object.keys(FOREX_PAIRS).map(async (pair) => {
+          try {
+            // Fetch 1d candles for daily change
+            const candles1d = await api.prices(pair, "1d", 2);
+            // Fetch 1h candles for hourly changes
+            const candles1h = await api.prices(pair, "1h", 24);
 
-              const arr1d = Array.isArray(candles1d) ? candles1d : [];
-              const arr1h = Array.isArray(candles1h) ? candles1h : [];
+            const arr1d = Array.isArray(candles1d) ? candles1d : [];
+            const arr1h = Array.isArray(candles1h) ? candles1h : [];
 
-              let change1d = 0, change4h = 0, change1h = 0;
-              const prices: number[] = [];
+            let change1d = 0, change4h = 0, change1h = 0;
+            const prices: number[] = [];
 
-              if (arr1d.length >= 2) {
-                const prev = arr1d[arr1d.length - 2]?.close || 0;
-                const curr = arr1d[arr1d.length - 1]?.close || 0;
-                change1d = prev > 0 ? ((curr - prev) / prev) * 100 : 0;
-              }
-
-              if (arr1h.length >= 2) {
-                const curr = arr1h[arr1h.length - 1]?.close || 0;
-                const h1ago = arr1h[arr1h.length - 2]?.close || 0;
-                change1h = h1ago > 0 ? ((curr - h1ago) / h1ago) * 100 : 0;
-
-                if (arr1h.length >= 5) {
-                  const h4ago = arr1h[arr1h.length - 5]?.close || 0;
-                  change4h = h4ago > 0 ? ((curr - h4ago) / h4ago) * 100 : 0;
-                }
-
-                // Collect close prices for correlation calculation
-                for (const c of arr1h) {
-                  if (c?.close) prices.push(c.close);
-                }
-              }
-
-              pairData[pair] = { change1h, change4h, change1d, prices };
-            } catch {
-              pairData[pair] = { change1h: 0, change4h: 0, change1d: 0, prices: [] };
+            if (arr1d.length >= 2) {
+              const prev = arr1d[arr1d.length - 2]?.close || 0;
+              const curr = arr1d[arr1d.length - 1]?.close || 0;
+              change1d = prev > 0 ? ((curr - prev) / prev) * 100 : 0;
             }
-          })
-        );
 
-        // Calculate currency strength from pair changes
-        const currencyScores: Record<string, { sum1h: number; sum4h: number; sum1d: number; count: number }> = {};
-        for (const c of CURRENCIES) {
-          currencyScores[c] = { sum1h: 0, sum4h: 0, sum1d: 0, count: 0 };
-        }
+            if (arr1h.length >= 2) {
+              const curr = arr1h[arr1h.length - 1]?.close || 0;
+              const h1ago = arr1h[arr1h.length - 2]?.close || 0;
+              change1h = h1ago > 0 ? ((curr - h1ago) / h1ago) * 100 : 0;
 
-        for (const [pair, data] of Object.entries(pairData)) {
-          const [base, quote] = FOREX_PAIRS[pair] || [];
-          if (!base || !quote) continue;
-
-          // Base currency gains when pair goes up
-          if (currencyScores[base]) {
-            currencyScores[base].sum1h += data.change1h;
-            currencyScores[base].sum4h += data.change4h;
-            currencyScores[base].sum1d += data.change1d;
-            currencyScores[base].count++;
-          }
-          // Quote currency loses when pair goes up
-          if (currencyScores[quote]) {
-            currencyScores[quote].sum1h -= data.change1h;
-            currencyScores[quote].sum4h -= data.change4h;
-            currencyScores[quote].sum1d -= data.change1d;
-            currencyScores[quote].count++;
-          }
-        }
-
-        const strengthArr: CurrencyStrength[] = CURRENCIES.map((currency) => {
-          const s = currencyScores[currency];
-          const count = Math.max(s.count, 1);
-          const avgChange = s.sum1d / count;
-          // Normalize to -100/+100 scale (0.5% daily change = 100)
-          const strength = Math.max(-100, Math.min(100, avgChange * 200));
-          return {
-            currency,
-            strength: Math.round(strength * 10) / 10,
-            change1h: Math.round((s.sum1h / count) * 10000) / 10000,
-            change4h: Math.round((s.sum4h / count) * 10000) / 10000,
-            change1d: Math.round((s.sum1d / count) * 10000) / 10000,
-          };
-        }).sort((a, b) => b.strength - a.strength);
-
-        setStrengths(strengthArr);
-
-        // Calculate correlations between pairs
-        const pairNames = Object.keys(FOREX_PAIRS);
-        const corrArr: PairCorrelation[] = [];
-
-        for (let i = 0; i < pairNames.length; i++) {
-          for (let j = i + 1; j < pairNames.length; j++) {
-            const p1 = pairData[pairNames[i]]?.prices || [];
-            const p2 = pairData[pairNames[j]]?.prices || [];
-            const minLen = Math.min(p1.length, p2.length);
-
-            if (minLen > 5) {
-              // Calculate returns
-              const r1: number[] = [];
-              const r2: number[] = [];
-              for (let k = 1; k < minLen; k++) {
-                r1.push((p1[k] - p1[k - 1]) / p1[k - 1]);
-                r2.push((p2[k] - p2[k - 1]) / p2[k - 1]);
+              if (arr1h.length >= 5) {
+                const h4ago = arr1h[arr1h.length - 5]?.close || 0;
+                change4h = h4ago > 0 ? ((curr - h4ago) / h4ago) * 100 : 0;
               }
 
-              // Pearson correlation
-              const n = r1.length;
-              const meanR1 = r1.reduce((a, b) => a + b, 0) / n;
-              const meanR2 = r2.reduce((a, b) => a + b, 0) / n;
-              let num = 0, d1 = 0, d2 = 0;
-              for (let k = 0; k < n; k++) {
-                const diff1 = r1[k] - meanR1;
-                const diff2 = r2[k] - meanR2;
-                num += diff1 * diff2;
-                d1 += diff1 * diff1;
-                d2 += diff2 * diff2;
+              // Collect close prices for correlation calculation
+              for (const c of arr1h) {
+                if (c?.close) prices.push(c.close);
               }
-              const denom = Math.sqrt(d1 * d2);
-              const corr = denom > 0 ? num / denom : 0;
-
-              corrArr.push({
-                pair1: pairNames[i],
-                pair2: pairNames[j],
-                correlation: Math.round(corr * 100) / 100,
-              });
             }
-          }
-        }
 
-        setCorrelations(corrArr);
-      } catch {
-        // fail silently
-      } finally {
-        setLoading(false);
+            pairData[pair] = { change1h, change4h, change1d, prices };
+          } catch {
+            pairData[pair] = { change1h: 0, change4h: 0, change1d: 0, prices: [] };
+          }
+        })
+      );
+
+      // Calculate currency strength from pair changes
+      const currencyScores: Record<string, { sum1h: number; sum4h: number; sum1d: number; count: number }> = {};
+      for (const c of CURRENCIES) {
+        currencyScores[c] = { sum1h: 0, sum4h: 0, sum1d: 0, count: 0 };
       }
-    };
 
-    calculate();
-    const interval = setInterval(calculate, 60000); // Refresh every minute
-    return () => clearInterval(interval);
-  }, []);
+      for (const [pair, pd] of Object.entries(pairData)) {
+        const [base, quote] = FOREX_PAIRS[pair] || [];
+        if (!base || !quote) continue;
+
+        // Base currency gains when pair goes up
+        if (currencyScores[base]) {
+          currencyScores[base].sum1h += pd.change1h;
+          currencyScores[base].sum4h += pd.change4h;
+          currencyScores[base].sum1d += pd.change1d;
+          currencyScores[base].count++;
+        }
+        // Quote currency loses when pair goes up
+        if (currencyScores[quote]) {
+          currencyScores[quote].sum1h -= pd.change1h;
+          currencyScores[quote].sum4h -= pd.change4h;
+          currencyScores[quote].sum1d -= pd.change1d;
+          currencyScores[quote].count++;
+        }
+      }
+
+      const strengths: CurrencyStrength[] = CURRENCIES.map((currency) => {
+        const s = currencyScores[currency];
+        const count = Math.max(s.count, 1);
+        const avgChange = s.sum1d / count;
+        // Normalize to -100/+100 scale (0.5% daily change = 100)
+        const strength = Math.max(-100, Math.min(100, avgChange * 200));
+        return {
+          currency,
+          strength: Math.round(strength * 10) / 10,
+          change1h: Math.round((s.sum1h / count) * 10000) / 10000,
+          change4h: Math.round((s.sum4h / count) * 10000) / 10000,
+          change1d: Math.round((s.sum1d / count) * 10000) / 10000,
+        };
+      }).sort((a, b) => b.strength - a.strength);
+
+      // Calculate correlations between pairs
+      const pairNames = Object.keys(FOREX_PAIRS);
+      const correlations: PairCorrelation[] = [];
+
+      for (let i = 0; i < pairNames.length; i++) {
+        for (let j = i + 1; j < pairNames.length; j++) {
+          const p1 = pairData[pairNames[i]]?.prices || [];
+          const p2 = pairData[pairNames[j]]?.prices || [];
+          const minLen = Math.min(p1.length, p2.length);
+
+          if (minLen > 5) {
+            // Calculate returns
+            const r1: number[] = [];
+            const r2: number[] = [];
+            for (let k = 1; k < minLen; k++) {
+              r1.push((p1[k] - p1[k - 1]) / p1[k - 1]);
+              r2.push((p2[k] - p2[k - 1]) / p2[k - 1]);
+            }
+
+            // Pearson correlation
+            const n = r1.length;
+            const meanR1 = r1.reduce((a, b) => a + b, 0) / n;
+            const meanR2 = r2.reduce((a, b) => a + b, 0) / n;
+            let num = 0, d1 = 0, d2 = 0;
+            for (let k = 0; k < n; k++) {
+              const diff1 = r1[k] - meanR1;
+              const diff2 = r2[k] - meanR2;
+              num += diff1 * diff2;
+              d1 += diff1 * diff1;
+              d2 += diff2 * diff2;
+            }
+            const denom = Math.sqrt(d1 * d2);
+            const corr = denom > 0 ? num / denom : 0;
+
+            correlations.push({
+              pair1: pairNames[i],
+              pair2: pairNames[j],
+              correlation: Math.round(corr * 100) / 100,
+            });
+          }
+        }
+      }
+
+      return { strengths, correlations };
+    },
+    [],
+    { interval: 120_000, key: "currencyHeatmap" },
+  );
+
+  const strengths = data?.strengths ?? [];
+  const correlations = data?.correlations ?? [];
 
   return (
     <div className="card-glass rounded-lg overflow-hidden relative">
@@ -385,3 +379,5 @@ export default function CurrencyHeatmap() {
     </div>
   );
 }
+
+export default memo(CurrencyHeatmap);

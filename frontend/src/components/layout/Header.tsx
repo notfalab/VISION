@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useTransition } from "react";
 import { ChevronDown, LogOut, User, Palette, GraduationCap, Shield } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -131,6 +131,7 @@ const SIGNAL_CHANNELS = [
 export default function Header() {
   const { activeSymbol, activeTimeframe, setActiveSymbol, watchlist, livePrices, updateLivePrice } =
     useMarketStore();
+  const [, startTransition] = useTransition();
   const { user, logout } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
   const router = useRouter();
@@ -383,7 +384,7 @@ export default function Header() {
                         )}
                         <button
                           onClick={() => {
-                            setActiveSymbol(opt.symbol);
+                            startTransition(() => setActiveSymbol(opt.symbol));
                             updateDashboardURL(opt.symbol, activeTimeframe);
                             setSelectorOpen(false);
                           }}
@@ -426,7 +427,7 @@ export default function Header() {
                     <button
                       key={opt.symbol}
                       onClick={() => {
-                        setActiveSymbol(opt.symbol);
+                        startTransition(() => setActiveSymbol(opt.symbol));
                         updateDashboardURL(opt.symbol, activeTimeframe);
                         setCryptoOpen(false);
                       }}
@@ -491,7 +492,7 @@ export default function Header() {
                       )}
                       <button
                         onClick={() => {
-                          setActiveSymbol(opt.symbol);
+                          startTransition(() => setActiveSymbol(opt.symbol));
                           updateDashboardURL(opt.symbol, activeTimeframe);
                           setSelectorOpen(false);
                         }}
@@ -534,7 +535,7 @@ export default function Header() {
                   <button
                     key={opt.symbol}
                     onClick={() => {
-                      setActiveSymbol(opt.symbol);
+                      startTransition(() => setActiveSymbol(opt.symbol));
                       updateDashboardURL(opt.symbol, activeTimeframe);
                       setCryptoOpen(false);
                     }}

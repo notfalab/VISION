@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo } from "react";
 import { Brain, Target, ArrowUpDown, Flame } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
 import { formatPrice } from "@/lib/format";
+import { useApiData } from "@/hooks/useApiData";
 
 interface SMCData {
   classification: string;
@@ -45,40 +46,36 @@ interface KeyLevelsData {
   fibonacci_levels: { price: number; label: string; ratio: number }[];
 }
 
-export default function SmartMoney() {
+function SmartMoney() {
   const { activeSymbol, activeTimeframe } = useMarketStore();
-  const [smc, setSmc] = useState<SMCData | null>(null);
-  const [levels, setLevels] = useState<KeyLevelsData | null>(null);
-  const [heat, setHeat] = useState<HeatData | null>(null);
-  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        // Ensure price data exists for this timeframe
-        await api.fetchPrices(activeSymbol, activeTimeframe, 200);
-        const [indData, heatData] = await Promise.allSettled([
-          api.indicators(activeSymbol, activeTimeframe, 200),
-          api.institutionalHeat(activeSymbol, activeTimeframe),
-        ]);
-        if (indData.status === "fulfilled") {
-          const indicators = indData.value?.indicators || [];
-          const smcInd = indicators.find((i: any) => i.name === "smart_money");
-          const lvlInd = indicators.find((i: any) => i.name === "key_levels");
-          if (smcInd) setSmc(smcInd.metadata as SMCData);
-          if (lvlInd) setLevels(lvlInd.metadata as KeyLevelsData);
-        }
-        if (heatData.status === "fulfilled") setHeat(heatData.value);
-      } catch {
-        setSmc(null);
-        setLevels(null);
-      } finally {
-        setLoading(false);
+  const { data: smData, loading } = useApiData<{ smc: SMCData | null; levels: KeyLevelsData | null; heat: HeatData | null }>(
+    async () => {
+      // Ensure price data exists for this timeframe
+      await api.fetchPrices(activeSymbol, activeTimeframe, 200);
+      const [indData, heatData] = await Promise.allSettled([
+        api.indicators(activeSymbol, activeTimeframe, 200),
+        api.institutionalHeat(activeSymbol, activeTimeframe),
+      ]);
+      let smc: SMCData | null = null;
+      let levels: KeyLevelsData | null = null;
+      if (indData.status === "fulfilled") {
+        const indicators = indData.value?.indicators || [];
+        const smcInd = indicators.find((i: any) => i.name === "smart_money");
+        const lvlInd = indicators.find((i: any) => i.name === "key_levels");
+        if (smcInd) smc = smcInd.metadata as SMCData;
+        if (lvlInd) levels = lvlInd.metadata as KeyLevelsData;
       }
-    };
-    load();
-  }, [activeSymbol, activeTimeframe]);
+      const heat = heatData.status === "fulfilled" ? heatData.value : null;
+      return { smc, levels, heat };
+    },
+    [activeSymbol, activeTimeframe],
+    { interval: 120_000, key: `smartMoney:${activeSymbol}:${activeTimeframe}` },
+  );
+
+  const smc = smData?.smc ?? null;
+  const levels = smData?.levels ?? null;
+  const heat = smData?.heat ?? null;
 
   if (loading) {
     return (
@@ -297,3 +294,5 @@ export default function SmartMoney() {
     </div>
   );
 }
+
+export default memo(SmartMoney);

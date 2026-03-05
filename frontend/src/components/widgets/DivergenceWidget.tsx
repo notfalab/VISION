@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { memo } from "react";
 import { GitBranch, AlertTriangle } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
+import { useApiData } from "@/hooks/useApiData";
 
 interface DivData {
   symbol: string;
@@ -27,28 +28,13 @@ const SIGNAL_CONFIG: Record<string, { label: string; color: string }> = {
   neutral: { label: "NEUTRAL", color: "var(--color-text-muted)" },
 };
 
-export default function DivergenceWidget() {
+function DivergenceWidget() {
   const { activeSymbol } = useMarketStore();
-  const [data, setData] = useState<DivData | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const result = await api.divergence(activeSymbol);
-      if (result && result.divergence_score !== undefined) setData(result);
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  }, [activeSymbol]);
-
-  useEffect(() => {
-    load();
-    const interval = setInterval(load, 120000);
-    return () => clearInterval(interval);
-  }, [load]);
+  const { data, loading } = useApiData<DivData>(
+    () => api.divergence(activeSymbol),
+    [activeSymbol],
+    { interval: 120_000, key: `divergence:${activeSymbol}` },
+  );
 
   if (loading && !data) {
     return (
@@ -193,3 +179,5 @@ export default function DivergenceWidget() {
     </div>
   );
 }
+
+export default memo(DivergenceWidget);

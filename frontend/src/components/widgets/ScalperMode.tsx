@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState } from "react";
 import {
   Crosshair,
   TrendingUp,
@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
+import { useApiData } from "@/hooks/useApiData";
 
 type Tab = "signals" | "journal" | "learning";
 
@@ -112,61 +113,44 @@ export default function ScalperMode() {
   const { activeSymbol } = useMarketStore();
   const [tab, setTab] = useState<Tab>("signals");
   const [selectedTf, setSelectedTf] = useState("15m");
-  const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
-
-  // Signals tab state
-  const [signals, setSignals] = useState<Signal[]>([]);
   const [scanResult, setScanResult] = useState<Signal[]>([]);
 
-  // Journal tab state
-  const [journal, setJournal] = useState<JournalData | null>(null);
-  const [analytics, setAnalytics] = useState<any>(null);
-
-  // Loss learning tab state
-  const [lossData, setLossData] = useState<LossData | null>(null);
-
-  const loadSignals = useCallback(async () => {
-    try {
+  // Signals — auto-fetch + 2 min polling
+  const { data: signalsData, refresh: refreshSignals } = useApiData<Signal[]>(
+    async () => {
       const data = await api.scalperSignals(activeSymbol, undefined, undefined, 20);
-      setSignals(data.signals || []);
-    } catch {
-      // Silent — no signals yet
-    }
-  }, [activeSymbol]);
+      return data.signals || [];
+    },
+    [activeSymbol],
+    { interval: 120_000, key: `scalperSignals:${activeSymbol}` },
+  );
+  const signals = signalsData || [];
 
-  const loadJournal = useCallback(async () => {
-    try {
+  // Journal + analytics — only when tab is active
+  const { data: journalBundle } = useApiData<{ journal: JournalData | null; analytics: any }>(
+    async () => {
       const [j, a] = await Promise.allSettled([
         api.scalperJournal(activeSymbol),
         api.scalperAnalytics(activeSymbol),
       ]);
-      if (j.status === "fulfilled") setJournal(j.value);
-      if (a.status === "fulfilled") setAnalytics(a.value);
-    } catch {}
-  }, [activeSymbol]);
+      return {
+        journal: j.status === "fulfilled" ? j.value : null,
+        analytics: a.status === "fulfilled" ? a.value : null,
+      };
+    },
+    [activeSymbol, tab],
+    { key: `scalperJournal:${activeSymbol}`, enabled: tab === "journal" },
+  );
+  const journal = journalBundle?.journal ?? null;
+  const analytics = journalBundle?.analytics ?? null;
 
-  const loadLossPatterns = useCallback(async () => {
-    try {
-      const data = await api.scalperLossPatterns(activeSymbol);
-      setLossData(data);
-    } catch {}
-  }, [activeSymbol]);
-
-  useEffect(() => {
-    loadSignals();
-  }, [loadSignals]);
-
-  useEffect(() => {
-    if (tab === "journal") loadJournal();
-    if (tab === "learning") loadLossPatterns();
-  }, [tab, loadJournal, loadLossPatterns]);
-
-  // Auto-refresh signals every 2 min
-  useEffect(() => {
-    const iv = setInterval(loadSignals, 120000);
-    return () => clearInterval(iv);
-  }, [loadSignals]);
+  // Loss patterns — only when tab is active
+  const { data: lossData } = useApiData<LossData>(
+    async () => api.scalperLossPatterns(activeSymbol),
+    [activeSymbol, tab],
+    { key: `scalperLoss:${activeSymbol}`, enabled: tab === "learning" },
+  );
 
   const handleScan = async () => {
     setScanning(true);
@@ -202,7 +186,7 @@ export default function ScalperMode() {
       const data = await api.scalperScanAll(activeSymbol);
       const newSignals = data.signals || [];
       setScanResult(newSignals);
-      loadSignals();
+      refreshSignals();
 
       if (newSignals.length > 0) {
         for (const sig of newSignals) {

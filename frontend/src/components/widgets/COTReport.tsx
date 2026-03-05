@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo } from "react";
 import { Users, TrendingUp, TrendingDown, Loader2 } from "lucide-react";
-import { useMarketStore, getMarketType } from "@/stores/market";
+import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
 import { formatVolume } from "@/lib/format";
 import RefreshIndicator from "@/components/RefreshIndicator";
+import { useApiData } from "@/hooks/useApiData";
 
 interface COTData {
   report_date: string;
@@ -81,36 +82,27 @@ function PositionBar({ long, short, label }: { long: number; short: number; labe
   );
 }
 
-export default function COTReport() {
+function COTReport() {
   const { activeSymbol } = useMarketStore();
-  const [data, setData] = useState<COTData | null>(null);
-  const [loading, setLoading] = useState(true);
 
   const assetLabel = activeSymbol === "XAUUSD" ? "Gold" : activeSymbol.replace("USD", "");
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        if (activeSymbol === "XAUUSD") {
-          const result = await api.cotGold();
-          setData(result);
-        } else {
-          // Institutional COT endpoint returns different format — set null if no data
-          const cotSymbol = COT_SYMBOL_MAP[activeSymbol] ?? activeSymbol;
-          const result = await api.cotReport(cotSymbol);
-          if (result?.count > 0) {
-            // TODO: transform institutional COT format to COTData when data exists
-          }
+  const { data, loading } = useApiData<COTData>(
+    async () => {
+      if (activeSymbol === "XAUUSD") {
+        return await api.cotGold();
+      } else {
+        const cotSymbol = COT_SYMBOL_MAP[activeSymbol] ?? activeSymbol;
+        const result = await api.cotReport(cotSymbol);
+        if (result?.count > 0) {
+          // TODO: transform institutional COT format to COTData when data exists
         }
-      } catch {
-        // keep stale data
-      } finally {
-        setLoading(false);
+        return null;
       }
-    };
-    load();
-  }, [activeSymbol]);
+    },
+    [activeSymbol],
+    { interval: 120_000, key: `cot:${activeSymbol}` },
+  );
 
   const signalColor =
     data?.gold_signal === "bullish"
@@ -216,3 +208,5 @@ export default function COTReport() {
     </div>
   );
 }
+
+export default memo(COTReport);

@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, memo } from "react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
 import { formatPrice } from "@/lib/format";
 import { Layers, Shield, Target, Zap, ChevronDown, ChevronUp } from "lucide-react";
+import { useApiData } from "@/hooks/useApiData";
 
 interface Zone {
   high: number;
@@ -34,10 +35,8 @@ interface ZonesData {
   structure?: { bos: any[]; choch: any[] };
 }
 
-export default function ZonesOverlay() {
+function ZonesOverlay() {
   const { activeSymbol, activeTimeframe } = useMarketStore();
-  const [zones, setZones] = useState<ZonesData | null>(null);
-  const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     sd: true,
     sr: true,
@@ -48,20 +47,14 @@ export default function ZonesOverlay() {
   const live = useMarketStore((s) => s.livePrices[s.activeSymbol]);
   const currentPrice = live?.price || 0;
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const result = await api.scalperZones(activeSymbol, activeTimeframe);
-        setZones(result?.zones || null);
-      } catch {
-        setZones(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [activeSymbol, activeTimeframe]);
+  const { data: zones, loading } = useApiData<ZonesData>(
+    async () => {
+      const result = await api.scalperZones(activeSymbol, activeTimeframe);
+      return result?.zones || null;
+    },
+    [activeSymbol, activeTimeframe],
+    { interval: 120_000, key: `zones:${activeSymbol}:${activeTimeframe}` },
+  );
 
   const toggleSection = (key: string) => {
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -335,3 +328,5 @@ function LevelRow({
     </div>
   );
 }
+
+export default memo(ZonesOverlay);

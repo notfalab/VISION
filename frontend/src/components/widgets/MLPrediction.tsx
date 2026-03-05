@@ -1,16 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  Brain,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-  Activity,
-  Clock,
-} from "lucide-react";
+import { memo } from "react";
+import { Brain, TrendingUp, TrendingDown, Minus, Activity, Clock } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
+import { useApiData } from "@/hooks/useApiData";
 import RefreshIndicator from "@/components/RefreshIndicator";
 
 interface PredictionData {
@@ -75,35 +69,27 @@ const FEATURE_LABELS: Record<string, string> = {
   obv_slope: "OBV Slope",
 };
 
-export default function MLPrediction() {
+function MLPrediction() {
   const { activeSymbol, activeTimeframe } = useMarketStore();
-  const [prediction, setPrediction] = useState<PredictionData | null>(null);
-  const [regime, setRegime] = useState<RegimeData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
-
-  const load = async () => {
-    setLoading(true);
-    setError(false);
-    try {
-      const [predData, regimeData] = await Promise.allSettled([
+  const { data: mlData, loading, error } = useApiData<{
+    prediction: PredictionData | null;
+    regime: RegimeData | null;
+  }>(
+    async () => {
+      const [pred, reg] = await Promise.allSettled([
         api.mlPredict(activeSymbol, activeTimeframe),
         api.mlRegime(activeSymbol, activeTimeframe),
       ]);
-      if (predData.status === "fulfilled") setPrediction(predData.value);
-      if (regimeData.status === "fulfilled") setRegime(regimeData.value);
-    } catch {
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-    const interval = setInterval(load, 120000);
-    return () => clearInterval(interval);
-  }, [activeSymbol, activeTimeframe]);
+      return {
+        prediction: pred.status === "fulfilled" ? pred.value : null,
+        regime: reg.status === "fulfilled" ? reg.value : null,
+      };
+    },
+    [activeSymbol, activeTimeframe],
+    { interval: 120_000, key: `ml:${activeSymbol}:${activeTimeframe}` }
+  );
+  const prediction = mlData?.prediction ?? null;
+  const regime = mlData?.regime ?? null;
 
   if (loading && !prediction && !regime) {
     return (
@@ -336,3 +322,5 @@ export default function MLPrediction() {
     </div>
   );
 }
+
+export default memo(MLPrediction);

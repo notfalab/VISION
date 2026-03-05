@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { memo } from "react";
 import { Droplets, Magnet } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
 import RefreshIndicator from "@/components/RefreshIndicator";
+import { useApiData } from "@/hooks/useApiData";
+
 
 interface LiqLevel {
   price: number;
@@ -27,28 +29,13 @@ interface LiqData {
   price_max: number;
 }
 
-export default function LiquidityForecast() {
+function LiquidityForecast() {
   const { activeSymbol, activeTimeframe } = useMarketStore();
-  const [data, setData] = useState<LiqData | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const result = await api.liquidityForecast(activeSymbol, activeTimeframe, 200);
-      if (result && result.levels) setData(result);
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  }, [activeSymbol, activeTimeframe]);
-
-  useEffect(() => {
-    load();
-    const interval = setInterval(load, 120000);
-    return () => clearInterval(interval);
-  }, [load]);
+  const { data, loading } = useApiData<LiqData>(
+    () => api.liquidityForecast(activeSymbol, activeTimeframe, 200),
+    [activeSymbol, activeTimeframe],
+    { interval: 120_000, key: `liqForecast:${activeSymbol}:${activeTimeframe}` },
+  );
 
   if (loading && !data) {
     return (
@@ -177,3 +164,5 @@ export default function LiquidityForecast() {
     </div>
   );
 }
+
+export default memo(LiquidityForecast);

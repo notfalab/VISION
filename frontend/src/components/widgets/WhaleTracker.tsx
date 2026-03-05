@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo } from "react";
 import { Wallet, ArrowUpRight, ArrowDownRight, ArrowRightLeft, Loader2, AlertCircle } from "lucide-react";
 import { useMarketStore, getMarketType } from "@/stores/market";
 import { api } from "@/lib/api";
 import { formatVolume } from "@/lib/format";
+import { useApiData } from "@/hooks/useApiData";
 
 type Transfer = {
   tx_hash: string;
@@ -33,42 +34,38 @@ function directionBg(dir: string) {
   return "bg-[var(--color-bg-hover)]";
 }
 
-export default function WhaleTracker() {
+interface WhaleData {
+  chainName: string;
+  supported: boolean;
+  transfers: Transfer[];
+}
+
+function WhaleTracker() {
   const { activeSymbol } = useMarketStore();
-  const [transfers, setTransfers] = useState<Transfer[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [chainName, setChainName] = useState("");
-  const [supported, setSupported] = useState(true);
 
   const marketType = getMarketType(activeSymbol);
   const isCrypto = marketType === "crypto";
   const tokenName = activeSymbol.replace("USD", "");
 
-  useEffect(() => {
-    if (!isCrypto) return;
-
-    const load = async () => {
-      setLoading(true);
-      try {
-        const data = await api.cryptoWhales(activeSymbol, 20);
-        if (data) {
-          setChainName(data.chain_name || tokenName);
-          setSupported(data.supported !== false);
-          setTransfers(data.transfers ?? []);
-        } else {
-          setChainName(tokenName);
-          setSupported(false);
-          setTransfers([]);
-        }
-      } catch {
-        setTransfers([]);
-        setSupported(false);
-      } finally {
-        setLoading(false);
+  const { data, loading } = useApiData<WhaleData>(
+    async () => {
+      const result = await api.cryptoWhales(activeSymbol, 20);
+      if (result) {
+        return {
+          chainName: result.chain_name || tokenName,
+          supported: result.supported !== false,
+          transfers: result.transfers ?? [],
+        };
       }
-    };
-    load();
-  }, [activeSymbol, isCrypto, tokenName]);
+      return { chainName: tokenName, supported: false, transfers: [] };
+    },
+    [activeSymbol, tokenName],
+    { interval: 120_000, key: `whales:${activeSymbol}`, enabled: isCrypto },
+  );
+
+  const transfers = data?.transfers ?? [];
+  const chainName = data?.chainName ?? tokenName;
+  const supported = data?.supported ?? true;
 
   if (!isCrypto) return null;
 
@@ -134,3 +131,5 @@ export default function WhaleTracker() {
     </div>
   );
 }
+
+export default memo(WhaleTracker);

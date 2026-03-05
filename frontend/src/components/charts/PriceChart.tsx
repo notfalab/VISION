@@ -783,9 +783,11 @@ export default function PriceChart() {
       markersRef.current?.setMarkers([]);
       return;
     }
+    let cancelled = false;
     const fetchPatterns = async () => {
       try {
         const result = await api.patternHistory(activeSymbol, activeTimeframe, Math.min(data.length, 50));
+        if (cancelled) return;
         if (result?.patterns?.length > 0) {
           // Only show patterns from the last 8 candles
           const last8Times = new Set(
@@ -806,10 +808,11 @@ export default function PriceChart() {
           setPatternMarkers([]);
         }
       } catch {
-        setPatternMarkers([]);
+        if (!cancelled) setPatternMarkers([]);
       }
     };
     fetchPatterns();
+    return () => { cancelled = true; };
   }, [data.length, activeSymbol, activeTimeframe]);
 
   // Push markers to chart when they change
@@ -841,10 +844,11 @@ export default function PriceChart() {
       return;
     }
 
+    let cancelled = false;
     const fetchZones = async () => {
       try {
         const ob = await api.orderBook(activeSymbol, 500);
-        if (!ob) return;
+        if (cancelled || !ob) return;
         const bids = (ob.bids || []).map((b: any) => ({ price: b.price, quantity: b.quantity }));
         const asks = (ob.asks || []).map((a: any) => ({ price: a.price, quantity: a.quantity }));
         const newZones = computeAccumulationZones(bids, asks);
@@ -873,7 +877,7 @@ export default function PriceChart() {
 
     fetchZones();
     const interval = setInterval(fetchZones, 60000);
-    return () => clearInterval(interval);
+    return () => { cancelled = true; clearInterval(interval); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSymbol]);
 
@@ -900,9 +904,11 @@ export default function PriceChart() {
     tpslPrimRef.current?.setVisible(showTPSL);
     if (!showTPSL) return;
 
+    let cancelled = false;
     const fetchTPSL = async () => {
       try {
         const result = await api.tpslHeatmap(activeSymbol, 500);
+        if (cancelled) return;
         if (result.current_price > 0) {
           tpslPrimRef.current?.updateData(
             result.tp_clusters || [],
@@ -915,7 +921,7 @@ export default function PriceChart() {
 
     fetchTPSL();
     const interval = setInterval(fetchTPSL, 60000);
-    return () => clearInterval(interval);
+    return () => { cancelled = true; clearInterval(interval); };
   }, [showTPSL, activeSymbol]);
 
   /* ──────────────────────────────────────────────────
@@ -925,9 +931,11 @@ export default function PriceChart() {
     liqPrimRef.current?.setVisible(showLiq);
     if (!showLiq) return;
 
+    let cancelled = false;
     const fetchLiq = async () => {
       try {
         const result = await api.liquidationHeatmap(activeSymbol, activeTimeframe, 200);
+        if (cancelled) return;
         if (result.columns?.length > 0) {
           liqPrimRef.current?.updateGrid(result);
         }
@@ -936,7 +944,7 @@ export default function PriceChart() {
 
     fetchLiq();
     const interval = setInterval(fetchLiq, 120_000);
-    return () => clearInterval(interval);
+    return () => { cancelled = true; clearInterval(interval); };
   }, [showLiq, activeSymbol, activeTimeframe]);
 
   /* ──────────────────────────────────────────────────
@@ -946,9 +954,11 @@ export default function PriceChart() {
     stopPrimRef.current?.setVisible(showStops);
     if (!showStops) return;
 
+    let cancelled = false;
     const fetchStops = async () => {
       try {
         const result = await api.stopHeatmap(activeSymbol, activeTimeframe, 200);
+        if (cancelled) return;
         if (result.columns?.length > 0) {
           stopPrimRef.current?.updateGrid(result);
         }
@@ -957,7 +967,7 @@ export default function PriceChart() {
 
     fetchStops();
     const interval = setInterval(fetchStops, 120_000);
-    return () => clearInterval(interval);
+    return () => { cancelled = true; clearInterval(interval); };
   }, [showStops, activeSymbol, activeTimeframe]);
 
   /* ──────────────────────────────────────────────────
@@ -967,9 +977,11 @@ export default function PriceChart() {
     mboPrimRef.current?.setVisible(showMBO);
     if (!showMBO) return;
 
+    let cancelled = false;
     const fetchMBO = async () => {
       try {
         const result = await api.mboProfile(activeSymbol, 500);
+        if (cancelled) return;
         if (result.current_price > 0) {
           mboPrimRef.current?.updateProfile(result);
         }
@@ -978,7 +990,7 @@ export default function PriceChart() {
 
     fetchMBO();
     const interval = setInterval(fetchMBO, 30_000);
-    return () => clearInterval(interval);
+    return () => { cancelled = true; clearInterval(interval); };
   }, [showMBO, activeSymbol]);
 
   /* ──────────────────────────────────────────────────

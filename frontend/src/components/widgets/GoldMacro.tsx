@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { memo } from "react";
 import { Globe, TrendingUp, TrendingDown, Minus, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 import RefreshIndicator from "@/components/RefreshIndicator";
+import { useApiData } from "@/hooks/useApiData";
 
 interface MacroIndicator {
   value: number;
@@ -59,23 +60,12 @@ function formatMacroValue(key: string, ind: MacroIndicator): string {
   return `${ind.value}`;
 }
 
-export default function GoldMacro() {
-  const [data, setData] = useState<MacroSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const result = await api.goldMacroSummary();
-        setData(result);
-      } catch {
-        // keep stale data
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, []);
+function GoldMacro() {
+  const { data, loading } = useApiData<MacroSummary>(
+    () => api.goldMacroSummary(),
+    [],
+    { interval: 120_000, key: "goldMacro" },
+  );
 
   const score = data?.macro_score;
   const indicators = data
@@ -182,3 +172,5 @@ export default function GoldMacro() {
     </div>
   );
 }
+
+export default memo(GoldMacro);

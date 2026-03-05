@@ -5,6 +5,9 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 
 from backend.app.api.v1 import router as v1_router
 from backend.app.api.websocket import router as ws_router
@@ -13,6 +16,33 @@ from backend.app.logging_config import setup_logging, get_logger
 
 
 SCAN_INTERVAL = 300  # 5 minutes
+
+# ── Cache-Control header rules (prefix → header value) ──
+_CACHE_RULES = [
+    ("/api/v1/institutional/cot", "public, max-age=3600"),    # 1 hour
+    ("/api/v1/macro/",            "public, max-age=300"),      # 5 min
+    ("/api/v1/calendar/events",   "public, max-age=120"),      # 2 min
+    ("/api/v1/narrator/",         "public, max-age=60"),       # 1 min
+    ("/api/v1/news/sentiment",    "public, max-age=60"),       # 1 min
+    ("/api/v1/ml/",               "public, max-age=30"),       # 30s
+    ("/api/v1/divergence/",       "public, max-age=30"),       # 30s
+    ("/health",                   "public, max-age=10"),       # 10s
+]
+
+
+class CacheHeaderMiddleware(BaseHTTPMiddleware):
+    """Adds Cache-Control headers based on URL prefix patterns."""
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        path = request.url.path
+        for prefix, cache_value in _CACHE_RULES:
+            if path.startswith(prefix):
+                response.headers["Cache-Control"] = cache_value
+                break
+        return response
+
+
 DAILY_SUMMARY_HOUR = 22  # 22:00 UTC
 
 FOREX_MAJORS = ["EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDCHF"]
@@ -371,6 +401,12 @@ def create_app() -> FastAPI:
         redoc_url="/redoc",
         lifespan=lifespan,
     )
+
+    # GZip compression (60-80% payload reduction for JSON)
+    app.add_middleware(GZipMiddleware, minimum_size=500)
+
+    # Cache-Control headers for stable endpoints
+    app.add_middleware(CacheHeaderMiddleware)
 
     # CORS — permissive for dev, tighten in production
     app.add_middleware(

@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import {
   BarChart3,
   TrendingUp,
@@ -19,6 +18,7 @@ import {
 } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
+import { useApiData } from "@/hooks/useApiData";
 
 interface IndicatorData {
   name: string;
@@ -350,25 +350,18 @@ function SummaryBar({ indicators }: { indicators: IndicatorData[] }) {
 
 export default function IndicatorPanel() {
   const { activeSymbol, activeTimeframe } = useMarketStore();
-  const [indicators, setIndicators] = useState<IndicatorData[]>([]);
-  const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        // Ensure price data exists for this timeframe
-        await api.fetchPrices(activeSymbol, activeTimeframe, 200);
-        const result = await api.indicators(activeSymbol, activeTimeframe, 200);
-        setIndicators(result?.indicators || []);
-      } catch {
-        setIndicators([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [activeSymbol, activeTimeframe]);
+  const { data: rawIndicators, loading } = useApiData<IndicatorData[]>(
+    async () => {
+      await api.fetchPrices(activeSymbol, activeTimeframe, 200);
+      const result = await api.indicators(activeSymbol, activeTimeframe, 200);
+      return result?.indicators || [];
+    },
+    [activeSymbol, activeTimeframe],
+    { interval: 120_000, key: `indicators:${activeSymbol}:${activeTimeframe}` },
+  );
+
+  const indicators = rawIndicators || [];
 
   // Group indicators by category
   const categories = {

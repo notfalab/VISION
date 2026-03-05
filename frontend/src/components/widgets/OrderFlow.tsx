@@ -1,14 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import {
-  ArrowDownUp,
-  ShieldAlert,
-  TrendingUp,
-  TrendingDown,
-} from "lucide-react";
+import { memo } from "react";
+import { ArrowDownUp, ShieldAlert, TrendingUp, TrendingDown } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
+import { useApiData } from "@/hooks/useApiData";
 import RefreshIndicator from "@/components/RefreshIndicator";
 
 interface FlowData {
@@ -63,35 +59,13 @@ const SIGNAL_CONFIG: Record<
   },
 };
 
-export default function OrderFlow() {
+function OrderFlow() {
   const { activeSymbol } = useMarketStore();
-  const [data, setData] = useState<FlowData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(false);
-    try {
-      const result = await api.orderFlow(activeSymbol);
-      if (!result) {
-        setError(true);
-      } else {
-        setData(result);
-      }
-    } catch {
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [activeSymbol]);
-
-  useEffect(() => {
-    load();
-    // Auto-refresh every 30s
-    const interval = setInterval(load, 120000);
-    return () => clearInterval(interval);
-  }, [load]);
+  const { data, loading, error } = useApiData<FlowData>(
+    () => api.orderFlow(activeSymbol),
+    [activeSymbol],
+    { interval: 120_000, key: `orderFlow:${activeSymbol}` }
+  );
 
   if (loading && !data) {
     return (
@@ -313,3 +287,5 @@ export default function OrderFlow() {
     </div>
   );
 }
+
+export default memo(OrderFlow);

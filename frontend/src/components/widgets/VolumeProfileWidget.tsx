@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, memo } from "react";
 import { BarChart3 } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
 import RefreshIndicator from "@/components/RefreshIndicator";
+import { useApiData } from "@/hooks/useApiData";
 
 interface VPLevel {
   price: number;
@@ -24,29 +25,15 @@ interface VPData {
   total_volume: number;
 }
 
-export default function VolumeProfileWidget() {
+function VolumeProfileWidget() {
   const { activeSymbol, activeTimeframe } = useMarketStore();
-  const [data, setData] = useState<VPData | null>(null);
-  const [loading, setLoading] = useState(false);
   const [tf, setTf] = useState<string>(activeTimeframe);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const result = await api.volumeProfile(activeSymbol, tf, 200, 40);
-      if (result && result.levels) setData(result);
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  }, [activeSymbol, tf]);
-
-  useEffect(() => {
-    load();
-    const interval = setInterval(load, 120000);
-    return () => clearInterval(interval);
-  }, [load]);
+  const { data, loading } = useApiData<VPData>(
+    () => api.volumeProfile(activeSymbol, tf, 200, 40),
+    [activeSymbol, tf],
+    { interval: 120_000, key: `volProfile:${activeSymbol}:${activeTimeframe}` },
+  );
 
   if (loading && !data) {
     return (
@@ -178,3 +165,5 @@ export default function VolumeProfileWidget() {
     </div>
   );
 }
+
+export default memo(VolumeProfileWidget);

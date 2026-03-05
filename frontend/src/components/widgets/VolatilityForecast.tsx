@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { memo } from "react";
 import { Activity, Gauge } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
+import { useApiData } from "@/hooks/useApiData";
 import RefreshIndicator from "@/components/RefreshIndicator";
 
 interface VolData {
@@ -29,28 +30,13 @@ const REGIME_LABELS: Record<string, string> = {
   extreme: "EXTREME",
 };
 
-export default function VolatilityForecast() {
+function VolatilityForecast() {
   const { activeSymbol, activeTimeframe } = useMarketStore();
-  const [data, setData] = useState<VolData | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const result = await api.volatilityForecast(activeSymbol, activeTimeframe);
-      if (result && result.regime) setData(result);
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  }, [activeSymbol, activeTimeframe]);
-
-  useEffect(() => {
-    load();
-    const interval = setInterval(load, 120000);
-    return () => clearInterval(interval);
-  }, [load]);
+  const { data, loading } = useApiData<VolData>(
+    () => api.volatilityForecast(activeSymbol, activeTimeframe),
+    [activeSymbol, activeTimeframe],
+    { interval: 120_000, key: `volatility:${activeSymbol}:${activeTimeframe}` }
+  );
 
   if (loading && !data) {
     return (
@@ -226,3 +212,5 @@ export default function VolatilityForecast() {
     </div>
   );
 }
+
+export default memo(VolatilityForecast);

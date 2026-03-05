@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { memo } from "react";
 import RefreshIndicator from "@/components/RefreshIndicator";
 import {
   BookOpen,
@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
+import { useApiData } from "@/hooks/useApiData";
 
 interface Prediction {
   direction: string;
@@ -59,28 +60,13 @@ const DIR_CONFIG: Record<string, { label: string; color: string; bg: string }> =
 
 const TF_ORDER = ["15m", "1h", "4h", "1d"];
 
-export default function MarketNarrator() {
+function MarketNarrator() {
   const { activeSymbol, activeTimeframe } = useMarketStore();
-  const [data, setData] = useState<NarrativeData | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const result = await api.narrator(activeSymbol, activeTimeframe);
-      if (result) setData(result);
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  }, [activeSymbol, activeTimeframe]);
-
-  useEffect(() => {
-    load();
-    const interval = setInterval(load, 120000);
-    return () => clearInterval(interval);
-  }, [load]);
+  const { data, loading } = useApiData<NarrativeData>(
+    () => api.narrator(activeSymbol, activeTimeframe),
+    [activeSymbol, activeTimeframe],
+    { interval: 120_000, key: `narrator:${activeSymbol}:${activeTimeframe}` },
+  );
 
   if (loading && !data) {
     return (
@@ -255,3 +241,5 @@ export default function MarketNarrator() {
     </div>
   );
 }
+
+export default memo(MarketNarrator);

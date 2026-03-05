@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, memo } from "react";
 import { BookOpen } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
+import { useApiData } from "@/hooks/useApiData";
 import { formatPrice, formatVolume } from "@/lib/format";
 import RefreshIndicator from "@/components/RefreshIndicator";
 
@@ -33,36 +34,15 @@ interface DeepOBData {
   stats: OBStats;
 }
 
-export default function DeepOrderBookWidget() {
+function DeepOrderBookWidget() {
   const { activeSymbol } = useMarketStore();
-  const [data, setData] = useState<DeepOBData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
   const [viewMode, setViewMode] = useState<"standard" | "deep">("standard");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(false);
-    try {
-      const depth = viewMode === "deep" ? 1000 : 100;
-      const result = await api.deepOrderBook(activeSymbol, depth);
-      if (result.bids?.length > 0 || result.asks?.length > 0) {
-        setData(result);
-      } else {
-        setError(true);
-      }
-    } catch {
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [activeSymbol, viewMode]);
-
-  useEffect(() => {
-    load();
-    const interval = setInterval(load, 120000);
-    return () => clearInterval(interval);
-  }, [load]);
+  const { data, loading, error } = useApiData<DeepOBData>(
+    () => api.deepOrderBook(activeSymbol, viewMode === "deep" ? 1000 : 100),
+    [activeSymbol, viewMode],
+    { interval: 120_000, key: `deepOB:${activeSymbol}:${viewMode}` }
+  );
 
   if (loading && !data) {
     return (
@@ -265,3 +245,5 @@ export default function DeepOrderBookWidget() {
     </div>
   );
 }
+
+export default memo(DeepOrderBookWidget);

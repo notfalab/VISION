@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, memo } from "react";
 import { GitCompareArrows, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { api } from "@/lib/api";
+import { useApiData } from "@/hooks/useApiData";
 import RefreshIndicator from "@/components/RefreshIndicator";
 
 interface CorrelationData {
@@ -105,27 +106,12 @@ function signalColor(signal: string) {
   return "var(--color-text-muted)";
 }
 
-export default function Correlations() {
-  const [data, setData] = useState<CorrelationData | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      const result = await api.goldCorrelations();
-      setData(result);
-    } catch {
-      // keep stale data
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-    const interval = setInterval(load, 120000);
-    return () => clearInterval(interval);
-  }, []);
+function Correlations() {
+  const { data, loading } = useApiData<CorrelationData>(
+    () => api.goldCorrelations(),
+    [],
+    { interval: 120_000, key: "correlations" }
+  );
 
   if (loading && !data) {
     return (
@@ -264,3 +250,5 @@ export default function Correlations() {
     </div>
   );
 }
+
+export default memo(Correlations);

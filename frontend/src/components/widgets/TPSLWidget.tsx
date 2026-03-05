@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useState, memo } from "react";
 import { Crosshair } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
+import { useApiData } from "@/hooks/useApiData";
 import { formatPrice, formatVolume } from "@/lib/format";
 import RefreshIndicator from "@/components/RefreshIndicator";
 
@@ -70,35 +71,15 @@ function ClusterRow({ c, symbol }: { c: Cluster; symbol: string }) {
   );
 }
 
-export default function TPSLWidget() {
+function TPSLWidget() {
   const { activeSymbol } = useMarketStore();
-  const [data, setData] = useState<TPSLData | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
   const [expanded, setExpanded] = useState<"tp" | "sl" | null>("tp");
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(false);
-    try {
-      const result = await api.tpslHeatmap(activeSymbol, 500);
-      if (result.current_price > 0) {
-        setData(result);
-      } else {
-        setError(true);
-      }
-    } catch {
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, [activeSymbol]);
-
-  useEffect(() => {
-    load();
-    const interval = setInterval(load, 120000);
-    return () => clearInterval(interval);
-  }, [load]);
+  const { data, loading, error } = useApiData<TPSLData>(
+    () => api.tpslHeatmap(activeSymbol, 500),
+    [activeSymbol],
+    { interval: 120_000, key: `tpsl:${activeSymbol}` }
+  );
 
   if (loading && !data) {
     return (
@@ -242,3 +223,5 @@ export default function TPSLWidget() {
     </div>
   );
 }
+
+export default memo(TPSLWidget);

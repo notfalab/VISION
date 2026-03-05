@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, memo } from "react";
 import { Calendar, Clock, ChevronDown, ChevronRight, Zap } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
 import RefreshIndicator from "@/components/RefreshIndicator";
+import { useApiData } from "@/hooks/useApiData";
 
 interface CalendarEvent {
   id: string;
@@ -86,26 +87,21 @@ function groupByDay(events: CalendarEvent[]): { label: string; date: string; eve
   });
 }
 
-export default function EconomicCalendar() {
+function EconomicCalendar() {
   const activeSymbol = useMarketStore((s) => s.activeSymbol);
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [loading, setLoading] = useState(true);
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set(["TODAY", "TOMORROW"]));
   const [tick, setTick] = useState(0);
 
   // Fetch events
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
+  const { data: rawEvents, loading } = useApiData<CalendarEvent[]>(
+    async () => {
       const data = await api.calendarEvents(7);
-      setEvents(data.events || []);
-      setLoading(false);
-    };
-    load();
-    // Refresh every 5 min
-    const interval = setInterval(load, 5 * 60 * 1000);
-    return () => clearInterval(interval);
-  }, []);
+      return data.events || [];
+    },
+    [],
+    { interval: 120_000, key: "calendar" },
+  );
+  const events = rawEvents ?? [];
 
   // Tick countdowns every 30s
   useEffect(() => {
@@ -300,3 +296,5 @@ export default function EconomicCalendar() {
     </div>
   );
 }
+
+export default memo(EconomicCalendar);
