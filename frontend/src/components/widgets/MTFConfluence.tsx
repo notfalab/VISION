@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Layers, TrendingUp, TrendingDown, Minus, Loader2 } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
+import RefreshIndicator from "@/components/RefreshIndicator";
 
 interface MTFData {
   timeframes: Record<string, {
@@ -52,7 +53,7 @@ export default function MTFConfluence() {
         const result = await api.mtfConfluence(activeSymbol);
         setData(result);
       } catch {
-        setData(null);
+        // keep stale data
       } finally {
         setLoading(false);
       }
@@ -68,7 +69,8 @@ export default function MTFConfluence() {
       : "var(--color-neon-amber)";
 
   return (
-    <div className="card-glass rounded-lg overflow-hidden">
+    <div className="card-glass rounded-lg overflow-hidden relative">
+      {loading && data && <RefreshIndicator />}
       <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-3">
         <Layers className="w-4 h-4 text-[var(--color-neon-blue)]" />
         <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
@@ -85,7 +87,7 @@ export default function MTFConfluence() {
       </div>
 
       <div className="p-3">
-        {loading ? (
+        {loading && !data ? (
           <div className="flex items-center justify-center gap-3 py-4">
             <Loader2 className="w-4 h-4 text-[var(--color-text-muted)] animate-spin" />
             <span className="text-sm text-[var(--color-text-muted)]">Analyzing timeframes...</span>

@@ -10,6 +10,7 @@ import { useAuthStore } from "@/stores/auth";
 import { useThemeStore } from "@/stores/theme";
 import { binanceWS, isBinanceSymbol } from "@/lib/binance-ws";
 import { formatPrice, formatChange, priceColor } from "@/lib/format";
+import { updateDashboardURL } from "@/lib/url";
 import { isBinanceSymbol as isCrypto } from "@/lib/binance-ws";
 
 const CRYPTO_OPTIONS = [
@@ -128,7 +129,7 @@ const SIGNAL_CHANNELS = [
 ];
 
 export default function Header() {
-  const { activeSymbol, setActiveSymbol, watchlist, livePrices, updateLivePrice } =
+  const { activeSymbol, activeTimeframe, setActiveSymbol, watchlist, livePrices, updateLivePrice } =
     useMarketStore();
   const { user, logout } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
@@ -383,7 +384,7 @@ export default function Header() {
                         <button
                           onClick={() => {
                             setActiveSymbol(opt.symbol);
-                            window.history.replaceState(null, "", `/${opt.symbol}`);
+                            updateDashboardURL(opt.symbol, activeTimeframe);
                             setSelectorOpen(false);
                           }}
                           className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-mono transition-colors hover:bg-[var(--color-bg-hover)] ${
@@ -426,7 +427,7 @@ export default function Header() {
                       key={opt.symbol}
                       onClick={() => {
                         setActiveSymbol(opt.symbol);
-                        window.history.replaceState(null, "", `/${opt.symbol}`);
+                        updateDashboardURL(opt.symbol, activeTimeframe);
                         setCryptoOpen(false);
                       }}
                       className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-mono transition-colors hover:bg-[var(--color-bg-hover)] ${
@@ -491,7 +492,7 @@ export default function Header() {
                       <button
                         onClick={() => {
                           setActiveSymbol(opt.symbol);
-                          window.history.replaceState(null, "", `/${opt.symbol}`);
+                          updateDashboardURL(opt.symbol, activeTimeframe);
                           setSelectorOpen(false);
                         }}
                         className={`w-full flex items-center gap-2 px-3 py-1.5 text-[12px] font-mono transition-colors hover:bg-[var(--color-bg-hover)] ${
@@ -534,7 +535,7 @@ export default function Header() {
                     key={opt.symbol}
                     onClick={() => {
                       setActiveSymbol(opt.symbol);
-                      window.history.replaceState(null, "", `/${opt.symbol}`);
+                      updateDashboardURL(opt.symbol, activeTimeframe);
                       setCryptoOpen(false);
                     }}
                     className={`w-full flex items-center gap-2 px-3 py-1.5 text-[12px] font-mono transition-colors hover:bg-[var(--color-bg-hover)] ${

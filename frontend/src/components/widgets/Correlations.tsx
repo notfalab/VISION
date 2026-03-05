@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { GitCompareArrows, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { api } from "@/lib/api";
+import RefreshIndicator from "@/components/RefreshIndicator";
 
 interface CorrelationData {
   correlations: {
@@ -114,7 +115,7 @@ export default function Correlations() {
       const result = await api.goldCorrelations();
       setData(result);
     } catch {
-      setData(null);
+      // keep stale data
     } finally {
       setLoading(false);
     }
@@ -156,7 +157,8 @@ export default function Correlations() {
   const macroColor = signalColor(data.gold_macro_signal);
 
   return (
-    <div className="card-glass rounded-lg overflow-hidden">
+    <div className="card-glass rounded-lg overflow-hidden relative">
+      {loading && data && <RefreshIndicator />}
       {/* Header */}
       <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-3">
         <GitCompareArrows className="w-4 h-4 text-[var(--color-neon-amber)]" />

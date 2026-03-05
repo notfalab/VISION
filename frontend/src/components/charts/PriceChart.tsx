@@ -5,6 +5,7 @@ import { useMarketStore } from "@/stores/market";
 import { useThemeStore, THEME_CANVAS } from "@/stores/theme";
 import { api } from "@/lib/api";
 import { formatPrice, formatVolume, formatChange } from "@/lib/format";
+import { updateDashboardURL } from "@/lib/url";
 import { binanceKlineWS, isBinanceSymbol } from "@/lib/binance-ws";
 import type { LiveCandle } from "@/lib/binance-ws";
 import type { OHLCV, Timeframe } from "@/types/market";
@@ -1132,7 +1133,7 @@ export default function PriceChart() {
           {TIMEFRAMES.map((tf) => (
             <button
               key={tf.value}
-              onClick={() => setActiveTimeframe(tf.value)}
+              onClick={() => { setActiveTimeframe(tf.value); updateDashboardURL(activeSymbol, tf.value); }}
               className={`
                 shrink-0 px-2 py-1 text-[11px] md:text-sm font-mono rounded transition-all min-w-[28px] min-h-[28px] flex items-center justify-center
                 ${
@@ -1149,7 +1150,7 @@ export default function PriceChart() {
       </div>
 
       {/* Chart area */}
-      <div className="flex-1 relative min-h-0">
+      <div className="flex-1 relative min-h-0" style={{ touchAction: "manipulation" }}>
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center z-10">
             <div className="text-sm text-[var(--color-text-muted)] animate-pulse">

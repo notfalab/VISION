@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import RefreshIndicator from "@/components/RefreshIndicator";
 import {
   BookOpen,
   TrendingUp,
@@ -102,7 +103,8 @@ export default function MarketNarrator() {
   const tfAnalysis = data.timeframe_analysis || {};
 
   return (
-    <div className="card-glass rounded-lg overflow-hidden">
+    <div className="card-glass rounded-lg overflow-hidden relative">
+      {loading && data && <RefreshIndicator />}
       {/* Header */}
       <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-2">
         <BookOpen className="w-4 h-4 text-[var(--color-neon-purple)]" />

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
 import { Grid3X3, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import RefreshIndicator from "@/components/RefreshIndicator";
 
 interface CurrencyStrength {
   currency: string;
@@ -223,7 +224,8 @@ export default function CurrencyHeatmap() {
   }, []);
 
   return (
-    <div className="card-glass rounded-lg overflow-hidden">
+    <div className="card-glass rounded-lg overflow-hidden relative">
+      {loading && strengths.length > 0 && <RefreshIndicator />}
       {/* Header */}
       <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -255,7 +257,7 @@ export default function CurrencyHeatmap() {
       </div>
 
       <div className="p-3">
-        {loading ? (
+        {loading && strengths.length === 0 ? (
           <div className="animate-pulse space-y-2">
             {[...Array(8)].map((_, i) => (
               <div key={i} className="h-6 bg-[var(--color-bg-hover)] rounded" />

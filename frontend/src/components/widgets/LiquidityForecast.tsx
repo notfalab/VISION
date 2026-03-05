@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Droplets, Magnet } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
+import RefreshIndicator from "@/components/RefreshIndicator";
 
 interface LiqLevel {
   price: number;
@@ -79,7 +80,8 @@ export default function LiquidityForecast() {
   const maxLiq = Math.max(...data.levels.map((l) => l.predicted_liquidity));
 
   return (
-    <div className="card-glass rounded-lg overflow-hidden">
+    <div className="card-glass rounded-lg overflow-hidden relative">
+      {loading && data && <RefreshIndicator />}
       {/* Header */}
       <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-3">
         <Droplets className="w-4 h-4 text-[var(--color-neon-blue)]" />

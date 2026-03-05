@@ -5,6 +5,7 @@ import { BookOpen } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
 import { formatPrice, formatVolume } from "@/lib/format";
+import RefreshIndicator from "@/components/RefreshIndicator";
 
 interface OBLevel {
   price: number;
@@ -48,12 +49,10 @@ export default function DeepOrderBookWidget() {
       if (result.bids?.length > 0 || result.asks?.length > 0) {
         setData(result);
       } else {
-        setData(null);
         setError(true);
       }
     } catch {
       setError(true);
-      setData(null);
     } finally {
       setLoading(false);
     }
@@ -115,7 +114,8 @@ export default function DeepOrderBookWidget() {
         : "var(--color-text-muted)";
 
   return (
-    <div className="card-glass rounded-lg overflow-hidden">
+    <div className="card-glass rounded-lg overflow-hidden relative">
+      {loading && data && <RefreshIndicator />}
       {/* Header */}
       <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-2">
         <BookOpen className="w-4 h-4 text-[var(--color-neon-blue)]" />

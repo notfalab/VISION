@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
+import RefreshIndicator from "@/components/RefreshIndicator";
 
 interface FlowData {
   delta: number;
@@ -75,13 +76,11 @@ export default function OrderFlow() {
       const result = await api.orderFlow(activeSymbol);
       if (!result) {
         setError(true);
-        setData(null);
       } else {
         setData(result);
       }
     } catch {
       setError(true);
-      setData(null);
     } finally {
       setLoading(false);
     }
@@ -132,7 +131,8 @@ export default function OrderFlow() {
   const bidPct = totalVol > 0 ? (data.total_bid_volume / totalVol) * 100 : 50;
 
   return (
-    <div className="card-glass rounded-lg overflow-hidden">
+    <div className="card-glass rounded-lg overflow-hidden relative">
+      {loading && data && <RefreshIndicator />}
       {/* Header */}
       <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-3">
         <ArrowDownUp className="w-4 h-4 text-[var(--color-neon-blue)]" />

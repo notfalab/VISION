@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { TrendingUp, ExternalLink, Newspaper } from "lucide-react";
 import { useMarketStore, getMarketType } from "@/stores/market";
 import { api } from "@/lib/api";
+import RefreshIndicator from "@/components/RefreshIndicator";
 
 interface Article {
   title: string;
@@ -223,7 +224,7 @@ export default function NewsSentiment() {
     return "var(--color-neon-amber)";
   }, [data]);
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <div className="card-glass rounded-lg p-3 animate-pulse">
         <div className="h-3 bg-[var(--color-bg-hover)] rounded w-36 mb-2" />
@@ -243,7 +244,8 @@ export default function NewsSentiment() {
   const isCrypto = marketType === "crypto";
 
   return (
-    <div className="card-glass rounded-lg overflow-hidden">
+    <div className="card-glass rounded-lg overflow-hidden relative">
+      {loading && data && <RefreshIndicator />}
       {/* Header */}
       <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-2">
         <TrendingUp className="w-4 h-4 text-[var(--color-neon-amber)]" />

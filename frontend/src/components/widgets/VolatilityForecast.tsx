@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Activity, Gauge } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
+import RefreshIndicator from "@/components/RefreshIndicator";
 
 interface VolData {
   current_vol: number;
@@ -82,7 +83,8 @@ export default function VolatilityForecast() {
   const gaugeAngle = (data.percentile / 100) * 180;
 
   return (
-    <div className="card-glass rounded-lg overflow-hidden">
+    <div className="card-glass rounded-lg overflow-hidden relative">
+      {loading && data && <RefreshIndicator />}
       {/* Header */}
       <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-3">
         <Activity className="w-4 h-4 text-[var(--color-neon-amber)]" />

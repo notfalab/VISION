@@ -5,6 +5,7 @@ import { Users, TrendingUp, TrendingDown, Loader2 } from "lucide-react";
 import { useMarketStore, getMarketType } from "@/stores/market";
 import { api } from "@/lib/api";
 import { formatVolume } from "@/lib/format";
+import RefreshIndicator from "@/components/RefreshIndicator";
 
 interface COTData {
   report_date: string;
@@ -100,13 +101,10 @@ export default function COTReport() {
           const result = await api.cotReport(cotSymbol);
           if (result?.count > 0) {
             // TODO: transform institutional COT format to COTData when data exists
-            setData(null);
-          } else {
-            setData(null);
           }
         }
       } catch {
-        setData(null);
+        // keep stale data
       } finally {
         setLoading(false);
       }
@@ -122,7 +120,8 @@ export default function COTReport() {
         : "var(--color-neon-amber)";
 
   return (
-    <div className="card-glass rounded-lg overflow-hidden flex flex-col">
+    <div className="card-glass rounded-lg overflow-hidden flex flex-col relative">
+      {loading && data && <RefreshIndicator />}
       <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-3">
         <Users className="w-4 h-4 text-[var(--color-neon-purple)]" />
         <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
@@ -136,7 +135,7 @@ export default function COTReport() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
-        {loading ? (
+        {loading && !data ? (
           <div className="flex items-center justify-center gap-3 py-6">
             <Loader2 className="w-4 h-4 text-[var(--color-text-muted)] animate-spin" />
             <span className="text-sm text-[var(--color-text-muted)]">Fetching CFTC data...</span>

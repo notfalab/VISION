@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useCallback } from "react";
 import { Calendar, Clock, ChevronDown, ChevronRight, Zap } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
+import RefreshIndicator from "@/components/RefreshIndicator";
 
 interface CalendarEvent {
   id: string;
@@ -128,7 +129,7 @@ export default function EconomicCalendar() {
 
   const dayGroups = useMemo(() => groupByDay(events), [events]);
 
-  if (loading) {
+  if (loading && events.length === 0) {
     return (
       <div className="card-glass rounded-lg p-3 animate-pulse">
         <div className="h-3 bg-[var(--color-bg-hover)] rounded w-40 mb-2" />
@@ -142,7 +143,8 @@ export default function EconomicCalendar() {
   }
 
   return (
-    <div className="card-glass rounded-lg overflow-hidden">
+    <div className="card-glass rounded-lg overflow-hidden relative">
+      {loading && events.length > 0 && <RefreshIndicator />}
       {/* Header */}
       <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-2">
         <Calendar className="w-4 h-4 text-[var(--color-neon-blue)]" />

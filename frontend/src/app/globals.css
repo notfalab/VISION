@@ -96,6 +96,12 @@ body {
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
+/* Shimmer bar for refresh indicator */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+
 /* Grid background pattern */
 .grid-pattern {
   background-image:

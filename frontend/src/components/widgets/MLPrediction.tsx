@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
+import RefreshIndicator from "@/components/RefreshIndicator";
 
 interface PredictionData {
   direction: string;
@@ -104,7 +105,7 @@ export default function MLPrediction() {
     return () => clearInterval(interval);
   }, [activeSymbol, activeTimeframe]);
 
-  if (loading) {
+  if (loading && !prediction && !regime) {
     return (
       <div className="card-glass rounded-lg p-3 animate-pulse">
         <div className="h-3 bg-[var(--color-bg-hover)] rounded w-28 mb-2" />
@@ -146,7 +147,8 @@ export default function MLPrediction() {
   const dashOffset = circumference - circumference * confidence;
 
   return (
-    <div className="card-glass rounded-lg overflow-hidden">
+    <div className="card-glass rounded-lg overflow-hidden relative">
+      {loading && (prediction || regime) && <RefreshIndicator />}
       {/* Header */}
       <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-3">
         <Brain className="w-4 h-4 text-[var(--color-neon-purple)]" />

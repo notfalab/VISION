@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { BarChart3 } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
+import RefreshIndicator from "@/components/RefreshIndicator";
 
 interface VPLevel {
   price: number;
@@ -75,7 +76,8 @@ export default function VolumeProfileWidget() {
   const maxVol = Math.max(...data.levels.map((l) => l.volume));
 
   return (
-    <div className="card-glass rounded-lg overflow-hidden">
+    <div className="card-glass rounded-lg overflow-hidden relative">
+      {loading && data && <RefreshIndicator />}
       {/* Header */}
       <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-3">
         <BarChart3 className="w-4 h-4 text-[var(--color-neon-cyan)]" />

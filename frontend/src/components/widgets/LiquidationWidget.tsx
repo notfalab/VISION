@@ -5,6 +5,7 @@ import { Flame } from "lucide-react";
 import { useMarketStore, getMarketType } from "@/stores/market";
 import { api } from "@/lib/api";
 import { formatPrice, formatVolume } from "@/lib/format";
+import RefreshIndicator from "@/components/RefreshIndicator";
 
 interface LiqLevel {
   price: number;
@@ -37,12 +38,9 @@ export default function LiquidationWidget() {
       const result = await api.liquidationMap(activeSymbol);
       if (result.current_price > 0 && result.levels?.length > 0) {
         setData(result);
-      } else {
-        setData(null);
       }
     } catch {
       setError(true);
-      setData(null);
     } finally {
       setLoading(false);
     }
@@ -110,7 +108,8 @@ export default function LiquidationWidget() {
   const longPct = totalAll > 0 ? (totalLong / totalAll) * 100 : 50;
 
   return (
-    <div className="card-glass rounded-lg overflow-hidden">
+    <div className="card-glass rounded-lg overflow-hidden relative">
+      {loading && data && <RefreshIndicator />}
       {/* Header */}
       <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-3">
         <Flame className="w-4 h-4 text-orange-500" />

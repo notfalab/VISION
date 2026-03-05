@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Globe, TrendingUp, TrendingDown, Minus, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
+import RefreshIndicator from "@/components/RefreshIndicator";
 
 interface MacroIndicator {
   value: number;
@@ -68,7 +69,7 @@ export default function GoldMacro() {
         const result = await api.goldMacroSummary();
         setData(result);
       } catch {
-        setData(null);
+        // keep stale data
       } finally {
         setLoading(false);
       }
@@ -89,7 +90,8 @@ export default function GoldMacro() {
         : "var(--color-neon-amber)";
 
   return (
-    <div className="card-glass rounded-lg overflow-hidden flex flex-col">
+    <div className="card-glass rounded-lg overflow-hidden flex flex-col relative">
+      {loading && data && <RefreshIndicator />}
       <div className="px-3 py-2 border-b border-[var(--color-border-primary)] flex items-center gap-3">
         <Globe className="w-4 h-4 text-[var(--color-neon-blue)]" />
         <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
@@ -109,7 +111,7 @@ export default function GoldMacro() {
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2">
-        {loading ? (
+        {loading && !data ? (
           <div className="flex items-center justify-center gap-3 py-6">
             <Loader2 className="w-4 h-4 text-[var(--color-text-muted)] animate-spin" />
             <span className="text-sm text-[var(--color-text-muted)]">

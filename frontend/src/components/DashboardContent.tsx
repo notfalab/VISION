@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import Header from "@/components/layout/Header";
+import BackendStatusBanner from "@/components/BackendStatusBanner";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import CommunityModal from "@/components/CommunityModal";
 import PriceChart from "@/components/charts/PriceChart";
@@ -10,6 +11,7 @@ import VolumeProfile from "@/components/charts/VolumeProfile";
 import IndicatorPanel from "@/components/widgets/IndicatorPanel";
 import ScalperMode from "@/components/widgets/ScalperMode";
 import LazyWidget from "@/components/LazyWidget";
+import SortableWidgetList from "@/components/SortableWidgetList";
 import { useMarketStore, getMarketType } from "@/stores/market";
 
 // Lazy-load heavy widgets — they won't be included in the initial JS bundle
@@ -38,18 +40,30 @@ const LiquidityForecast = dynamic(() => import("@/components/widgets/LiquidityFo
 
 const COMMUNITY_KEY = "vision_community_joined";
 
-export default function DashboardContent({ initialSymbol }: { initialSymbol?: string }) {
+/** Widget registry entry */
+interface WidgetDef {
+  id: string;
+  delay: number;
+  /** Only show if condition is true (default: always show) */
+  condition?: boolean;
+}
+
+export default function DashboardContent({ initialSymbol, initialTimeframe }: { initialSymbol?: string; initialTimeframe?: import("@/types/market").Timeframe | null }) {
   const activeSymbol = useMarketStore((s) => s.activeSymbol);
   const setActiveSymbol = useMarketStore((s) => s.setActiveSymbol);
+  const setActiveTimeframe = useMarketStore((s) => s.setActiveTimeframe);
   const chartExpanded = useMarketStore((s) => s.chartExpanded);
   const marketType = getMarketType(activeSymbol);
   const isGold = activeSymbol === "XAUUSD";
   const isCrypto = marketType === "crypto";
 
-  // Sync URL symbol → store on mount
+  // Sync URL symbol + timeframe → store on mount
   useEffect(() => {
     if (initialSymbol && initialSymbol !== activeSymbol) {
       setActiveSymbol(initialSymbol);
+    }
+    if (initialTimeframe) {
+      setActiveTimeframe(initialTimeframe);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialSymbol]);
@@ -62,9 +76,85 @@ export default function DashboardContent({ initialSymbol }: { initialSymbol?: st
     }
   }, []);
 
+  // Widget registry — maps ID to component
+  const WIDGET_COMPONENTS: Record<string, React.ReactNode> = useMemo(() => ({
+    "scalper": <ErrorBoundary><ScalperMode /></ErrorBoundary>,
+    "narrator": <ErrorBoundary><MarketNarrator /></ErrorBoundary>,
+    "performance": <ErrorBoundary><PerformanceDashboard /></ErrorBoundary>,
+    "trade-score": <ErrorBoundary><TradeScore /></ErrorBoundary>,
+    "zones": <ErrorBoundary><ZonesOverlay /></ErrorBoundary>,
+    "volume-profile": <ErrorBoundary><VolumeProfileWidget /></ErrorBoundary>,
+    "divergence": <ErrorBoundary><DivergenceWidget /></ErrorBoundary>,
+    "liquidity-forecast": <ErrorBoundary><LiquidityForecast /></ErrorBoundary>,
+    "calendar": <ErrorBoundary><EconomicCalendar /></ErrorBoundary>,
+    "sentiment": <ErrorBoundary><NewsSentiment /></ErrorBoundary>,
+    "volatility": <ErrorBoundary><VolatilityForecast /></ErrorBoundary>,
+    "heatmap": <ErrorBoundary><CurrencyHeatmap /></ErrorBoundary>,
+    "ml-prediction": <ErrorBoundary><MLPrediction /></ErrorBoundary>,
+    "order-flow": <ErrorBoundary><OrderFlow /></ErrorBoundary>,
+    "tpsl": <ErrorBoundary><TPSLWidget /></ErrorBoundary>,
+    "deep-orderbook": <ErrorBoundary><DeepOrderBookWidget /></ErrorBoundary>,
+    "liquidation": <ErrorBoundary><LiquidationWidget /></ErrorBoundary>,
+    "mtf": <ErrorBoundary><MTFConfluence /></ErrorBoundary>,
+    "smart-money": <ErrorBoundary><SmartMoney /></ErrorBoundary>,
+    "whale-tracker": <ErrorBoundary><WhaleTracker /></ErrorBoundary>,
+    "correlations": <ErrorBoundary><Correlations /></ErrorBoundary>,
+    "gold-macro": <ErrorBoundary><GoldMacro /></ErrorBoundary>,
+    "cot": <ErrorBoundary><COTReport /></ErrorBoundary>,
+  }), []);
+
+  // Widget definitions with loading delays and conditional visibility
+  const WIDGET_DEFS: WidgetDef[] = useMemo(() => [
+    // Core
+    { id: "scalper", delay: 0 },
+    { id: "narrator", delay: 300 },
+    { id: "performance", delay: 500 },
+    { id: "trade-score", delay: 500 },
+    // Zones & Volume
+    { id: "zones", delay: 500 },
+    { id: "volume-profile", delay: 700 },
+    { id: "divergence", delay: 700 },
+    { id: "liquidity-forecast", delay: 1500 },
+    // Market Data
+    { id: "calendar", delay: 1000 },
+    { id: "sentiment", delay: 1000 },
+    { id: "volatility", delay: 1200 },
+    { id: "heatmap", delay: 1500 },
+    // ML & Order Flow
+    { id: "ml-prediction", delay: 1000 },
+    { id: "order-flow", delay: 1000 },
+    { id: "tpsl", delay: 1000 },
+    { id: "deep-orderbook", delay: 1000 },
+    { id: "liquidation", delay: 1500, condition: isCrypto },
+    // Institutional
+    { id: "mtf", delay: 2000 },
+    { id: "smart-money", delay: 2000 },
+    { id: "whale-tracker", delay: 2500, condition: isCrypto },
+    { id: "correlations", delay: 2500, condition: isGold },
+    { id: "gold-macro", delay: 2500, condition: isGold },
+    { id: "cot", delay: 2500 },
+  ], [isCrypto, isGold]);
+
+  // Build widget entries for sortable list (filtered by condition)
+  const widgetEntries = useMemo(() => {
+    return WIDGET_DEFS
+      .filter((def) => def.condition !== false)
+      .map((def) => ({
+        id: def.id,
+        node: def.delay > 0 ? (
+          <LazyWidget delay={def.delay}>
+            {WIDGET_COMPONENTS[def.id]}
+          </LazyWidget>
+        ) : (
+          WIDGET_COMPONENTS[def.id]
+        ),
+      }));
+  }, [WIDGET_DEFS, WIDGET_COMPONENTS]);
+
   return (
     <div className="h-screen flex flex-col bg-[var(--color-bg-primary)] grid-pattern overflow-hidden lg:overflow-hidden">
       <Header />
+      <BackendStatusBanner />
 
       {/* Community invite modal */}
       {showCommunity && (
@@ -117,99 +207,8 @@ export default function DashboardContent({ initialSymbol }: { initialSymbol?: st
           </div>
 
           {/* Right panel — scrollable on desktop, inline on mobile — hidden when chart expanded */}
-          <div className={`w-full lg:w-[440px] lg:shrink-0 lg:overflow-y-auto lg:min-h-0 ${chartExpanded ? "hidden" : ""}`}>
-            <div className="space-y-3">
-              {/* Priority 1: Loads immediately (core trading widget) */}
-              <ErrorBoundary><ScalperMode /></ErrorBoundary>
-
-              {/* Priority 1.5: AI Narrator — loads early for immediate context */}
-              <LazyWidget delay={300}>
-                <ErrorBoundary><MarketNarrator /></ErrorBoundary>
-              </LazyWidget>
-
-              {/* Priority 2: Loads after 500ms + when visible */}
-              <LazyWidget delay={500}>
-                <ErrorBoundary><PerformanceDashboard /></ErrorBoundary>
-              </LazyWidget>
-              <LazyWidget delay={500}>
-                <ErrorBoundary><ZonesOverlay /></ErrorBoundary>
-              </LazyWidget>
-              <LazyWidget delay={500}>
-                <ErrorBoundary><TradeScore /></ErrorBoundary>
-              </LazyWidget>
-
-              {/* Priority 2.5: Volume Profile + Divergence */}
-              <LazyWidget delay={700}>
-                <ErrorBoundary><VolumeProfileWidget /></ErrorBoundary>
-              </LazyWidget>
-              <LazyWidget delay={700}>
-                <ErrorBoundary><DivergenceWidget /></ErrorBoundary>
-              </LazyWidget>
-
-              {/* Priority 3: Calendar + Sentiment */}
-              <LazyWidget delay={1000}>
-                <ErrorBoundary><EconomicCalendar /></ErrorBoundary>
-              </LazyWidget>
-              <LazyWidget delay={1000}>
-                <ErrorBoundary><NewsSentiment /></ErrorBoundary>
-              </LazyWidget>
-
-              {/* Priority 3.5: Volatility + ML + Flow */}
-              <LazyWidget delay={1200}>
-                <ErrorBoundary><VolatilityForecast /></ErrorBoundary>
-              </LazyWidget>
-              <LazyWidget delay={1500}>
-                <ErrorBoundary><CurrencyHeatmap /></ErrorBoundary>
-              </LazyWidget>
-              <LazyWidget delay={1000}>
-                <ErrorBoundary><MLPrediction /></ErrorBoundary>
-              </LazyWidget>
-              <LazyWidget delay={1000}>
-                <ErrorBoundary><OrderFlow /></ErrorBoundary>
-              </LazyWidget>
-              <LazyWidget delay={1000}>
-                <ErrorBoundary><TPSLWidget /></ErrorBoundary>
-              </LazyWidget>
-              <LazyWidget delay={1000}>
-                <ErrorBoundary><DeepOrderBookWidget /></ErrorBoundary>
-              </LazyWidget>
-              {isCrypto && (
-                <LazyWidget delay={1500}>
-                  <ErrorBoundary><LiquidationWidget /></ErrorBoundary>
-                </LazyWidget>
-              )}
-
-              {/* Priority 3.8: Liquidity Forecast */}
-              <LazyWidget delay={1500}>
-                <ErrorBoundary><LiquidityForecast /></ErrorBoundary>
-              </LazyWidget>
-
-              {/* Priority 4: Loads after 2s + when visible */}
-              <LazyWidget delay={2000}>
-                <ErrorBoundary><MTFConfluence /></ErrorBoundary>
-              </LazyWidget>
-              <LazyWidget delay={2000}>
-                <ErrorBoundary><SmartMoney /></ErrorBoundary>
-              </LazyWidget>
-              {isCrypto && (
-                <LazyWidget delay={2500}>
-                  <ErrorBoundary><WhaleTracker /></ErrorBoundary>
-                </LazyWidget>
-              )}
-              {isGold && (
-                <LazyWidget delay={2500}>
-                  <ErrorBoundary><Correlations /></ErrorBoundary>
-                </LazyWidget>
-              )}
-              {isGold && (
-                <LazyWidget delay={2500}>
-                  <ErrorBoundary><GoldMacro /></ErrorBoundary>
-                </LazyWidget>
-              )}
-              <LazyWidget delay={2500}>
-                <ErrorBoundary><COTReport /></ErrorBoundary>
-              </LazyWidget>
-            </div>
+          <div className={`w-full lg:w-[440px] lg:shrink-0 lg:overflow-y-auto lg:min-h-0 px-1 sm:px-0 ${chartExpanded ? "hidden" : ""}`}>
+            <SortableWidgetList widgets={widgetEntries} />
           </div>
         </div>
       </div>
