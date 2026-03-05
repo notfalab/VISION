@@ -182,6 +182,8 @@ export default function PriceChart() {
   const [showLiq, setShowLiq] = useState(false);
   const [showStops, setShowStops] = useState(false);
   const [showMBO, setShowMBO] = useState(false);
+  const [showWalls, setShowWalls] = useState(false);
+  const wallLinesRef = useRef<any[]>([]);
   const [isPannedAway, _setIsPannedAway] = useState(false);
   const isPannedRef = useRef(false);
 
@@ -1008,6 +1010,76 @@ export default function PriceChart() {
   }, [showMBO, activeSymbol]);
 
   /* ──────────────────────────────────────────────────
+     Buy/Sell Wall price lines overlay
+     ────────────────────────────────────────────────── */
+  useEffect(() => {
+    // Clear previous wall lines
+    const series = candleSeriesRef.current;
+    if (series) {
+      for (const line of wallLinesRef.current) {
+        try { series.removePriceLine(line); } catch { /* ignore */ }
+      }
+      wallLinesRef.current = [];
+    }
+
+    if (!showWalls || !series) return;
+
+    let cancelled = false;
+    const fetchWalls = async () => {
+      try {
+        const result = await api.orderFlow(activeSymbol);
+        if (cancelled || !result || !series) return;
+
+        // Clear any previously drawn lines
+        for (const line of wallLinesRef.current) {
+          try { series.removePriceLine(line); } catch { /* ignore */ }
+        }
+        wallLinesRef.current = [];
+
+        // Draw buy walls (green dashed lines)
+        for (const w of (result.buy_walls || []).slice(0, 5)) {
+          const line = series.createPriceLine({
+            price: w.price,
+            color: "rgba(34, 197, 94, 0.7)",
+            lineWidth: 1,
+            lineStyle: 2, // dashed
+            axisLabelVisible: true,
+            title: `BUY ${w.strength.toFixed(1)}x`,
+          });
+          wallLinesRef.current.push(line);
+        }
+
+        // Draw sell walls (red dashed lines)
+        for (const w of (result.sell_walls || []).slice(0, 5)) {
+          const line = series.createPriceLine({
+            price: w.price,
+            color: "rgba(239, 68, 68, 0.7)",
+            lineWidth: 1,
+            lineStyle: 2, // dashed
+            axisLabelVisible: true,
+            title: `SELL ${w.strength.toFixed(1)}x`,
+          });
+          wallLinesRef.current.push(line);
+        }
+      } catch { /* ignore */ }
+    };
+
+    fetchWalls();
+    const interval = setInterval(fetchWalls, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      // Clean up lines on unmount/toggle off
+      if (series) {
+        for (const line of wallLinesRef.current) {
+          try { series.removePriceLine(line); } catch { /* ignore */ }
+        }
+        wallLinesRef.current = [];
+      }
+    };
+  }, [showWalls, activeSymbol]);
+
+  /* ──────────────────────────────────────────────────
      JSX
      ────────────────────────────────────────────────── */
   const buyZoneCount = zones.filter((z) => z.type === "buy").length;
@@ -1152,6 +1224,18 @@ export default function PriceChart() {
             `}
           >
             MBO
+          </button>
+          <button
+            onClick={() => setShowWalls(!showWalls)}
+            className={`
+              shrink-0 px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[28px]
+              ${showWalls
+                ? "border-cyan-500/30 text-cyan-500 bg-cyan-500/10"
+                : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
+              }
+            `}
+          >
+            Walls
           </button>
           {/* Separator */}
           <div className="w-px h-5 bg-[var(--color-border-primary)] shrink-0 mx-0.5" />
