@@ -77,12 +77,17 @@ function toVolumeData(c: OHLCV, bullAlpha: string, bearAlpha: string) {
 }
 
 /**
- * Deduplicate by timestamp (keep last occurrence) and sort ascending.
+ * Deduplicate by timestamp (keep last occurrence), validate, and sort ascending.
  * lightweight-charts requires strictly increasing time values.
  */
 function deduplicateAndSort(candles: OHLCV[]): OHLCV[] {
   const map = new Map<string, OHLCV>();
   for (const c of candles) {
+    // Skip clearly invalid candles
+    if (c.open <= 0 || c.close <= 0 || c.volume < 0) continue;
+    // Repair: ensure high/low encompass open/close
+    c.high = Math.max(c.high, c.open, c.close);
+    c.low = Math.min(c.low, c.open, c.close);
     map.set(c.timestamp, c); // last wins
   }
   return Array.from(map.values()).sort(
@@ -195,6 +200,8 @@ export default function PriceChart() {
   // Refs to avoid stale closures in data effects
   const dataRef = useRef<OHLCV[]>([]);
   dataRef.current = data;
+  const activeSymbolRef = useRef(activeSymbol);
+  activeSymbolRef.current = activeSymbol;
 
   /* ──────────────────────────────────────────────────
      Chart creation / destruction (mount only)
@@ -553,36 +560,49 @@ export default function PriceChart() {
     const tc = THEME_CANVAS[theme];
 
     binanceKlineWS.subscribe(activeSymbol, activeTimeframe, (_symbol: string, candle: LiveCandle) => {
+      // Guard: ignore stale updates if symbol changed since subscription
+      if (activeSymbolRef.current !== activeSymbol) return;
+
       setData((prev) => {
         if (prev.length === 0) return prev;
 
         const lastCandle = prev[prev.length - 1];
         const lastTs = new Date(lastCandle.timestamp).getTime();
-        const candleTs = candle.timestamp;
-        const gap = candleTs - lastTs;
+        // Align WebSocket timestamp to candle boundary to avoid precision loss
+        const alignedTs = Math.floor(candle.timestamp / intervalMs) * intervalMs;
+        const gap = alignedTs - lastTs;
 
-        // Same candle — update in place
-        if (Math.abs(gap) < intervalMs * 0.9) {
+        // Same candle period — update in place
+        if (Math.abs(gap) < intervalMs * 0.5) {
           const updated = [...prev];
-          const newCandle = {
-            ...lastCandle,
-            high: Math.max(lastCandle.high, candle.high),
-            low: Math.min(lastCandle.low, candle.low),
-            close: candle.close,
-            volume: candle.volume,
-          };
+          const newCandle: OHLCV = candle.isFinal
+            ? {
+                // isFinal: trust Binance's authoritative final values
+                ...lastCandle,
+                open: candle.open,
+                high: candle.high,
+                low: candle.low,
+                close: candle.close,
+                volume: candle.volume,
+              }
+            : {
+                // Still building: merge high/low
+                ...lastCandle,
+                high: Math.max(lastCandle.high, candle.high),
+                low: Math.min(lastCandle.low, candle.low),
+                close: candle.close,
+                volume: candle.volume,
+              };
           updated[updated.length - 1] = newCandle;
-          // Update chart series in place
           try {
             candleSeriesRef.current?.update(toChartData(newCandle));
             volumeSeriesRef.current?.update(toVolumeData(newCandle, tc.bullAlpha, tc.bearAlpha));
           } catch { /* stale update — ignore */ }
-          // Update moving averages incrementally
           updateMAFromData(updated, sma20Ref.current, ema50Ref.current, ema200Ref.current);
           return updated;
         }
 
-        // Gap detected — re-fetch missing candles (use setData with viewport save/restore)
+        // Gap detected — re-fetch missing candles
         if (gap > intervalMs * 2 && !gapRefetchDone.current) {
           gapRefetchDone.current = true;
           (async () => {
@@ -594,7 +614,6 @@ export default function PriceChart() {
                   const merged = deduplicateAndSort([...existing, ...sorted]);
                   const chart = chartRef.current;
                   const savedRange = chart?.timeScale().getVisibleLogicalRange();
-                  // Update all series with merged data
                   candleSeriesRef.current?.setData(merged.map(toChartData));
                   volumeSeriesRef.current?.setData(
                     merged.map((c) => toVolumeData(c, tc.bullAlpha, tc.bearAlpha))
@@ -602,21 +621,22 @@ export default function PriceChart() {
                   sma20Ref.current?.setData(computeSMA(merged, 20));
                   ema50Ref.current?.setData(computeEMA(merged, 50));
                   ema200Ref.current?.setData(computeEMA(merged, 200));
-                  // Restore viewport position (no fitContent — keep user's scroll)
                   if (savedRange) {
                     chart?.timeScale().setVisibleLogicalRange(savedRange);
                   }
                   return merged;
                 });
               }
-            } catch { /* ignore */ }
+            } catch {
+              gapRefetchDone.current = false;
+            }
           })();
         }
 
-        // Next candle — append
-        if (candleTs > lastTs) {
+        // New candle — append
+        if (alignedTs > lastTs) {
           const newOHLCV: OHLCV = {
-            timestamp: new Date(candleTs).toISOString(),
+            timestamp: new Date(alignedTs).toISOString(),
             open: candle.open,
             high: candle.high,
             low: candle.low,
@@ -695,34 +715,28 @@ export default function PriceChart() {
     const quickPoll = async () => {
       if (cancelled) return;
       try {
-        const res = await fetch(`/api/v1/prices/${sym}/latest`, { cache: "no-store" });
-        if (cancelled) return; // check again after await
-        if (res.ok) {
-          const d = await res.json();
-          if (cancelled) return;
-          if (d.price) {
-            setData((prev) => {
-              if (prev.length === 0) return prev;
-              const last = prev[prev.length - 1];
-              if (last.close > 0) {
-                const ratio = d.price / last.close;
-                if (ratio > 5 || ratio < 0.2) return prev;
-              }
-              const updated = [...prev];
-              const newCandle = {
-                ...last,
-                close: d.price,
-                high: Math.max(last.high, d.price),
-                low: Math.min(last.low, d.price),
-              };
-              updated[updated.length - 1] = newCandle;
-              safeUpdate(candleSeriesRef.current, toChartData(newCandle));
-              safeUpdate(volumeSeriesRef.current, toVolumeData(newCandle, tc.bullAlpha, tc.bearAlpha) as never);
-              updateMAFromData(updated, sma20Ref.current, ema50Ref.current, ema200Ref.current);
-              return updated;
-            });
+        const d = await api.latestPrice(sym);
+        if (cancelled || !d?.price) return;
+        setData((prev) => {
+          if (prev.length === 0) return prev;
+          const last = prev[prev.length - 1];
+          if (last.close > 0) {
+            const ratio = d.price / last.close;
+            if (ratio > 5 || ratio < 0.2) return prev;
           }
-        }
+          const updated = [...prev];
+          const newCandle = {
+            ...last,
+            close: d.price,
+            high: Math.max(last.high, d.price),
+            low: Math.min(last.low, d.price),
+          };
+          updated[updated.length - 1] = newCandle;
+          safeUpdate(candleSeriesRef.current, toChartData(newCandle));
+          safeUpdate(volumeSeriesRef.current, toVolumeData(newCandle, tc.bullAlpha, tc.bearAlpha) as never);
+          updateMAFromData(updated, sma20Ref.current, ema50Ref.current, ema200Ref.current);
+          return updated;
+        });
       } catch { /* ignore */ }
     };
 
