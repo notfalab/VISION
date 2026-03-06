@@ -11,7 +11,11 @@ router = APIRouter(prefix="/news", tags=["news"])
 logger = get_logger("news_router")
 
 # Symbol → market type for weighting
-CRYPTO_SYMBOLS = {"BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "ETHBTC"}
+CRYPTO_SYMBOLS = {
+    "BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "DOGEUSD", "BNBUSD",
+    "ADAUSD", "PEPEUSD", "TRXUSD", "SUIUSD", "NEARUSD", "AVAXUSD",
+    "LINKUSD", "LTCUSD", "AAVEUSD", "BCHUSD", "UNIUSD", "DOTUSD",
+}
 
 
 @router.get("/sentiment/{symbol}")

@@ -1,21 +1,18 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import Header from "@/components/layout/Header";
 import BackendStatusBanner from "@/components/BackendStatusBanner";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import CommunityModal from "@/components/CommunityModal";
 import PriceChart from "@/components/charts/PriceChart";
 import VolumeProfile from "@/components/charts/VolumeProfile";
 import IndicatorPanel from "@/components/widgets/IndicatorPanel";
-import ScalperMode from "@/components/widgets/ScalperMode";
 import LazyWidget from "@/components/LazyWidget";
 import SortableWidgetList from "@/components/SortableWidgetList";
 import { useMarketStore, getMarketType } from "@/stores/market";
 
 // Lazy-load heavy widgets — they won't be included in the initial JS bundle
-const PerformanceDashboard = dynamic(() => import("@/components/widgets/PerformanceDashboard"), { ssr: false });
 const ZonesOverlay = dynamic(() => import("@/components/widgets/ZonesOverlay"), { ssr: false });
 const TradeScore = dynamic(() => import("@/components/widgets/TradeScore"), { ssr: false });
 const CurrencyHeatmap = dynamic(() => import("@/components/widgets/CurrencyHeatmap"), { ssr: false });
@@ -37,8 +34,6 @@ const VolumeProfileWidget = dynamic(() => import("@/components/widgets/VolumePro
 const VolatilityForecast = dynamic(() => import("@/components/widgets/VolatilityForecast"), { ssr: false });
 const DivergenceWidget = dynamic(() => import("@/components/widgets/DivergenceWidget"), { ssr: false });
 const LiquidityForecast = dynamic(() => import("@/components/widgets/LiquidityForecast"), { ssr: false });
-
-const COMMUNITY_KEY = "vision_community_joined";
 
 /** Widget registry entry */
 interface WidgetDef {
@@ -68,19 +63,9 @@ export default function DashboardContent({ initialSymbol, initialTimeframe }: { 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialSymbol]);
 
-  // Community modal — appears until user confirms they joined
-  const [showCommunity, setShowCommunity] = useState(false);
-  useEffect(() => {
-    if (typeof window !== "undefined" && localStorage.getItem(COMMUNITY_KEY) !== "true") {
-      setShowCommunity(true);
-    }
-  }, []);
-
   // Widget registry — maps ID to component
   const WIDGET_COMPONENTS: Record<string, React.ReactNode> = useMemo(() => ({
-    "scalper": <ErrorBoundary><ScalperMode /></ErrorBoundary>,
     "narrator": <ErrorBoundary><MarketNarrator /></ErrorBoundary>,
-    "performance": <ErrorBoundary><PerformanceDashboard /></ErrorBoundary>,
     "trade-score": <ErrorBoundary><TradeScore /></ErrorBoundary>,
     "zones": <ErrorBoundary><ZonesOverlay /></ErrorBoundary>,
     "volume-profile": <ErrorBoundary><VolumeProfileWidget /></ErrorBoundary>,
@@ -106,9 +91,7 @@ export default function DashboardContent({ initialSymbol, initialTimeframe }: { 
   // Widget definitions with loading delays and conditional visibility
   const WIDGET_DEFS: WidgetDef[] = useMemo(() => [
     // Core
-    { id: "scalper", delay: 0 },
     { id: "narrator", delay: 300 },
-    { id: "performance", delay: 500 },
     { id: "trade-score", delay: 500 },
     // Zones & Volume
     { id: "zones", delay: 500 },
@@ -155,20 +138,6 @@ export default function DashboardContent({ initialSymbol, initialTimeframe }: { 
     <div className="h-screen flex flex-col bg-[var(--color-bg-primary)] grid-pattern overflow-hidden lg:overflow-hidden">
       <Header />
       <BackendStatusBanner />
-
-      {/* Community invite modal */}
-      {showCommunity && (
-        <CommunityModal
-          onJoined={() => {
-            localStorage.setItem(COMMUNITY_KEY, "true");
-            setShowCommunity(false);
-          }}
-          onSkip={() => {
-            localStorage.setItem(COMMUNITY_KEY, "true");
-            setShowCommunity(false);
-          }}
-        />
-      )}
       <div className="flex-1 min-h-0 p-2 md:p-3 overflow-y-auto lg:overflow-hidden">
         <div className="flex flex-col lg:flex-row gap-2 md:gap-3 lg:h-full">
           {/* Left: Chart + Bottom row */}

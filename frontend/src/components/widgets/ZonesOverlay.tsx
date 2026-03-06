@@ -31,7 +31,6 @@ interface ZonesData {
   fvg: Zone[];
   order_blocks: Zone[];
   pivots?: Record<string, number>;
-  fibonacci?: Record<string, number>;
   structure?: { bos: any[]; choch: any[] };
 }
 
@@ -41,7 +40,6 @@ function ZonesOverlay() {
     sd: true,
     sr: true,
     smc: false,
-    fib: false,
   });
 
   const live = useMarketStore((s) => s.livePrices[s.activeSymbol]);
@@ -197,28 +195,6 @@ function ZonesOverlay() {
               </Section>
             )}
 
-            {/* Fibonacci */}
-            {zones.fibonacci && Object.keys(zones.fibonacci).length > 0 && (
-              <Section
-                title="Fibonacci"
-                icon={<span className="text-[11px]">🔢</span>}
-                expanded={expanded.fib}
-                onToggle={() => toggleSection("fib")}
-              >
-                <div className="space-y-0.5">
-                  {Object.entries(zones.fibonacci)
-                    .sort(([, a], [, b]) => (b as number) - (a as number))
-                    .map(([level, price]) => (
-                      <div key={level} className="flex items-center gap-2 px-2 py-0.5">
-                        <span className="text-[9px] font-mono text-[var(--color-neon-purple)] w-10">{level}</span>
-                        <span className="text-[10px] font-mono text-[var(--color-text-secondary)] tabular-nums">
-                          {formatPrice(price as number, activeSymbol)}
-                        </span>
-                      </div>
-                    ))}
-                </div>
-              </Section>
-            )}
           </>
         )}
       </div>

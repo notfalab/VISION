@@ -24,14 +24,24 @@ SYMBOL_TO_AV_TICKERS: dict[str, str] = {
     "ETHUSD": "CRYPTO:ETH",
     "SOLUSD": "CRYPTO:SOL",
     "XRPUSD": "CRYPTO:XRP",
-    "XAUUSD": "FOREX:XAU",
-    "EURUSD": "FOREX:EUR",
-    "GBPUSD": "FOREX:GBP",
-    "USDJPY": "FOREX:JPY",
-    "AUDUSD": "FOREX:AUD",
-    "USDCAD": "FOREX:CAD",
-    "NZDUSD": "FOREX:NZD",
-    "USDCHF": "FOREX:CHF",
+    "DOGEUSD": "CRYPTO:DOGE",
+    "BNBUSD": "CRYPTO:BNB",
+    "ADAUSD": "CRYPTO:ADA",
+}
+
+# For non-crypto symbols, use topics instead of tickers
+SYMBOL_TO_AV_TOPICS: dict[str, str] = {
+    "XAUUSD": "economy_macro,financial_markets",
+    "XAGUSD": "economy_macro,financial_markets",
+    "EURUSD": "economy_monetary,economy_fiscal",
+    "GBPUSD": "economy_monetary,economy_fiscal",
+    "USDJPY": "economy_monetary,economy_fiscal",
+    "AUDUSD": "economy_monetary,economy_macro",
+    "USDCAD": "economy_monetary,economy_macro",
+    "NZDUSD": "economy_monetary,economy_macro",
+    "USDCHF": "economy_monetary,economy_macro",
+    "NAS100": "technology,financial_markets",
+    "SPX500": "financial_markets,economy_macro",
 }
 
 CLASSIFICATIONS = [
@@ -169,25 +179,30 @@ class SentimentAdapter:
             if (now - self._news_cache_times.get(cache_key, 0)) < self._NEWS_TTL:
                 return self._news_cache[cache_key]
 
-        # Map symbol to AV ticker
+        # Map symbol to AV ticker or topics
         av_ticker = SYMBOL_TO_AV_TICKERS.get(symbol.upper())
-        if not av_ticker:
-            # Generic fallback — search by symbol name
-            av_ticker = symbol.upper()
+        av_topics = SYMBOL_TO_AV_TOPICS.get(symbol.upper())
 
         try:
             settings = get_settings()
             api_key = settings.alpha_vantage_api_key
             if not api_key:
-                return {"score": 0.5, "label": "Neutral", "articles": []}
+                return {"score": 50, "label": "Neutral", "articles": [], "article_count": 0}
 
             client = await self._get_client()
-            resp = await client.get(AV_BASE, params={
+            params: dict = {
                 "function": "NEWS_SENTIMENT",
-                "tickers": av_ticker,
                 "limit": 20,
                 "apikey": api_key,
-            })
+            }
+            if av_ticker:
+                params["tickers"] = av_ticker
+            elif av_topics:
+                params["topics"] = av_topics
+            else:
+                params["topics"] = "financial_markets,economy_macro"
+
+            resp = await client.get(AV_BASE, params=params)
             resp.raise_for_status()
             data = resp.json()
 
@@ -195,7 +210,7 @@ class SentimentAdapter:
                 logger.warning(f"AV rate limit: {data['Information'][:80]}")
                 if cache_key in self._news_cache:
                     return self._news_cache[cache_key]
-                return {"score": 0.5, "label": "Neutral", "articles": []}
+                return {"score": 50, "label": "Neutral", "articles": [], "article_count": 0}
 
             feed = data.get("feed", [])
             articles = []
@@ -210,12 +225,13 @@ class SentimentAdapter:
                 overall = float(item.get("overall_sentiment_score", 0))
 
                 # Find ticker-specific sentiment if available
-                ticker_sentiments = item.get("ticker_sentiment", [])
                 ticker_score = overall
-                for ts in ticker_sentiments:
-                    if ts.get("ticker", "").upper() == av_ticker.upper():
-                        ticker_score = float(ts.get("ticker_sentiment_score", overall))
-                        break
+                if av_ticker:
+                    ticker_sentiments = item.get("ticker_sentiment", [])
+                    for ts in ticker_sentiments:
+                        if ts.get("ticker", "").upper() == av_ticker.upper():
+                            ticker_score = float(ts.get("ticker_sentiment_score", overall))
+                            break
 
                 total_score += ticker_score
                 scored_count += 1

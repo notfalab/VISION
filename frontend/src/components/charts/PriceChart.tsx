@@ -186,6 +186,7 @@ export default function PriceChart() {
   const wallLinesRef = useRef<any[]>([]);
   const [isPannedAway, _setIsPannedAway] = useState(false);
   const isPannedRef = useRef(false);
+  const [countdown, setCountdown] = useState("");
 
   // Zone state
   const [zones, setZones] = useState<AccZone[]>([]);
@@ -204,6 +205,37 @@ export default function PriceChart() {
   dataRef.current = data;
   const activeSymbolRef = useRef(activeSymbol);
   activeSymbolRef.current = activeSymbol;
+
+  /* ── Countdown timer: time until current candle closes ── */
+  useEffect(() => {
+    const intervalMs = getIntervalMs(activeTimeframe);
+    const tick = () => {
+      const now = Date.now();
+      const remaining = intervalMs - (now % intervalMs);
+      const totalSec = Math.floor(remaining / 1000);
+      if (intervalMs >= 86_400_000) {
+        // Daily/weekly: HH:MM:SS
+        const h = Math.floor(totalSec / 3600);
+        const m = Math.floor((totalSec % 3600) / 60);
+        const s = totalSec % 60;
+        setCountdown(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`);
+      } else if (intervalMs >= 3_600_000) {
+        // Hourly: HH:MM:SS
+        const h = Math.floor(totalSec / 3600);
+        const m = Math.floor((totalSec % 3600) / 60);
+        const s = totalSec % 60;
+        setCountdown(`${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`);
+      } else {
+        // Minutes: MM:SS
+        const m = Math.floor(totalSec / 60);
+        const s = totalSec % 60;
+        setCountdown(`${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`);
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [activeTimeframe]);
 
   /* ──────────────────────────────────────────────────
      Chart creation / destruction (mount only)
@@ -776,9 +808,9 @@ export default function PriceChart() {
     };
 
     quickPoll();
-    const quickInterval = setInterval(quickPoll, 10_000);
-    const refreshInterval = setInterval(candleRefresh, 60_000);
-    const firstRefresh = setTimeout(candleRefresh, 20_000);
+    const quickInterval = setInterval(quickPoll, 3_000);
+    const refreshInterval = setInterval(candleRefresh, 30_000);
+    const firstRefresh = setTimeout(candleRefresh, 15_000);
 
     return () => {
       cancelled = true;
@@ -809,8 +841,15 @@ export default function PriceChart() {
           const last8Times = new Set(
             data.slice(-8).map((c: any) => new Date(c.timestamp ?? c.time).getTime()),
           );
+          // Only show strong reversal patterns (engulfing, stars, etc.)
+          const STRONG_PATTERNS = new Set([
+            "bullish_engulfing", "bearish_engulfing",
+            "morning_star", "evening_star",
+            "three_white_soldiers", "three_black_crows",
+            "hammer", "shooting_star",
+          ]);
           const markers: PatternMarker[] = result.patterns
-            .filter((p: any) => p.strength >= 0.6)
+            .filter((p: any) => p.strength >= 0.7 && STRONG_PATTERNS.has(p.pattern))
             .filter((p: any) => last8Times.has(new Date(p.timestamp).getTime()))
             .map((p: any) => ({
               timestamp: p.timestamp,
@@ -1256,6 +1295,15 @@ export default function PriceChart() {
               {tf.label}
             </button>
           ))}
+          {/* Candle close countdown */}
+          {countdown && (
+            <>
+              <div className="w-px h-5 bg-[var(--color-border-primary)] shrink-0 mx-0.5" />
+              <span className="shrink-0 text-[11px] font-mono text-[var(--color-text-muted)] tabular-nums">
+                {countdown}
+              </span>
+            </>
+          )}
         </div>
       </div>
 

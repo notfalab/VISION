@@ -450,77 +450,8 @@ const CHAPTERS: Chapter[] = [
 
   /* ── Chapter 9 ── */
   {
-    id: "scalper",
-    number: 9,
-    title: "Scalper Mode — Signal System",
-    subtitle: "14+ data inputs → algorithm → actionable signal — zero guesswork",
-    icon: Crosshair,
-    color: "var(--color-neon-green)",
-    sections: [
-      {
-        title: "How Signals Are Generated",
-        content:
-          "VISION's signal engine runs 14+ indicators simultaneously, calculates a weighted composite score, cross-references with ML prediction and regime detection, applies smart money adjustments (order flow, institutional positioning), and checks against active loss patterns. Only signals that pass ALL filters with 75%+ confidence are shown and sent to channels. The system scans automatically every 5 minutes across multiple timeframes.",
-        example: "signal-pipeline",
-      },
-      {
-        title: "Understanding Confidence",
-        content:
-          "Confidence starts from the composite score percentage, then gets adjusted: ML agreement boosts it (+30% blend). Regime incompatibility penalizes heavily (-60%). Multi-timeframe confluence adds +15%. Order flow alignment adds +12%. Institutional positioning agreement adds +10%. Counter-trend signals get penalized (-15%). Signals matching known loss patterns get -50%. The final confidence must be 75% or higher to qualify.",
-        example: "confidence-calc",
-      },
-      {
-        title: "Entry, Stop Loss & Take Profit",
-        content:
-          "Entry price is the current market price when the signal triggers. Stop Loss (SL) is placed beyond recent swing structure — below the swing low for longs, above the swing high for shorts — with an ATR buffer to avoid noise. The engine also checks the stop heatmap to avoid placing your SL inside a stop-loss cluster. Take Profit (TP) targets use ATR multiples and, when available, order book walls as natural targets.",
-        example: "entry-setup",
-        tip: "VISION's SL placement is smarter than simple ATR-based stops. It uses market structure AND avoids known stop-loss clusters. Trust the levels — they're engineered to survive institutional stop hunts.",
-      },
-      {
-        title: "Risk:Reward Ratio",
-        content:
-          "Risk:Reward (R:R) compares potential loss (entry to SL) against potential gain (entry to TP). An R:R of 1:2 means you risk $1 to make $2. VISION enforces minimum R:R by asset: BTC requires 1.8:1 (higher volatility needs more reward), crypto 1.5:1, and forex 1.3:1. A trader can be profitable with just 40% win rate if their average R:R is above 1.5:1. Focus on R:R, not just win rate.",
-        example: "risk-reward",
-        warning: "Never enter a trade with R:R below 1:1. Even 'sure things' can fail. A good R:R ensures that your winners compensate for your losers over time.",
-      },
-      {
-        title: "Multi-Timeframe Confluence",
-        content:
-          "When the signal engine scans multiple timeframes (5m, 15m, 30m) and two or more agree on direction, the signal gets a MTF (Multi-Timeframe) badge and a +15% confidence boost. MTF confluence means the short-term setup aligns with the bigger-picture trend — these are the highest-quality signals. When you see the green MTF badge, it means multiple timeframes are confirming the trade.",
-        example: "mtf",
-      },
-      {
-        title: "Signal Lifecycle",
-        content:
-          "Every signal goes through a lifecycle: PENDING means the signal was generated but the entry price hasn't been hit yet. ACTIVE means entry was triggered and the trade is live — the system monitors it against SL and TP levels. WIN means price reached the take-profit level. LOSS means price hit the stop-loss. EXPIRED means the signal was never triggered within its validity window (typically 12 candles). Each completed signal records its PnL for your journal.",
-        example: "signal-lifecycle",
-      },
-      {
-        title: "Journal & Performance",
-        content:
-          "The Journal tab shows all completed signals with their outcomes — win, loss, or expired. The summary displays: total win rate, total P&L, profit factor (ratio of gross wins to gross losses), and performance breakdown by timeframe and direction (long vs short). Use this data to understand which timeframes and directions work best for each asset. The equity curve shows your cumulative performance over time.",
-        example: "journal",
-      },
-      {
-        title: "Loss Learning (Adaptive Filters)",
-        content:
-          "VISION's unique loss learning system analyzes WHY signals fail and builds adaptive filters to avoid repeating mistakes. It categorizes losses into 7 types: False Breakout, Regime Mismatch, Low Confluence, Overextended (RSI extreme), Weak Volume, Against Trend, and News Event. When a loss pattern appears 3+ times, the engine activates a filter that reduces confidence for similar setups, effectively 'learning' from past mistakes.",
-        example: "loss-learning",
-        tip: "Check the Learning tab regularly. The 'With Filters' win rate shows what your performance WOULD be if the loss filters had been active — this validates that the system is improving.",
-      },
-      {
-        title: "Telegram & Discord Channels",
-        content:
-          "VISION broadcasts high-confidence signals (75%+) to dedicated channels: Telegram Gold, Telegram Crypto, and Telegram Forex. Each signal includes direction, entry, SL, TP, R:R, confidence, and regime context. Outcome notifications are sent when signals resolve (win/loss with P&L). Daily performance summaries are also broadcast. Join the channels from the header dropdown for real-time alerts.",
-        example: "channels",
-      },
-    ],
-  },
-
-  /* ── Chapter 10 ── */
-  {
     id: "workflow",
-    number: 10,
+    number: 9,
     title: "Putting It All Together",
     subtitle: "A data-driven workflow that replaces every drawn line with real evidence",
     icon: CheckCircle2,
@@ -561,7 +492,7 @@ const CHAPTERS: Chapter[] = [
       {
         title: "Building Your VISION Workflow",
         content:
-          "Here's a suggested daily workflow — 100% data-driven, 0% drawing: MORNING — Check the Narrator for AI market context. Review macro data (yields, DXY, inflation). Check the economic calendar for scheduled data releases. DURING SESSION — Use Scalper Mode's Scan All to find data-backed setups. Verify signals against heatmaps (real order positions) and zones (algorithmically detected). Check order flow for volume confirmation. ENTER only 75%+ confidence trades with data-calculated SL/TP. AFTER SESSION — Review the Journal tab with real P&L data. Check the Learning tab for algorithmic pattern insights. The system self-improves using data from every signal.",
+          "Here's a suggested daily workflow — 100% data-driven, 0% drawing: MORNING — Check the Narrator for AI market context. Review macro data (yields, DXY, inflation). Check the economic calendar for scheduled data releases. DURING SESSION — Use the Trade Score widget to find data-backed setups. Verify against heatmaps (real order positions) and zones (algorithmically detected). Check order flow for volume confirmation. ENTER only high-confluence trades with data-calculated SL/TP. AFTER SESSION — Review your trades and analyze performance. The system provides data from every indicator to support your decisions.",
         example: "workflow",
         tip: "The entire workflow is automated and data-powered. You never need to open a drawing tool. VISION does the analysis — you make the decision based on the data it presents. That's the edge.",
       },
@@ -1695,157 +1626,7 @@ function MacroCorrelationDiagram() {
   );
 }
 
-/* ── Ch9: Signal Pipeline ── */
-function SignalPipelineDiagram() {
-  return (
-    <svg viewBox="0 0 420 80" width="100%" role="img" aria-label="Signal generation pipeline from indicators to alert">
-      <rect width="420" height="80" fill={D.bg} rx="6" />
-      {[{x:5,label:"14+ Indicators",c:D.blue},{x:95,label:"Composite Score",c:D.cyan},{x:185,label:"ML Blend",c:D.purple},{x:275,label:"Filters + R:R",c:D.amber},{x:355,label:"SIGNAL",c:D.bull}].map((s,i)=>(
-        <g key={i}>
-          <rect x={s.x} y="15" width="80" height="30" rx="6" fill={s.c} opacity="0.12" stroke={s.c} strokeWidth="1" />
-          <text x={s.x+40} y="34" fill={s.c} fontSize="7" fontFamily={FONT} textAnchor="middle" fontWeight="bold">{s.label}</text>
-          {i < 4 && <text x={s.x+86} y="33" fill={D.muted} fontSize="10" fontFamily={FONT}>→</text>}
-        </g>
-      ))}
-      <text x="210" y="62" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">Every signal passes through 5 data stages — zero human interpretation</text>
-      <text x="210" y="75" fill={D.bull} fontSize="8" fontFamily={FONT} textAnchor="middle" fontWeight="bold">Only 75%+ confidence signals are shown and broadcast</text>
-    </svg>
-  );
-}
-
-/* ── Ch9: Confidence Calculation ── */
-function ConfidenceCalcDiagram() {
-  return (
-    <svg viewBox="0 0 420 110" width="100%" role="img" aria-label="How confidence percentage is calculated with boosts and penalties">
-      <rect width="420" height="110" fill={D.bg} rx="6" />
-      <text x="210" y="14" fill={D.cyan} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">CONFIDENCE CALCULATION</text>
-      <rect x="30" y="22" width="120" height="20" rx="4" fill={D.cyan} opacity="0.15" />
-      <text x="90" y="36" fill={D.cyan} fontSize="8" fontFamily={FONT} textAnchor="middle">Base: Composite 68%</text>
-      {[{label:"+30% ML agrees",c:D.bull},{label:"+15% MTF confluence",c:D.bull},{label:"+12% Order flow",c:D.bull},{label:"−60% Regime mismatch",c:D.bear},{label:"−50% Loss pattern",c:D.bear}].map((a,i)=>(
-        <text key={i} x={210+(i<3?0:1)*180} y={28+(i<3?i:i-3)*16} fill={a.c} fontSize="8" fontFamily={FONT} textAnchor={i<3?"start":"start"}>{a.label}</text>
-      ))}
-      <rect x="120" y="85" width="180" height="22" rx="10" fill={D.bull} opacity="0.15" stroke={D.bull} />
-      <text x="210" y="100" fill={D.bull} fontSize="10" fontFamily={FONT} textAnchor="middle" fontWeight="bold">FINAL: 82% → SIGNAL</text>
-    </svg>
-  );
-}
-
-/* ── Ch9: Entry Setup ── */
-function EntrySetupDiagram() {
-  return (
-    <svg viewBox="0 0 400 110" width="100%" role="img" aria-label="Entry, SL, and TP levels with structure-based placement">
-      <rect width="400" height="110" fill={D.bg} rx="6" />
-      <text x="200" y="14" fill={D.cyan} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">DATA-CALCULATED SL/TP</text>
-      {/* Candles */}
-      {[{x:40,t:50,b:20,bull:true},{x:70,t:45,b:15,bull:false},{x:100,t:55,b:25,bull:true},{x:130,t:35,b:30,bull:true}].map((c,i)=>(
-        <g key={i}><line x1={c.x+8} y1={c.t} x2={c.x+8} y2={c.t+c.b+15} stroke={c.bull?D.bull:D.bear} strokeWidth="1.5" />
-        <rect x={c.x} y={c.t+4} width="16" height={c.b} fill={c.bull?D.bull:D.bear} rx="1" /></g>
-      ))}
-      {/* SL below swing low */}
-      <line x1="40" y1="85" x2="180" y2="85" stroke={D.bear} strokeDasharray="3" />
-      <text x="185" y="88" fill={D.bear} fontSize="8" fontFamily={FONT}>SL: Below swing + ATR buffer</text>
-      <text x="185" y="100" fill={D.textSec} fontSize="7" fontFamily={FONT}>+ Avoids stop-loss clusters (heatmap)</text>
-      {/* TP at wall */}
-      <line x1="40" y1="25" x2="180" y2="25" stroke={D.bull} strokeDasharray="3" />
-      <text x="185" y="28" fill={D.bull} fontSize="8" fontFamily={FONT}>TP: Order book wall target</text>
-      <text x="185" y="40" fill={D.textSec} fontSize="7" fontFamily={FONT}>+ ATR multiple + structure level</text>
-    </svg>
-  );
-}
-
-/* ── Ch9: MTF Confluence ── */
-function MTFDiagram() {
-  return (
-    <svg viewBox="0 0 400 90" width="100%" role="img" aria-label="Multi-timeframe confluence across 5m, 15m, 30m">
-      <rect width="400" height="90" fill={D.bg} rx="6" />
-      {[{tf:"5m",dir:"BULL",c:D.bull},{tf:"15m",dir:"BULL",c:D.bull},{tf:"30m",dir:"BULL",c:D.bull}].map((t,i)=>(
-        <g key={i}>
-          <rect x={30+i*120} y="10" width="100" height="38" rx="6" fill={t.c} opacity="0.1" stroke={t.c} />
-          <text x={80+i*120} y="28" fill={t.c} fontSize="10" fontFamily={FONT} textAnchor="middle" fontWeight="bold">{t.tf}</text>
-          <text x={80+i*120} y="42" fill={t.c} fontSize="9" fontFamily={FONT} textAnchor="middle">{t.dir} ✓</text>
-        </g>
-      ))}
-      <rect x="110" y="58" width="180" height="22" rx="10" fill={D.bull} opacity="0.15" stroke={D.bull} />
-      <text x="200" y="73" fill={D.bull} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">MTF CONFLUENCE → +15% confidence</text>
-    </svg>
-  );
-}
-
-/* ── Ch9: Signal Lifecycle ── */
-function SignalLifecycleDiagram() {
-  const states = [{label:"PENDING",c:D.amber},{label:"ACTIVE",c:D.cyan},{label:"WIN",c:D.bull},{label:"LOSS",c:D.bear},{label:"EXPIRED",c:D.muted}];
-  return (
-    <svg viewBox="0 0 420 70" width="100%" role="img" aria-label="Signal lifecycle from pending to resolution">
-      <rect width="420" height="70" fill={D.bg} rx="6" />
-      {states.map((s,i)=>(
-        <g key={i}>
-          <rect x={8+i*83} y="12" width="75" height="28" rx="6" fill={s.c} opacity="0.12" stroke={s.c} strokeWidth="1.5" />
-          <text x={45+i*83} y="30" fill={s.c} fontSize="8" fontFamily={FONT} textAnchor="middle" fontWeight="bold">{s.label}</text>
-          {i < 4 && i !== 2 && <text x={88+i*83} y="30" fill={D.muted} fontSize="10" fontFamily={FONT}>→</text>}
-        </g>
-      ))}
-      <line x1="250" y1="40" x2="295" y2="28" stroke={D.bull} strokeDasharray="2" opacity="0.3" />
-      <line x1="250" y1="40" x2="295" y2="28" stroke={D.bear} strokeDasharray="2" opacity="0.3" />
-      <text x="210" y="60" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">Every signal is tracked with real P&amp;L — full accountability</text>
-    </svg>
-  );
-}
-
-/* ── Ch9: Journal ── */
-function JournalDiagram() {
-  return (
-    <svg viewBox="0 0 400 90" width="100%" role="img" aria-label="Trading journal with performance metrics">
-      <rect width="400" height="90" fill={D.bg} rx="6" />
-      {[{label:"Win Rate",val:"64%",c:D.bull},{label:"Total P&L",val:"+$2,340",c:D.bull},{label:"Profit Factor",val:"2.1x",c:D.cyan},{label:"Avg R:R",val:"1:1.8",c:D.amber}].map((m,i)=>(
-        <g key={i}>
-          <rect x={10+i*98} y="10" width="90" height="45" rx="6" fill={m.c} opacity="0.08" stroke={m.c} strokeWidth="0.5" />
-          <text x={55+i*98} y="30" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">{m.label}</text>
-          <text x={55+i*98} y="46" fill={m.c} fontSize="12" fontFamily={FONT} textAnchor="middle" fontWeight="bold">{m.val}</text>
-        </g>
-      ))}
-      <text x="200" y="75" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">Real performance data from tracked signals — not backtested fantasies</text>
-    </svg>
-  );
-}
-
-/* ── Ch9: Loss Learning ── */
-function LossLearningDiagram() {
-  const patterns = [{name:"False Breakout",count:5,c:D.bear},{name:"Regime Mismatch",count:3,c:D.amber},{name:"Low Confluence",count:4,c:D.orange},{name:"Against Trend",count:2,c:D.muted}];
-  return (
-    <svg viewBox="0 0 400 90" width="100%" role="img" aria-label="Loss learning adaptive filters">
-      <rect width="400" height="90" fill={D.bg} rx="6" />
-      <text x="200" y="14" fill={D.purple} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">ADAPTIVE LOSS FILTERS</text>
-      {patterns.map((p,i)=>(
-        <g key={i}>
-          <rect x={10+i*98} y="22" width="90" height="38" rx="4" fill={p.c} opacity="0.08" stroke={p.c} strokeWidth="0.5" />
-          <text x={55+i*98} y="38" fill={D.text} fontSize="7" fontFamily={FONT} textAnchor="middle">{p.name}</text>
-          <text x={55+i*98} y="52" fill={p.c} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">{p.count}x → FILTER ON</text>
-        </g>
-      ))}
-      <text x="200" y="78" fill={D.textSec} fontSize="8" fontFamily={FONT} textAnchor="middle">System learns from losses — reduces confidence for similar setups</text>
-    </svg>
-  );
-}
-
-/* ── Ch9: Channels ── */
-function ChannelsDiagram() {
-  return (
-    <svg viewBox="0 0 400 70" width="100%" role="img" aria-label="Signal broadcast to Telegram and Discord channels">
-      <rect width="400" height="70" fill={D.bg} rx="6" />
-      <rect x="130" y="8" width="140" height="25" rx="6" fill={D.bull} opacity="0.12" stroke={D.bull} />
-      <text x="200" y="25" fill={D.bull} fontSize="9" fontFamily={FONT} textAnchor="middle" fontWeight="bold">75%+ SIGNAL</text>
-      {[{x:30,label:"TG Gold",c:D.amber},{x:130,label:"TG Crypto",c:D.cyan},{x:230,label:"TG Forex",c:D.blue},{x:330,label:"Discord",c:D.purple}].map((ch,i)=>(
-        <g key={i}>
-          <line x1="200" y1="35" x2={ch.x+30} y2="45" stroke={D.muted} strokeDasharray="2" />
-          <rect x={ch.x} y="42" width="60" height="20" rx="4" fill={ch.c} opacity="0.12" stroke={ch.c} strokeWidth="0.5" />
-          <text x={ch.x+30} y="56" fill={ch.c} fontSize="7" fontFamily={FONT} textAnchor="middle">{ch.label}</text>
-        </g>
-      ))}
-    </svg>
-  );
-}
-
-/* ── Ch10: Workflow ── */
+/* ── Ch9: Workflow ── */
 function WorkflowDiagram() {
   return (
     <svg viewBox="0 0 420 80" width="100%" role="img" aria-label="Daily trading workflow — morning, session, after">
@@ -1962,14 +1743,6 @@ const EXAMPLE_COMPONENTS: Record<string, React.FC> = {
   "whale-tracker": WhaleTrackerDiagram,
   "currency-heatmap": CurrencyHeatmapDiagram,
   "macro-correlation": MacroCorrelationDiagram,
-  "signal-pipeline": SignalPipelineDiagram,
-  "confidence-calc": ConfidenceCalcDiagram,
-  "entry-setup": EntrySetupDiagram,
-  "mtf": MTFDiagram,
-  "signal-lifecycle": SignalLifecycleDiagram,
-  "journal": JournalDiagram,
-  "loss-learning": LossLearningDiagram,
-  "channels": ChannelsDiagram,
   "workflow": WorkflowDiagram,
   "checklist": ChecklistDiagram,
   "risk-rules": RiskRulesDiagram,
@@ -2332,47 +2105,7 @@ const QUIZ_QUESTIONS: QuizQuestion[] = [
     correct: 2,
     explanation: "When retail is heavily on one side and institutions on the other, follow institutions. The majority of retail traders lose money. This extreme divergence is a contrarian sell signal.",
   },
-  // Chapter 9: Scalper
-  {
-    id: 17,
-    chapter: "Scalper Mode",
-    question: "What minimum confidence does VISION require to send signals to Telegram/Discord?",
-    options: [
-      "50%",
-      "65%",
-      "75%",
-      "90%",
-    ],
-    correct: 2,
-    explanation: "VISION only broadcasts signals with 75% or higher confidence. This threshold ensures only high-quality, multi-source-confirmed setups reach the channels, filtering out noise.",
-  },
-  {
-    id: 18,
-    chapter: "Scalper Mode",
-    question: "A signal has a Risk:Reward ratio of 1:2.5. What does this mean?",
-    options: [
-      "You risk $2.50 to make $1",
-      "You risk $1 to make $2.50",
-      "The win rate is 25%",
-      "The trade lasts 2.5 hours",
-    ],
-    correct: 1,
-    explanation: "R:R 1:2.5 means for every dollar you risk (distance to SL), you stand to gain $2.50 (distance to TP). With this ratio, you only need to win 30% of trades to be profitable.",
-  },
-  {
-    id: 19,
-    chapter: "Scalper Mode",
-    question: "What does the Loss Learning system do when it detects a recurring loss pattern?",
-    options: [
-      "Deletes all previous signals",
-      "Stops the engine completely",
-      "Activates a filter that reduces confidence for similar future setups",
-      "Sends an email to the trader",
-    ],
-    correct: 2,
-    explanation: "When a loss pattern occurs 3+ times, the engine activates an adaptive filter that reduces confidence by 50% for setups matching those conditions, effectively learning from past mistakes.",
-  },
-  // Chapter 10: Workflow
+  // Chapter 9: Workflow
   {
     id: 20,
     chapter: "Putting It All Together",
@@ -2523,7 +2256,7 @@ function KnowledgeQuiz() {
 
           {/* Topics covered */}
           <div className="flex flex-wrap gap-1.5 mb-4">
-            {["Chart Reading", "Indicators", "Volume", "Smart Money", "AI/ML", "Scalper"].map((t) => (
+            {["Chart Reading", "Indicators", "Volume", "Smart Money", "AI/ML", "Workflow"].map((t) => (
               <span key={t} className="text-[10px] font-mono px-2 py-0.5 rounded-full text-[var(--color-text-muted)]" style={{
                 border: "1px solid var(--color-border-primary)",
                 background: "var(--color-bg-secondary)",
@@ -2966,7 +2699,7 @@ export default function TradingAcademy() {
                 Open Dashboard
               </div>
               <div className="text-[11px] text-[var(--color-text-muted)]">
-                Put your knowledge into action — start with Market Narrator, then find setups in Scalper Mode.
+                Put your knowledge into action — start with Market Narrator, then analyze setups using the Trade Score widget.
               </div>
             </div>
             <ChevronRight className="w-4 h-4 text-[var(--color-text-muted)] shrink-0 group-hover:text-[var(--color-neon-cyan)] transition-colors" />

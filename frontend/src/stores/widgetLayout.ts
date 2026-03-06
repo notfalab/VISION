@@ -5,7 +5,7 @@ const STORAGE_KEY = "vision_widget_order";
 /** Default widget order — matches the DashboardContent section layout */
 export const DEFAULT_WIDGET_ORDER = [
   // Core
-  "scalper", "narrator", "performance", "trade-score",
+  "narrator", "trade-score",
   // Zones & Volume
   "zones", "volume-profile", "divergence", "liquidity-forecast",
   // Market Data
