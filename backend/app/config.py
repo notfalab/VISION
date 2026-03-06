@@ -113,18 +113,15 @@ class Settings(BaseSettings):
     discord_forex_webhook_url: str = ""  # Forex major pairs signals channel
     discord_performance_webhook_url: str = ""  # Daily/weekly performance summaries
 
-    # On-chain / Block explorers
+    # On-chain / Block explorers (single Etherscan key covers Ethereum + Polygon + 60+ EVM chains)
     etherscan_api_key: str = ""
-    polygonscan_api_key: str = ""
-    bscscan_api_key: str = ""
     glassnode_api_key: str = ""
     solana_rpc_url: str = "https://api.mainnet-beta.solana.com"
 
-    # Payment wallet addresses (one per network)
-    wallet_address_ethereum: str = ""
-    wallet_address_polygon: str = ""
-    wallet_address_bsc: str = ""
-    wallet_address_solana: str = ""
+    # Payment wallet addresses (Ethereum & Polygon share the same EVM address)
+    wallet_address_ethereum: str = "0x75103d50ebd133e8281569b7ef65dde6a82269d6"
+    wallet_address_polygon: str = "0x75103d50ebd133e8281569b7ef65dde6a82269d6"
+    wallet_address_solana: str = "G3DobzBRtbUKxdWZaUwoYuDYiWVqjwkgAcS3ATwzyzVf"
 
     # Subscription
     subscription_price_usd: float = 99.0

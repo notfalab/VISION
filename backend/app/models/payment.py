@@ -30,7 +30,6 @@ class PaymentStatus(str, enum.Enum):
 class PaymentNetwork(str, enum.Enum):
     ETHEREUM = "ethereum"
     POLYGON = "polygon"
-    BSC = "bsc"
     SOLANA = "solana"
 
 

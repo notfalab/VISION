@@ -21,10 +21,6 @@ TOKEN_CONTRACTS: dict[str, dict[str, dict]] = {
         "USDT": {"address": "0xc2132D05D31c914a87C6611C10748AEb04B58e8F", "decimals": 6},
         "USDC": {"address": "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", "decimals": 6},
     },
-    "bsc": {
-        "USDT": {"address": "0x55d398326f99059fF775485246999027B3197955", "decimals": 18},
-        "USDC": {"address": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d", "decimals": 18},
-    },
     "solana": {
         "USDT": {"mint": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB", "decimals": 6},
         "USDC": {"mint": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v", "decimals": 6},
@@ -34,18 +30,16 @@ TOKEN_CONTRACTS: dict[str, dict[str, dict]] = {
 # ERC-20 Transfer event topic
 TRANSFER_TOPIC = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
 
-# Explorer API base URLs
+# Explorer API base URLs (single Etherscan API key covers all EVM chains)
 EXPLORER_URLS: dict[str, str] = {
     "ethereum": "https://api.etherscan.io/api",
     "polygon": "https://api.polygonscan.com/api",
-    "bsc": "https://api.bscscan.com/api",
 }
 
 # Minimum confirmations per chain
 MIN_CONFIRMATIONS: dict[str, int] = {
     "ethereum": 12,
     "polygon": 30,
-    "bsc": 15,
     "solana": 1,  # Solana is finalized after 1 confirmation
 }
 
@@ -71,18 +65,13 @@ class PaymentVerifier:
         wallets = {
             "ethereum": self.settings.wallet_address_ethereum,
             "polygon": self.settings.wallet_address_polygon,
-            "bsc": self.settings.wallet_address_bsc,
             "solana": self.settings.wallet_address_solana,
         }
         return wallets.get(network, "")
 
     def _get_api_key(self, network: str) -> str:
-        keys = {
-            "ethereum": self.settings.etherscan_api_key,
-            "polygon": self.settings.polygonscan_api_key,
-            "bsc": self.settings.bscscan_api_key,
-        }
-        return keys.get(network, "")
+        # Single Etherscan API key works for Ethereum, Polygon, and 60+ EVM chains
+        return self.settings.etherscan_api_key
 
     async def verify_payment(
         self, tx_hash: str, network: str, token: str

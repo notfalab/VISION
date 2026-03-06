@@ -70,7 +70,6 @@ async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
 const NETWORK_META: Record<string, { label: string; color: string; explorer: string }> = {
   ethereum: { label: "Ethereum", color: "#627EEA", explorer: "https://etherscan.io/tx/" },
   polygon: { label: "Polygon", color: "#8247E5", explorer: "https://polygonscan.com/tx/" },
-  bsc: { label: "BSC", color: "#F0B90B", explorer: "https://bscscan.com/tx/" },
   solana: { label: "Solana", color: "#9945FF", explorer: "https://solscan.io/tx/" },
 };
 
