@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useState } from "react";
+import { useEffect, useRef, useCallback, useState, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { Player } from "@remotion/player";
+import { useCurrentFrame, useVideoConfig, interpolate, spring, AbsoluteFill, Sequence } from "remotion";
 import {
   Activity,
   BarChart3,
@@ -144,6 +146,311 @@ function createRipple(e: React.MouseEvent<HTMLElement>) {
   s.style.top = `${e.clientY - r.top}px`;
   el.appendChild(s);
   setTimeout(() => s.remove(), 700);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   REMOTION COMPOSITIONS
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 1. Hero Particle Grid ──────────────────────────────────────────── */
+const PARTICLE_COUNT = 50;
+const PARTICLE_SEED = Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
+  x: (i * 37.7 + 13) % 100,
+  y: (i * 23.1 + 7) % 100,
+  size: 1.5 + (i % 4) * 0.8,
+  speed: 0.3 + (i % 5) * 0.15,
+  phase: (i * 1.618) % 6.28,
+}));
+
+const CONNECTION_PAIRS: [number, number][] = [];
+for (let i = 0; i < PARTICLE_COUNT; i++) {
+  for (let j = i + 1; j < PARTICLE_COUNT; j++) {
+    const dx = PARTICLE_SEED[i].x - PARTICLE_SEED[j].x;
+    const dy = PARTICLE_SEED[i].y - PARTICLE_SEED[j].y;
+    if (Math.sqrt(dx * dx + dy * dy) < 18) CONNECTION_PAIRS.push([i, j]);
+  }
+}
+
+function HeroParticles() {
+  const frame = useCurrentFrame();
+  const { width, height, fps } = useVideoConfig();
+  const t = frame / fps;
+
+  const particles = PARTICLE_SEED.map((p, i) => {
+    const px = p.x + Math.sin(t * p.speed + p.phase) * 3;
+    const py = p.y + Math.cos(t * p.speed * 0.7 + p.phase) * 2.5;
+    const pulse = 0.5 + 0.5 * Math.sin(t * 1.5 + p.phase);
+    return { x: (px / 100) * width, y: (py / 100) * height, size: p.size, pulse };
+  });
+
+  return (
+    <AbsoluteFill style={{ background: "transparent" }}>
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+        {/* Connection lines */}
+        {CONNECTION_PAIRS.map(([a, b], i) => {
+          const pa = particles[a];
+          const pb = particles[b];
+          const dist = Math.sqrt((pa.x - pb.x) ** 2 + (pa.y - pb.y) ** 2);
+          const maxDist = width * 0.18;
+          if (dist > maxDist) return null;
+          const opacity = interpolate(dist, [0, maxDist], [0.25, 0], { extrapolateRight: "clamp" });
+          return (
+            <line
+              key={`l-${i}`}
+              x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y}
+              stroke="rgba(139,92,246,1)"
+              strokeWidth={0.5}
+              opacity={opacity * (0.6 + 0.4 * pa.pulse)}
+            />
+          );
+        })}
+        {/* Particles */}
+        {particles.map((p, i) => (
+          <g key={`p-${i}`}>
+            <circle cx={p.x} cy={p.y} r={p.size + p.pulse * 1.5} fill="rgba(139,92,246,0.08)" />
+            <circle cx={p.x} cy={p.y} r={p.size} fill={`rgba(167,139,250,${0.4 + p.pulse * 0.4})`} />
+          </g>
+        ))}
+        {/* Pulsing focal nodes */}
+        {[0, 12, 27, 38].map((idx) => {
+          const p = particles[idx];
+          const ring = interpolate(frame % 90, [0, 90], [0, 20]);
+          const ringOp = interpolate(frame % 90, [0, 90], [0.3, 0]);
+          return (
+            <g key={`node-${idx}`}>
+              <circle cx={p.x} cy={p.y} r={ring} fill="none" stroke="rgba(139,92,246,1)" strokeWidth={0.5} opacity={ringOp} />
+              <circle cx={p.x} cy={p.y} r={3} fill="rgba(167,139,250,0.9)" />
+            </g>
+          );
+        })}
+      </svg>
+    </AbsoluteFill>
+  );
+}
+
+/* ── 2. Dashboard Mockup Animation ──────────────────────────────────── */
+function DashboardMockup() {
+  const frame = useCurrentFrame();
+  const { fps, width, height } = useVideoConfig();
+
+  const candleIn = (i: number) => spring({ frame: frame - i * 2, fps, config: { damping: 15 } });
+  const overlayIn = spring({ frame: frame - 40, fps, config: { damping: 12 } });
+  const zoneIn = spring({ frame: frame - 60, fps, config: { damping: 12 } });
+  const scoreIn = spring({ frame: frame - 80, fps, config: { damping: 12 } });
+  const narratorIn = spring({ frame: frame - 100, fps, config: { damping: 12 } });
+
+  // Generate candlestick data
+  const candles = Array.from({ length: 24 }, (_, i) => {
+    const base = 50 + Math.sin(i * 0.4) * 15 + Math.sin(i * 0.15) * 10;
+    const open = base + (i % 3 - 1) * 3;
+    const close = base + ((i + 1) % 3 - 1) * 3;
+    const high = Math.max(open, close) + 2 + (i % 4);
+    const low = Math.min(open, close) - 2 - (i % 3);
+    return { open, close, high, low, bull: close > open };
+  });
+
+  const chartX = width * 0.05;
+  const chartW = width * 0.6;
+  const chartY = height * 0.12;
+  const chartH = height * 0.7;
+  const barW = chartW / candles.length;
+
+  const mapY = (v: number) => chartY + chartH - ((v - 20) / 60) * chartH;
+
+  return (
+    <AbsoluteFill style={{ background: "transparent" }}>
+      {/* Dashboard frame */}
+      <div style={{
+        position: "absolute", inset: 12, borderRadius: 12,
+        border: "1px solid rgba(139,92,246,0.15)",
+        background: "linear-gradient(135deg, rgba(6,0,16,0.9), rgba(10,0,20,0.9))",
+        overflow: "hidden",
+      }}>
+        {/* Top bar */}
+        <div style={{
+          height: 32, borderBottom: "1px solid rgba(139,92,246,0.1)",
+          display: "flex", alignItems: "center", padding: "0 12px", gap: 6,
+        }}>
+          <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#8b5cf6", opacity: 0.6 }} />
+          <span style={{ fontSize: 9, color: "#94a3b8", fontFamily: "monospace" }}>XAU/USD</span>
+          <span style={{ fontSize: 9, color: "#10b981", fontFamily: "monospace", marginLeft: 4 }}>2,847.30</span>
+          <span style={{ fontSize: 8, color: "#10b981", fontFamily: "monospace" }}>+0.42%</span>
+        </div>
+
+        <svg width={width - 24} height={height - 56} style={{ position: "absolute", top: 32, left: 0 }}>
+          {/* Grid lines */}
+          {[0.2, 0.4, 0.6, 0.8].map((p) => (
+            <line key={p} x1={chartX} y1={chartY + chartH * p - 32} x2={chartX + chartW} y2={chartY + chartH * p - 32}
+              stroke="rgba(139,92,246,0.06)" strokeWidth={0.5} />
+          ))}
+
+          {/* Candlesticks */}
+          {candles.map((c, i) => {
+            const scale = candleIn(i);
+            const x = chartX + i * barW + barW * 0.2;
+            const w = barW * 0.6;
+            const bodyTop = mapY(Math.max(c.open, c.close)) - 32;
+            const bodyBot = mapY(Math.min(c.open, c.close)) - 32;
+            const wickTop = mapY(c.high) - 32;
+            const wickBot = mapY(c.low) - 32;
+            const color = c.bull ? "#10b981" : "#8b5cf6";
+            return (
+              <g key={i} opacity={scale} transform={`translate(0, ${(1 - scale) * 20})`}>
+                <line x1={x + w / 2} y1={wickTop} x2={x + w / 2} y2={wickBot} stroke={color} strokeWidth={0.8} />
+                <rect x={x} y={bodyTop} width={w} height={Math.max(1, bodyBot - bodyTop)} fill={color} rx={1} />
+              </g>
+            );
+          })}
+
+          {/* Supply/Demand zones */}
+          <rect x={chartX} y={mapY(60) - 32} width={chartW} height={mapY(55) - mapY(60)}
+            fill="rgba(139,92,246,0.08)" stroke="rgba(139,92,246,0.2)" strokeWidth={0.5}
+            opacity={zoneIn} rx={2} />
+          <rect x={chartX} y={mapY(42) - 32} width={chartW} height={mapY(38) - mapY(42)}
+            fill="rgba(16,185,129,0.08)" stroke="rgba(16,185,129,0.2)" strokeWidth={0.5}
+            opacity={zoneIn} rx={2} />
+
+          {/* Moving average line */}
+          <path
+            d={candles.map((c, i) => {
+              const avg = candles.slice(Math.max(0, i - 5), i + 1).reduce((s, v) => s + (v.open + v.close) / 2, 0) / Math.min(i + 1, 6);
+              return `${i === 0 ? "M" : "L"} ${chartX + i * barW + barW / 2} ${mapY(avg) - 32}`;
+            }).join(" ")}
+            fill="none" stroke="rgba(167,139,250,0.5)" strokeWidth={1.2}
+            opacity={overlayIn}
+            strokeDasharray={overlayIn < 1 ? "4 2" : "none"}
+          />
+        </svg>
+
+        {/* Right panel — AI Score */}
+        <div style={{
+          position: "absolute", top: 44, right: 16, width: 140,
+          opacity: scoreIn, transform: `translateX(${(1 - scoreIn) * 30}px)`,
+        }}>
+          <div style={{
+            background: "rgba(6,0,16,0.8)", border: "1px solid rgba(139,92,246,0.15)",
+            borderRadius: 8, padding: 10,
+          }}>
+            <div style={{ fontSize: 8, color: "#64748b", fontFamily: "monospace", marginBottom: 4 }}>AI TRADE SCORE</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: "#10b981", fontFamily: "monospace" }}>87</div>
+            <div style={{ fontSize: 7, color: "#94a3b8", fontFamily: "monospace", marginTop: 2 }}>Strong Buy Signal</div>
+            <div style={{ height: 3, borderRadius: 2, background: "rgba(139,92,246,0.1)", marginTop: 6 }}>
+              <div style={{ height: "100%", width: `${87}%`, borderRadius: 2, background: "linear-gradient(90deg, #8b5cf6, #10b981)" }} />
+            </div>
+          </div>
+
+          {/* Zone retest probability */}
+          <div style={{
+            background: "rgba(6,0,16,0.8)", border: "1px solid rgba(139,92,246,0.15)",
+            borderRadius: 8, padding: 10, marginTop: 8,
+            opacity: narratorIn, transform: `translateY(${(1 - narratorIn) * 15}px)`,
+          }}>
+            <div style={{ fontSize: 8, color: "#64748b", fontFamily: "monospace", marginBottom: 3 }}>ZONE RETEST</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#a78bfa", fontFamily: "monospace" }}>73%</div>
+            <div style={{ fontSize: 7, color: "#94a3b8", fontFamily: "monospace" }}>Bounce probability</div>
+          </div>
+        </div>
+
+        {/* AI Narrator bar */}
+        <div style={{
+          position: "absolute", bottom: 12, left: 12, right: 12,
+          background: "rgba(6,0,16,0.85)", border: "1px solid rgba(139,92,246,0.12)",
+          borderRadius: 8, padding: "8px 12px",
+          opacity: narratorIn, transform: `translateY(${(1 - narratorIn) * 20}px)`,
+        }}>
+          <div style={{ fontSize: 8, color: "#8b5cf6", fontFamily: "monospace", marginBottom: 2 }}>AI NARRATOR</div>
+          <div style={{ fontSize: 9, color: "#94a3b8", fontFamily: "Inter, sans-serif", lineHeight: 1.4 }}>
+            Gold showing institutional accumulation near $2,840 demand zone. COT data confirms commercial long positioning. ML model signals 87% reversal probability with 3:1 R:R setup.
+          </div>
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+}
+
+/* ── 3. Data Flow Animation ─────────────────────────────────────────── */
+const DATA_SOURCES_ANIM = [
+  { name: "OANDA", x: 10, y: 20 },
+  { name: "Binance", x: 10, y: 45 },
+  { name: "CFTC", x: 10, y: 70 },
+  { name: "Glassnode", x: 90, y: 20 },
+  { name: "Etherscan", x: 90, y: 45 },
+  { name: "CryptoCompare", x: 90, y: 70 },
+];
+
+function DataFlowAnimation() {
+  const frame = useCurrentFrame();
+  const { fps, width, height } = useVideoConfig();
+  const t = frame / fps;
+
+  const centerX = width / 2;
+  const centerY = height / 2;
+
+  // Central node pulse
+  const pulse = 0.7 + 0.3 * Math.sin(t * 2);
+  const ringExpand = interpolate(frame % 60, [0, 60], [0, 35]);
+  const ringOpacity = interpolate(frame % 60, [0, 60], [0.35, 0]);
+
+  return (
+    <AbsoluteFill style={{ background: "transparent" }}>
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+        {/* Flow lines and particles */}
+        {DATA_SOURCES_ANIM.map((src, i) => {
+          const sx = (src.x / 100) * width;
+          const sy = (src.y / 100) * height;
+          const offset = (t * 40 + i * 25) % 100;
+
+          // Bezier control point
+          const cpx = (sx + centerX) / 2 + (i % 2 === 0 ? -30 : 30);
+          const cpy = (sy + centerY) / 2;
+
+          // Particle position along path
+          const pt = (offset / 100);
+          const px = (1 - pt) * (1 - pt) * sx + 2 * (1 - pt) * pt * cpx + pt * pt * centerX;
+          const py = (1 - pt) * (1 - pt) * sy + 2 * (1 - pt) * pt * cpy + pt * pt * centerY;
+
+          // Second particle
+          const pt2 = ((offset + 50) % 100) / 100;
+          const px2 = (1 - pt2) * (1 - pt2) * sx + 2 * (1 - pt2) * pt2 * cpx + pt2 * pt2 * centerX;
+          const py2 = (1 - pt2) * (1 - pt2) * sy + 2 * (1 - pt2) * pt2 * cpy + pt2 * pt2 * centerY;
+
+          const sourceIn = spring({ frame: frame - i * 8, fps, config: { damping: 15 } });
+
+          return (
+            <g key={src.name} opacity={sourceIn}>
+              {/* Path line */}
+              <path
+                d={`M ${sx} ${sy} Q ${cpx} ${cpy} ${centerX} ${centerY}`}
+                fill="none" stroke="rgba(139,92,246,0.12)" strokeWidth={1}
+              />
+              {/* Flowing particles */}
+              <circle cx={px} cy={py} r={2.5} fill="rgba(167,139,250,0.8)">
+                <animate attributeName="r" values="2;3.5;2" dur="1.5s" repeatCount="indefinite" />
+              </circle>
+              <circle cx={px2} cy={py2} r={2} fill="rgba(139,92,246,0.5)" />
+              {/* Source node */}
+              <circle cx={sx} cy={sy} r={4} fill="rgba(6,0,16,0.8)" stroke="rgba(139,92,246,0.3)" strokeWidth={1} />
+              <circle cx={sx} cy={sy} r={2} fill={`rgba(167,139,250,${0.5 + 0.3 * Math.sin(t * 2 + i)})`} />
+              {/* Source label */}
+              <text x={sx} y={sy + 14} textAnchor="middle" fill="#64748b" fontSize={8} fontFamily="monospace">
+                {src.name}
+              </text>
+            </g>
+          );
+        })}
+
+        {/* Central VISION node */}
+        <circle cx={centerX} cy={centerY} r={ringExpand} fill="none"
+          stroke="rgba(139,92,246,0.5)" strokeWidth={0.8} opacity={ringOpacity} />
+        <circle cx={centerX} cy={centerY} r={18 * pulse}
+          fill="rgba(139,92,246,0.06)" stroke="rgba(139,92,246,0.3)" strokeWidth={1} />
+        <circle cx={centerX} cy={centerY} r={6} fill="rgba(167,139,250,0.9)" />
+        <text x={centerX} y={centerY + 28} textAnchor="middle" fill="#a78bfa" fontSize={9} fontWeight="bold" fontFamily="monospace">
+          VISION
+        </text>
+      </svg>
+    </AbsoluteFill>
+  );
 }
 
 /* ── Data ─────────────────────────────────────────────────────────────── */
@@ -519,6 +826,23 @@ export default function LandingPage() {
         <div className="dot-grid" />
       </div>
 
+      {/* ── Remotion: Hero particle grid ─────────────────────── */}
+      <div className="absolute inset-0 z-[1] pointer-events-none opacity-60" aria-hidden="true">
+        <Player
+          component={HeroParticles}
+          durationInFrames={300}
+          fps={30}
+          compositionWidth={1280}
+          compositionHeight={720}
+          autoPlay
+          loop
+          controls={false}
+          style={{ width: "100%", height: "100%" }}
+          acknowledgeRemotionLicense
+          renderLoading={() => null}
+        />
+      </div>
+
       {/* ════════════════════ NAV ════════════════════ */}
       <nav className={`fixed top-0 left-0 right-0 z-50 border-b border-transparent backdrop-blur-xl transition-all duration-300 ${navSolid ? "nav-solid" : "bg-transparent"}`}>
         <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
@@ -654,6 +978,26 @@ export default function LandingPage() {
         </section>
       </RevealSection>
 
+      {/* ── Remotion: Data Flow Animation ────────────────────── */}
+      <RevealSection type="scale-up">
+        <section className="relative z-10 py-16 px-6">
+          <div className="max-w-3xl mx-auto" style={{ aspectRatio: "16/7" }}>
+            <Player
+              component={DataFlowAnimation}
+              durationInFrames={180}
+              fps={30}
+              compositionWidth={800}
+              compositionHeight={350}
+              autoPlay
+              loop
+              controls={false}
+              style={{ width: "100%", height: "100%" }}
+              renderLoading={() => null}
+            />
+          </div>
+        </section>
+      </RevealSection>
+
       {/* ════════════════════ PROBLEM → SOLUTION ════════════════════ */}
       <section className="relative z-10 py-28 px-6">
         <div className="max-w-5xl mx-auto">
@@ -774,6 +1118,35 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* ── Remotion: Dashboard Mockup Animation ──────────────── */}
+      <div className="gradient-divider" />
+      <RevealSection type="scale-up">
+        <section className="relative z-10 py-20 px-6">
+          <div className="max-w-4xl mx-auto">
+            <p className="text-center text-[10px] font-bold uppercase tracking-[0.2em] text-[var(--color-neon-blue)] mb-4">
+              See It In Action
+            </p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-center mb-10">
+              Your dashboard, <span className="gradient-text accent-underline">alive.</span>
+            </h2>
+            <div className="rounded-xl border border-[var(--color-border-accent)] overflow-hidden shadow-2xl shadow-purple-500/[0.06]" style={{ aspectRatio: "16/9" }}>
+              <Player
+                component={DashboardMockup}
+                durationInFrames={240}
+                fps={30}
+                compositionWidth={1280}
+                compositionHeight={720}
+                autoPlay
+                loop
+                controls={false}
+                style={{ width: "100%", height: "100%" }}
+                renderLoading={() => null}
+              />
+            </div>
+          </div>
+        </section>
+      </RevealSection>
 
       {/* ════════════════════ ALL FEATURES ════════════════════ */}
       <div className="gradient-divider" />
