@@ -1,14 +1,17 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth";
 import { Activity, Loader2 } from "lucide-react";
 
-export default function AuthGuard({ children }: { children: React.ReactNode }) {
-  const { user, isAuthenticated, loading, checkAuth } = useAuthStore();
+/**
+ * Subscription layout — checks auth only (no subscription check).
+ * Expired users MUST be able to access this page to pay.
+ */
+export default function SubscriptionLayout({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, loading, checkAuth } = useAuthStore();
   const router = useRouter();
-  const pathname = usePathname();
 
   useEffect(() => {
     checkAuth();
@@ -19,15 +22,6 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       router.replace("/login");
     }
   }, [loading, isAuthenticated, router]);
-
-  // Redirect expired users to subscription page (skip if already there)
-  useEffect(() => {
-    if (!loading && isAuthenticated && user) {
-      if (!user.has_access && user.role !== "admin" && pathname !== "/subscription") {
-        router.replace("/subscription");
-      }
-    }
-  }, [loading, isAuthenticated, user, pathname, router]);
 
   if (loading) {
     return (

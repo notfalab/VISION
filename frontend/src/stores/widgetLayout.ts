@@ -7,7 +7,7 @@ export const DEFAULT_WIDGET_ORDER = [
   // Core
   "narrator", "trade-score",
   // Zones & Volume
-  "zones", "volume-profile", "divergence", "liquidity-forecast",
+  "zones", "zone-retest", "volume-profile", "divergence", "liquidity-forecast",
   // Market Data
   "calendar", "sentiment", "volatility", "heatmap",
   // ML & Order Flow

@@ -5,6 +5,13 @@ interface User {
   username: string;
   email: string;
   role: string;
+  first_name: string | null;
+  last_name: string | null;
+  subscription_status: "admin" | "active" | "trial" | "expired";
+  has_access: boolean;
+  days_remaining: number;
+  trial_ends_at: string | null;
+  subscription_ends_at: string | null;
 }
 
 interface AuthState {
@@ -15,7 +22,7 @@ interface AuthState {
   error: string | null;
 
   login: (username: string, password: string) => Promise<boolean>;
-  register: (email: string, username: string, password: string) => Promise<boolean>;
+  register: (email: string, username: string, password: string, firstName: string, lastName: string) => Promise<boolean>;
   logout: () => void;
   checkAuth: () => Promise<void>;
   clearError: () => void;
@@ -72,12 +79,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  register: async (email, username, password) => {
+  register: async (email, username, password, firstName, lastName) => {
     set({ error: null });
     try {
       const data = await apiFetch<{ access_token: string }>("/api/v1/auth/register", {
         method: "POST",
-        body: JSON.stringify({ email, username, password }),
+        body: JSON.stringify({ email, username, password, first_name: firstName, last_name: lastName }),
       });
       storeToken(data.access_token);
       set({ token: data.access_token });

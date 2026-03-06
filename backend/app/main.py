@@ -56,6 +56,94 @@ FOREX_PAIRS = FOREX_MAJORS + FOREX_MINORS
 INDICES = ["NAS100", "SPX500"]
 
 
+async def _payment_verification_loop(logger):
+    """
+    Background loop: verify pending/confirming payments every 60s.
+    Expires stale payments older than 60 minutes.
+    """
+    await asyncio.sleep(60)  # Let startup complete
+    logger.info("payment_verification_loop_starting")
+
+    while True:
+        try:
+            from datetime import datetime, timezone, timedelta
+            from sqlalchemy import select, or_
+            from backend.app.database import async_session
+            from backend.app.models.payment import Payment, PaymentStatus
+            from backend.app.models.user import User
+            from backend.app.services.payment_verifier import PaymentVerifier
+
+            verifier = PaymentVerifier()
+
+            async with async_session() as db:
+                # Find pending/confirming payments
+                result = await db.execute(
+                    select(Payment).where(
+                        or_(
+                            Payment.status == PaymentStatus.PENDING,
+                            Payment.status == PaymentStatus.CONFIRMING,
+                        )
+                    )
+                )
+                payments = result.scalars().all()
+
+                for payment in payments:
+                    try:
+                        # Expire payments older than 60 minutes
+                        if payment.created_at:
+                            age = datetime.now(timezone.utc) - payment.created_at.replace(tzinfo=timezone.utc) if payment.created_at.tzinfo is None else datetime.now(timezone.utc) - payment.created_at
+                            if age > timedelta(minutes=60) and payment.status == PaymentStatus.PENDING:
+                                payment.status = PaymentStatus.EXPIRED
+                                payment.verification_error = "Payment expired (60 min timeout)"
+                                logger.info("payment_expired", payment_id=payment.id)
+                                continue
+
+                        vr = await verifier.verify_payment(
+                            payment.tx_hash, payment.network.value, payment.token
+                        )
+                        payment.confirmations = vr.confirmations
+                        payment.block_number = vr.block_number
+                        payment.sender_address = vr.sender or payment.sender_address
+                        payment.verified_amount = vr.actual_amount or payment.verified_amount
+
+                        if vr.verified:
+                            payment.status = PaymentStatus.CONFIRMED
+                            payment.verified_at = datetime.now(timezone.utc)
+
+                            # Extend user subscription
+                            user_result = await db.execute(
+                                select(User).where(User.id == payment.user_id)
+                            )
+                            user = user_result.scalar_one_or_none()
+                            if user:
+                                now = datetime.now(timezone.utc)
+                                current_end = user.subscription_ends_at or now
+                                period_start = max(current_end, now)
+                                period_end = period_start + timedelta(days=30)
+                                payment.period_start = period_start
+                                payment.period_end = period_end
+                                user.subscription_ends_at = period_end
+
+                            logger.info("payment_confirmed", payment_id=payment.id, amount=vr.actual_amount)
+                        elif vr.confirmations > 0:
+                            payment.status = PaymentStatus.CONFIRMING
+                        else:
+                            payment.verification_error = vr.error
+
+                    except Exception as e:
+                        logger.warning("payment_verify_error", payment_id=payment.id, error=str(e))
+
+                await db.commit()
+
+        except asyncio.CancelledError:
+            logger.info("payment_verification_loop_cancelled")
+            return
+        except Exception as e:
+            logger.error("payment_verification_loop_error", error=str(e))
+
+        await asyncio.sleep(60)
+
+
 async def _forex_price_refresh(logger):
     """
     Lightweight loop: keep forex + gold live prices in Redis cache.
@@ -280,11 +368,28 @@ async def lifespan(app: FastAPI):
         from backend.app.models import (  # noqa: F401
             Asset, OHLCVData, IndicatorValue, COTReport,
             Alert, AlertHistory, User, Trade, OnchainEvent, ScalperSignal,
+            Payment,
         )
         async with asyncio.timeout(30):
             async with engine.begin() as conn:
                 await conn.run_sync(Base.metadata.create_all)
         logger.info("database_tables_ready")
+
+        # Migrate existing users table — add columns that create_all won't add
+        async with asyncio.timeout(30):
+            async with engine.begin() as conn:
+                for col, col_type in [
+                    ("first_name", "VARCHAR(100)"),
+                    ("last_name", "VARCHAR(100)"),
+                    ("trial_ends_at", "TIMESTAMPTZ"),
+                    ("subscription_ends_at", "TIMESTAMPTZ"),
+                ]:
+                    await conn.execute(
+                        __import__("sqlalchemy").text(
+                            f"ALTER TABLE users ADD COLUMN IF NOT EXISTS {col} {col_type}"
+                        )
+                    )
+        logger.info("user_columns_migrated")
 
         # 2. Auto-seed assets if the assets table is empty
         from backend.app.seed import seed_assets, seed_admin
@@ -373,10 +478,12 @@ async def lifespan(app: FastAPI):
 
     # 4. Start background tasks (replaces Celery beat + worker)
     bg_tasks: list[asyncio.Task] = []
+    # Payment verification runs in all environments
+    bg_tasks.append(asyncio.create_task(_payment_verification_loop(logger)))
     if settings.app_env != "development":
         bg_tasks.append(asyncio.create_task(_background_scanner(logger)))
         bg_tasks.append(asyncio.create_task(_forex_price_refresh(logger)))
-        logger.info("background_tasks_started", count=len(bg_tasks))
+    logger.info("background_tasks_started", count=len(bg_tasks))
 
     yield
 

@@ -10,6 +10,8 @@ export default function RegisterPage() {
   const router = useRouter();
   const { register, isAuthenticated, loading, error, clearError, checkAuth } = useAuthStore();
 
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -33,7 +35,7 @@ export default function RegisterPage() {
     setLocalError("");
     clearError();
 
-    if (!email.trim() || !username.trim() || !password.trim()) {
+    if (!firstName.trim() || !lastName.trim() || !email.trim() || !username.trim() || !password.trim()) {
       setLocalError("All fields are required");
       return;
     }
@@ -55,7 +57,7 @@ export default function RegisterPage() {
     }
 
     setSubmitting(true);
-    const ok = await register(email.trim(), username.trim(), password);
+    const ok = await register(email.trim(), username.trim(), password, firstName.trim(), lastName.trim());
     if (ok) {
       router.replace("/");
     }
@@ -85,11 +87,50 @@ export default function RegisterPage() {
           <h1 className="text-sm font-semibold text-[var(--color-text-primary)] uppercase tracking-wider mb-1">
             Create Account
           </h1>
-          <p className="text-[10px] text-[var(--color-text-muted)] mb-6">
+          <p className="text-[10px] text-[var(--color-text-muted)] mb-4">
             Register to access smart money analytics
           </p>
 
+          {/* Trial badge */}
+          <div className="mb-5 px-3 py-2 rounded-md bg-[var(--color-neon-blue)]/10 border border-[var(--color-neon-blue)]/30 flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-neon-blue)] animate-pulse" />
+            <span className="text-[10px] font-semibold text-[var(--color-neon-blue)]">
+              3-day free trial included
+            </span>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-3.5">
+            {/* First + Last Name */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <div>
+                <label className="block text-[9px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1.5">
+                  First Name
+                </label>
+                <input
+                  type="text"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  autoComplete="given-name"
+                  autoFocus
+                  className="w-full px-3 py-2 text-xs font-mono bg-[var(--color-bg-primary)] border border-[var(--color-border-primary)] rounded-md text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] outline-none focus:border-[var(--color-neon-blue)] transition-colors"
+                  placeholder="John"
+                />
+              </div>
+              <div>
+                <label className="block text-[9px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1.5">
+                  Last Name
+                </label>
+                <input
+                  type="text"
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  autoComplete="family-name"
+                  className="w-full px-3 py-2 text-xs font-mono bg-[var(--color-bg-primary)] border border-[var(--color-border-primary)] rounded-md text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] outline-none focus:border-[var(--color-neon-blue)] transition-colors"
+                  placeholder="Doe"
+                />
+              </div>
+            </div>
+
             {/* Email */}
             <div>
               <label className="block text-[9px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-1.5">
@@ -100,7 +141,6 @@ export default function RegisterPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
-                autoFocus
                 className="w-full px-3 py-2 text-xs font-mono bg-[var(--color-bg-primary)] border border-[var(--color-border-primary)] rounded-md text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] outline-none focus:border-[var(--color-neon-blue)] transition-colors"
                 placeholder="you@example.com"
               />

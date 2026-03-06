@@ -775,6 +775,198 @@ async def get_zones(
     }
 
 
+# ── Zone Retest Probability ──────────────────────────────────
+
+@router.get("/{symbol}/zone-retest")
+async def zone_retest_probability(
+    symbol: str,
+    timeframe: str = Query(default="15m"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Compute retest, reversal, and break/bounce probabilities for all active zones."""
+    from backend.app.core.indicators.key_levels import KeyLevelsIndicator
+    from backend.app.core.indicators.smart_money import SmartMoneyIndicator
+    from backend.app.core.indicators.rsi import RSIIndicator
+    from backend.app.core.indicators.macd import MACDIndicator
+    from backend.app.core.indicators.atr import ATRIndicator
+    from backend.app.core.ml.regime import detect_regime
+    from backend.app.core.institutional.heat_score import compute_heat_score
+    from backend.app.core.zone_retest.probability import (
+        ZoneSpec, MarketContext, compute_zone_retest_probabilities,
+    )
+
+    df = await _fetch_ohlcv_df(db, symbol.upper(), timeframe, limit=500)
+    if df is None or df.empty:
+        raise HTTPException(status_code=404, detail=f"No data for {symbol.upper()} {timeframe}")
+
+    close = float(df["close"].iloc[-1])
+    zones: list[ZoneSpec] = []
+
+    # ── Collect zones ──
+
+    # Key levels (S/R)
+    try:
+        kl = KeyLevelsIndicator()
+        kl_results = kl.calculate(df)
+        if kl_results:
+            meta = kl_results[0].metadata
+            for level in meta.get("sr_levels", []):
+                if isinstance(level, dict):
+                    price = level.get("price", 0)
+                    touches = level.get("touches", 1)
+                    zone_type = "support" if price < close else "resistance"
+                    spread = price * 0.001
+                    zones.append(ZoneSpec(
+                        zone_type=zone_type, high=price + spread, low=price - spread,
+                        touches=touches, active=True,
+                        label=f"{zone_type.title()} @ {price:.2f} ({touches}x)",
+                    ))
+    except Exception:
+        pass
+
+    # Smart Money (OB + FVG)
+    smc_results = None
+    smc_meta: dict = {}
+    try:
+        smc = SmartMoneyIndicator()
+        smc_results = smc.calculate(df)
+        if smc_results:
+            smc_meta = smc_results[0].metadata or {}
+
+        for ob in smc._detect_order_blocks(df):
+            if ob.get("active"):
+                ob_type = ob.get("type", "unknown")
+                zt = "demand" if ob_type == "bullish" else "supply"
+                zones.append(ZoneSpec(
+                    zone_type="order_block", high=ob["high"], low=ob["low"],
+                    touches=1, active=True,
+                    label=f"{zt.title()} OB @ {ob['low']:.2f}-{ob['high']:.2f}",
+                ))
+
+        for fvg in smc._detect_fvg(df):
+            if fvg.get("active"):
+                zones.append(ZoneSpec(
+                    zone_type="fvg", high=fvg["high"], low=fvg["low"],
+                    touches=1, active=True,
+                    label=f"FVG {fvg.get('type', '').title()} @ {fvg['low']:.2f}-{fvg['high']:.2f}",
+                ))
+    except Exception:
+        pass
+
+    if not zones:
+        return {"symbol": symbol.upper(), "timeframe": timeframe, "current_price": close,
+                "regime": "unknown", "trend": "neutral", "zones": [], "count": 0}
+
+    # ── Gather market context ──
+
+    rsi_val, rsi_div = 50.0, None
+    try:
+        rsi_results = RSIIndicator().calculate(df)
+        if rsi_results:
+            rsi_val = float(rsi_results[-1].value)
+            rsi_div = rsi_results[-1].metadata.get("divergence")
+    except Exception:
+        pass
+
+    macd_cls, macd_hist = "neutral", 0.0
+    try:
+        macd_results = MACDIndicator().calculate(df)
+        if macd_results:
+            macd_cls = macd_results[-1].metadata.get("classification", "neutral")
+            macd_hist = macd_results[-1].metadata.get("histogram", 0)
+    except Exception:
+        pass
+
+    atr_val = close * 0.01
+    atr_pct = 1.0
+    try:
+        atr_results = ATRIndicator().calculate(df)
+        if atr_results:
+            atr_val = float(atr_results[-1].value)
+            atr_pct = float(atr_results[-1].secondary_value) if atr_results[-1].secondary_value else 1.0
+    except Exception:
+        pass
+
+    trend_dir = smc_meta.get("trend", "neutral")
+    last_bos = smc_meta.get("last_bos")
+    last_choch = smc_meta.get("last_choch")
+
+    regime_label = "ranging"
+    trend_slope = 0.0
+    try:
+        regime_data = detect_regime(df)
+        regime_label = regime_data.get("regime", "ranging")
+        trend_slope = regime_data.get("features", {}).get("trend_slope", 0)
+    except Exception:
+        pass
+
+    # Volume ratio
+    vol_sma = df["volume"].rolling(20).mean()
+    volume_ratio = float(df["volume"].iloc[-1] / vol_sma.iloc[-1]) if vol_sma.iloc[-1] > 0 else 1.0
+
+    # Institutional heat (best-effort from volume)
+    heat_score_val, heat_signal = 50.0, "neutral"
+    try:
+        bullish_mask = df["close"] > df["open"]
+        total_buy = float(df.loc[bullish_mask, "volume"].sum())
+        total_sell = float(df.loc[~bullish_mask, "volume"].sum())
+        heat = compute_heat_score(volume_profile={"total_buy_volume": total_buy, "total_sell_volume": total_sell})
+        heat_score_val = heat.get("score", 50)
+        heat_signal = heat.get("signal", "neutral")
+    except Exception:
+        pass
+
+    ctx = MarketContext(
+        current_price=close,
+        atr_value=atr_val,
+        atr_pct=atr_pct,
+        trend_direction=trend_dir,
+        trend_slope=trend_slope,
+        rsi=rsi_val,
+        rsi_divergence=rsi_div,
+        macd_classification=macd_cls,
+        macd_histogram=macd_hist,
+        regime=regime_label,
+        volume_ratio=volume_ratio,
+        heat_score=heat_score_val,
+        heat_signal=heat_signal,
+        last_bos=last_bos,
+        last_choch=last_choch,
+        nearby_zone_count=0,  # computed per-zone in the engine
+    )
+
+    # ── Compute probabilities ──
+    results = compute_zone_retest_probabilities(zones, ctx)
+
+    zone_results = []
+    for zp in results[:8]:  # cap at 8 zones
+        zone_results.append({
+            "label": zp.zone.label,
+            "type": zp.zone.zone_type,
+            "high": round(zp.zone.high, 5),
+            "low": round(zp.zone.low, 5),
+            "touches": zp.zone.touches,
+            "retest_probability": zp.retest_probability,
+            "reversal_probability": zp.reversal_probability,
+            "break_probability": zp.break_probability,
+            "bounce_probability": zp.bounce_probability,
+            "verdict": zp.verdict,
+            "confidence": zp.confidence,
+            "retest_factors": zp.retest_factors,
+            "break_factors": zp.break_factors,
+        })
+
+    return {
+        "symbol": symbol.upper(),
+        "timeframe": timeframe,
+        "current_price": round(close, 5),
+        "regime": regime_label,
+        "trend": trend_dir,
+        "zones": zone_results,
+        "count": len(zone_results),
+    }
+
+
 def _check_active_signals(symbol: str, dataframes: dict):
     """Check active/pending signals against current prices."""
     from backend.app.core.scalper.outcome_tracker import check_signal_outcome

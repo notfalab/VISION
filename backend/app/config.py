@@ -113,9 +113,22 @@ class Settings(BaseSettings):
     discord_forex_webhook_url: str = ""  # Forex major pairs signals channel
     discord_performance_webhook_url: str = ""  # Daily/weekly performance summaries
 
-    # On-chain
+    # On-chain / Block explorers
     etherscan_api_key: str = ""
+    polygonscan_api_key: str = ""
+    bscscan_api_key: str = ""
     glassnode_api_key: str = ""
+    solana_rpc_url: str = "https://api.mainnet-beta.solana.com"
+
+    # Payment wallet addresses (one per network)
+    wallet_address_ethereum: str = ""
+    wallet_address_polygon: str = ""
+    wallet_address_bsc: str = ""
+    wallet_address_solana: str = ""
+
+    # Subscription
+    subscription_price_usd: float = 99.0
+    trial_days: int = 3
 
     # AI / LLM
     openai_api_key: str = ""

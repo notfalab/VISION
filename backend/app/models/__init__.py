@@ -9,6 +9,7 @@ from backend.app.models.user import User
 from backend.app.models.trade import Trade
 from backend.app.models.onchain_event import OnchainEvent
 from backend.app.models.signal import ScalperSignal
+from backend.app.models.payment import Payment
 
 __all__ = [
     "Asset",
@@ -21,4 +22,5 @@ __all__ = [
     "Trade",
     "OnchainEvent",
     "ScalperSignal",
+    "Payment",
 ]

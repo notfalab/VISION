@@ -350,6 +350,15 @@ export const api = {
       { zones: {} },
     ),
 
+  // Zone Retest Probability
+  zoneRetestProbability: (symbol: string, tf: string = "15m") =>
+    fetchCached<any>(
+      `/api/v1/scalper/${symbol}/zone-retest?timeframe=${tf}`,
+      `zoneRetest:${symbol}:${tf}`,
+      TTL.indicators,
+      null,
+    ),
+
   // AI Market Brief
   aiBrief: () =>
     fetchCached<any>(`/api/v1/scalper/ai-brief`, "aiBrief", TTL.news, null),

@@ -34,6 +34,7 @@ const VolumeProfileWidget = dynamic(() => import("@/components/widgets/VolumePro
 const VolatilityForecast = dynamic(() => import("@/components/widgets/VolatilityForecast"), { ssr: false });
 const DivergenceWidget = dynamic(() => import("@/components/widgets/DivergenceWidget"), { ssr: false });
 const LiquidityForecast = dynamic(() => import("@/components/widgets/LiquidityForecast"), { ssr: false });
+const ZoneRetestProbability = dynamic(() => import("@/components/widgets/ZoneRetestProbability"), { ssr: false });
 
 /** Widget registry entry */
 interface WidgetDef {
@@ -68,6 +69,7 @@ export default function DashboardContent({ initialSymbol, initialTimeframe }: { 
     "narrator": <ErrorBoundary><MarketNarrator /></ErrorBoundary>,
     "trade-score": <ErrorBoundary><TradeScore /></ErrorBoundary>,
     "zones": <ErrorBoundary><ZonesOverlay /></ErrorBoundary>,
+    "zone-retest": <ErrorBoundary><ZoneRetestProbability /></ErrorBoundary>,
     "volume-profile": <ErrorBoundary><VolumeProfileWidget /></ErrorBoundary>,
     "divergence": <ErrorBoundary><DivergenceWidget /></ErrorBoundary>,
     "liquidity-forecast": <ErrorBoundary><LiquidityForecast /></ErrorBoundary>,
@@ -95,6 +97,7 @@ export default function DashboardContent({ initialSymbol, initialTimeframe }: { 
     { id: "trade-score", delay: 500 },
     // Zones & Volume
     { id: "zones", delay: 500 },
+    { id: "zone-retest", delay: 800 },
     { id: "volume-profile", delay: 700 },
     { id: "divergence", delay: 700 },
     { id: "liquidity-forecast", delay: 1500 },

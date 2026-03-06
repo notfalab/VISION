@@ -28,6 +28,8 @@ class RegisterRequest(BaseModel):
     email: str
     username: str
     password: str
+    first_name: str
+    last_name: str
 
 
 class LoginRequest(BaseModel):
@@ -61,10 +63,14 @@ async def register(body: RegisterRequest, db: AsyncSession = Depends(get_db)):
     if result.scalar_one_or_none():
         raise HTTPException(status_code=409, detail="User already exists")
 
+    settings = get_settings()
     user = User(
         email=body.email,
         username=body.username,
         hashed_password=hash_password(body.password),
+        first_name=body.first_name,
+        last_name=body.last_name,
+        trial_ends_at=datetime.now(timezone.utc) + timedelta(days=settings.trial_days),
     )
     db.add(user)
     await db.flush()
@@ -86,4 +92,16 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
 
 @router.get("/me")
 async def get_me(user: User = Depends(require_user)):
-    return {"id": user.id, "username": user.username, "email": user.email, "role": user.role.value}
+    return {
+        "id": user.id,
+        "username": user.username,
+        "email": user.email,
+        "role": user.role.value,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "subscription_status": user.subscription_status,
+        "has_access": user.has_access,
+        "days_remaining": user.days_remaining,
+        "trial_ends_at": user.trial_ends_at.isoformat() if user.trial_ends_at else None,
+        "subscription_ends_at": user.subscription_ends_at.isoformat() if user.subscription_ends_at else None,
+    }

@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from backend.app.api.v1 import assets, prices, indicators, institutional, alerts, auth, macro, ml, scalper, calendar, news, narrator, divergence, admin
+from backend.app.api.v1 import assets, prices, indicators, institutional, alerts, auth, macro, ml, scalper, calendar, news, narrator, divergence, admin, subscription
 
 router = APIRouter(prefix="/v1")
 router.include_router(auth.router)
@@ -19,3 +19,4 @@ router.include_router(news.router)
 router.include_router(narrator.router)
 router.include_router(divergence.router)
 router.include_router(admin.router)
+router.include_router(subscription.router)
