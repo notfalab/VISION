@@ -370,12 +370,21 @@ function DashboardMockup() {
 
 /* ── 3. Data Flow Animation ─────────────────────────────────────────── */
 const DATA_SOURCES_ANIM = [
-  { name: "OANDA", x: 10, y: 20 },
-  { name: "Binance", x: 10, y: 45 },
-  { name: "CFTC", x: 10, y: 70 },
-  { name: "Glassnode", x: 90, y: 20 },
-  { name: "Etherscan", x: 90, y: 45 },
-  { name: "CryptoCompare", x: 90, y: 70 },
+  // Traditional / Institutional
+  "Bloomberg", "LSEG / Refinitiv", "S&P Global", "FactSet", "Morningstar",
+  "ICE Data", "Moody's Analytics", "Intrinio", "Twelve Data", "Finage",
+  "Financial Modeling Prep", "EOD Historical", "Alpha Vantage", "Finnworlds",
+  "InfoTrie", "Exchange Data Intl",
+  // Crypto Data
+  "Kaiko", "CoinAPI", "Amberdata", "CryptoCompare", "CoinGecko",
+  "Tardis.dev", "Glassnode", "Messari",
+  // FX / Commodities
+  "TraderMade", "FinPricing", "Xignite", "Barchart", "Polygon.io",
+  "Tick Data", "Quandl / Nasdaq", "CSI Data", "Refinitiv DataScope",
+  // Liquidity / Infrastructure
+  "B2BROKER", "Integral FX", "oneZero", "PrimeXM", "CFH Clearing",
+  // Exchanges
+  "CME Group", "ICE Exchange", "Nasdaq", "Binance", "Coinbase", "Kraken",
 ];
 
 function DataFlowAnimation() {
@@ -383,69 +392,90 @@ function DataFlowAnimation() {
   const { fps, width, height } = useVideoConfig();
   const t = frame / fps;
 
-  const centerX = width / 2;
-  const centerY = height / 2;
+  const cx = width / 2;
+  const cy = height / 2;
+  const total = DATA_SOURCES_ANIM.length;
 
   // Central node pulse
   const pulse = 0.7 + 0.3 * Math.sin(t * 2);
-  const ringExpand = interpolate(frame % 60, [0, 60], [0, 35]);
+  const ringExpand = interpolate(frame % 60, [0, 60], [0, 40]);
   const ringOpacity = interpolate(frame % 60, [0, 60], [0.35, 0]);
+  const ring2Expand = interpolate((frame + 30) % 60, [0, 60], [0, 55]);
+  const ring2Opacity = interpolate((frame + 30) % 60, [0, 60], [0.2, 0]);
+
+  // Two elliptical rings for source placement
+  const innerCount = Math.ceil(total * 0.4); // ~18 inner
+  const outerCount = total - innerCount;       // ~27 outer
+  const radiusXInner = width * 0.32;
+  const radiusYInner = height * 0.36;
+  const radiusXOuter = width * 0.46;
+  const radiusYOuter = height * 0.44;
 
   return (
     <AbsoluteFill style={{ background: "transparent" }}>
       <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-        {/* Flow lines and particles */}
-        {DATA_SOURCES_ANIM.map((src, i) => {
-          const sx = (src.x / 100) * width;
-          const sy = (src.y / 100) * height;
-          const offset = (t * 40 + i * 25) % 100;
+        {DATA_SOURCES_ANIM.map((name, i) => {
+          const isInner = i < innerCount;
+          const ringIdx = isInner ? i : i - innerCount;
+          const ringTotal = isInner ? innerCount : outerCount;
+          const rx = isInner ? radiusXInner : radiusXOuter;
+          const ry = isInner ? radiusYInner : radiusYOuter;
+          const angleOffset = isInner ? 0 : Math.PI / outerCount; // stagger rings
+          const angle = (ringIdx / ringTotal) * Math.PI * 2 + angleOffset;
 
-          // Bezier control point
-          const cpx = (sx + centerX) / 2 + (i % 2 === 0 ? -30 : 30);
-          const cpy = (sy + centerY) / 2;
+          const sx = cx + Math.cos(angle) * rx;
+          const sy = cy + Math.sin(angle) * ry;
 
-          // Particle position along path
-          const pt = (offset / 100);
-          const px = (1 - pt) * (1 - pt) * sx + 2 * (1 - pt) * pt * cpx + pt * pt * centerX;
-          const py = (1 - pt) * (1 - pt) * sy + 2 * (1 - pt) * pt * cpy + pt * pt * centerY;
+          // Bezier control - curve inward
+          const midAngle = angle + (i % 2 === 0 ? 0.15 : -0.15);
+          const cpDist = (isInner ? 0.45 : 0.55) * (isInner ? radiusXInner : radiusXOuter);
+          const cpx = cx + Math.cos(midAngle) * cpDist * 0.4;
+          const cpy = cy + Math.sin(midAngle) * cpDist * 0.4;
 
-          // Second particle
+          // Flowing particles
+          const speed = 35 + (i % 5) * 3;
+          const offset = (t * speed + i * 17) % 100;
+          const pt = offset / 100;
+          const px = (1 - pt) * (1 - pt) * sx + 2 * (1 - pt) * pt * cpx + pt * pt * cx;
+          const py = (1 - pt) * (1 - pt) * sy + 2 * (1 - pt) * pt * cpy + pt * pt * cy;
+
           const pt2 = ((offset + 50) % 100) / 100;
-          const px2 = (1 - pt2) * (1 - pt2) * sx + 2 * (1 - pt2) * pt2 * cpx + pt2 * pt2 * centerX;
-          const py2 = (1 - pt2) * (1 - pt2) * sy + 2 * (1 - pt2) * pt2 * cpy + pt2 * pt2 * centerY;
+          const px2 = (1 - pt2) * (1 - pt2) * sx + 2 * (1 - pt2) * pt2 * cpx + pt2 * pt2 * cx;
+          const py2 = (1 - pt2) * (1 - pt2) * sy + 2 * (1 - pt2) * pt2 * cpy + pt2 * pt2 * cy;
 
-          const sourceIn = spring({ frame: frame - i * 8, fps, config: { damping: 15 } });
+          const sourceIn = spring({ frame: frame - i * 3, fps, config: { damping: 15 } });
+          const nodeR = isInner ? 3 : 2.5;
+          const fontSize = isInner ? 6.5 : 5.5;
+          const labelY = sy > cy ? sy + 11 : sy - 8;
 
           return (
-            <g key={src.name} opacity={sourceIn}>
-              {/* Path line */}
+            <g key={name} opacity={sourceIn}>
               <path
-                d={`M ${sx} ${sy} Q ${cpx} ${cpy} ${centerX} ${centerY}`}
-                fill="none" stroke="rgba(139,92,246,0.12)" strokeWidth={1}
+                d={`M ${sx} ${sy} Q ${cpx} ${cpy} ${cx} ${cy}`}
+                fill="none" stroke={`rgba(139,92,246,${isInner ? 0.1 : 0.06})`} strokeWidth={0.7}
               />
-              {/* Flowing particles */}
-              <circle cx={px} cy={py} r={2.5} fill="rgba(167,139,250,0.8)">
-                <animate attributeName="r" values="2;3.5;2" dur="1.5s" repeatCount="indefinite" />
+              <circle cx={px} cy={py} r={1.8} fill="rgba(167,139,250,0.7)">
+                <animate attributeName="r" values="1.5;2.5;1.5" dur={`${1.2 + (i % 3) * 0.3}s`} repeatCount="indefinite" />
               </circle>
-              <circle cx={px2} cy={py2} r={2} fill="rgba(139,92,246,0.5)" />
-              {/* Source node */}
-              <circle cx={sx} cy={sy} r={4} fill="rgba(6,0,16,0.8)" stroke="rgba(139,92,246,0.3)" strokeWidth={1} />
-              <circle cx={sx} cy={sy} r={2} fill={`rgba(167,139,250,${0.5 + 0.3 * Math.sin(t * 2 + i)})`} />
-              {/* Source label */}
-              <text x={sx} y={sy + 14} textAnchor="middle" fill="#64748b" fontSize={8} fontFamily="monospace">
-                {src.name}
+              <circle cx={px2} cy={py2} r={1.2} fill="rgba(139,92,246,0.4)" />
+              <circle cx={sx} cy={sy} r={nodeR} fill="rgba(6,0,16,0.8)" stroke="rgba(139,92,246,0.25)" strokeWidth={0.7} />
+              <circle cx={sx} cy={sy} r={nodeR * 0.5} fill={`rgba(167,139,250,${0.4 + 0.3 * Math.sin(t * 2 + i)})`} />
+              <text x={sx} y={labelY} textAnchor="middle" fill="#64748b" fontSize={fontSize} fontFamily="monospace">
+                {name}
               </text>
             </g>
           );
         })}
 
         {/* Central VISION node */}
-        <circle cx={centerX} cy={centerY} r={ringExpand} fill="none"
+        <circle cx={cx} cy={cy} r={ring2Expand} fill="none"
+          stroke="rgba(139,92,246,0.3)" strokeWidth={0.5} opacity={ring2Opacity} />
+        <circle cx={cx} cy={cy} r={ringExpand} fill="none"
           stroke="rgba(139,92,246,0.5)" strokeWidth={0.8} opacity={ringOpacity} />
-        <circle cx={centerX} cy={centerY} r={18 * pulse}
-          fill="rgba(139,92,246,0.06)" stroke="rgba(139,92,246,0.3)" strokeWidth={1} />
-        <circle cx={centerX} cy={centerY} r={6} fill="rgba(167,139,250,0.9)" />
-        <text x={centerX} y={centerY + 28} textAnchor="middle" fill="#a78bfa" fontSize={9} fontWeight="bold" fontFamily="monospace">
+        <circle cx={cx} cy={cy} r={20 * pulse}
+          fill="rgba(139,92,246,0.08)" stroke="rgba(139,92,246,0.35)" strokeWidth={1.2} />
+        <circle cx={cx} cy={cy} r={7} fill="rgba(167,139,250,0.95)" />
+        <text x={cx} y={cy + 30} textAnchor="middle" fill="#a78bfa" fontSize={10} fontWeight="bold" fontFamily="monospace">
           VISION
         </text>
       </svg>
@@ -981,13 +1011,13 @@ export default function LandingPage() {
       {/* ── Remotion: Data Flow Animation ────────────────────── */}
       <RevealSection type="scale-up">
         <section className="relative z-10 py-16 px-6">
-          <div className="max-w-3xl mx-auto" style={{ aspectRatio: "16/7" }}>
+          <div className="max-w-4xl mx-auto" style={{ aspectRatio: "16/9" }}>
             <Player
               component={DataFlowAnimation}
-              durationInFrames={180}
+              durationInFrames={300}
               fps={30}
-              compositionWidth={800}
-              compositionHeight={350}
+              compositionWidth={960}
+              compositionHeight={540}
               autoPlay
               loop
               controls={false}
