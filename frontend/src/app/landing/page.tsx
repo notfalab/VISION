@@ -251,9 +251,37 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="relative min-h-screen bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] overflow-x-hidden">
+    <div className="landing-root relative min-h-screen overflow-x-hidden">
       {/* ── Global animation styles ────────────────────────────── */}
       <style jsx global>{`
+        /* ── Lock landing page to purple/night theme regardless of user theme ── */
+        .landing-root {
+          --color-bg-primary: #060010;
+          --color-bg-secondary: #0a0014;
+          --color-bg-card: #060010;
+          --color-bg-elevated: #0e0820;
+          --color-bg-hover: #1c1530;
+          --color-border-primary: #1c1530;
+          --color-border-accent: rgba(139, 92, 246, 0.2);
+          --color-border-glow: rgba(139, 92, 246, 0.5);
+          --color-text-primary: #e2e8f0;
+          --color-text-secondary: #94a3b8;
+          --color-text-muted: #64748b;
+          --color-neon-blue: #a78bfa;
+          --color-neon-cyan: #c4b5fd;
+          --color-neon-green: #10b981;
+          --color-neon-red: #8b5cf6;
+          --color-neon-amber: #f59e0b;
+          --color-neon-purple: #8b5cf6;
+          --color-bull: #10b981;
+          --color-bear: #8b5cf6;
+          --color-neutral: #a78bfa;
+          --color-glass-from: rgba(6, 0, 16, 0.95);
+          --color-glass-to: rgba(10, 0, 20, 0.95);
+          --color-grid-line: rgba(139, 92, 246, 0.03);
+          background-color: #060010;
+          color: #e2e8f0;
+        }
         /* ── Noise overlay ─────────────────────────────────── */
         .noise-overlay {
           position: fixed; inset: 0; pointer-events: none; z-index: 100;
