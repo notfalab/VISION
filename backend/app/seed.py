@@ -111,6 +111,7 @@ async def seed_admin():
             logger.info("admin_already_exists")
             return
 
+        from datetime import datetime, timezone
         hashed = bcrypt.hashpw(b"Vision2025!", bcrypt.gensalt()).decode()
         admin = User(
             email="admin@vision.io",
@@ -118,6 +119,9 @@ async def seed_admin():
             hashed_password=hashed,
             role=UserRole.ADMIN,
             is_active=True,
+            first_name="Admin",
+            last_name="VISION",
+            subscription_ends_at=datetime(2099, 12, 31, tzinfo=timezone.utc),
         )
         session.add(admin)
         await session.commit()

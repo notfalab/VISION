@@ -391,6 +391,17 @@ async def lifespan(app: FastAPI):
                     )
         logger.info("user_columns_migrated")
 
+        # Ensure all admin users have permanent access (no subscription needed)
+        async with asyncio.timeout(15):
+            async with engine.begin() as conn:
+                await conn.execute(
+                    __import__("sqlalchemy").text(
+                        "UPDATE users SET subscription_ends_at = '2099-12-31T23:59:59+00' "
+                        "WHERE role = 'admin' AND subscription_ends_at IS NULL"
+                    )
+                )
+        logger.info("admin_access_ensured")
+
         # 2. Auto-seed assets if the assets table is empty
         from backend.app.seed import seed_assets, seed_admin
         try:
