@@ -2,7 +2,8 @@
 
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import func, select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +11,11 @@ from backend.app.api.deps import get_db, require_admin
 from backend.app.models.user import User, UserRole
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+class AdminUserUpdate(BaseModel):
+    role: str | None = None
+    is_active: bool | None = None
 
 
 @router.get("/stats")
@@ -129,3 +135,58 @@ async def list_users(
         "page": page,
         "pages": max(1, (total + limit - 1) // limit),
     }
+
+
+@router.patch("/users/{user_id}")
+async def update_user(
+    user_id: int,
+    body: AdminUserUpdate,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Update a user's role and/or active status."""
+    if user_id == admin.id:
+        raise HTTPException(status_code=400, detail="Cannot modify your own account")
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    target = result.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if body.role is not None:
+        try:
+            target.role = UserRole(body.role)
+        except ValueError:
+            raise HTTPException(status_code=422, detail=f"Invalid role: {body.role}")
+
+    if body.is_active is not None:
+        target.is_active = body.is_active
+
+    await db.flush()
+    await db.refresh(target)
+
+    return {
+        "id": target.id,
+        "username": target.username,
+        "email": target.email,
+        "role": target.role.value,
+        "is_active": target.is_active,
+    }
+
+
+@router.delete("/users/{user_id}", status_code=204)
+async def delete_user(
+    user_id: int,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Delete a user. Cannot delete yourself."""
+    if user_id == admin.id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+
+    result = await db.execute(select(User).where(User.id == user_id))
+    target = result.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    await db.delete(target)

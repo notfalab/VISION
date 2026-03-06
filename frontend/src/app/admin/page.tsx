@@ -12,8 +12,13 @@ import {
   ChevronLeft,
   ChevronRight,
   ArrowLeft,
+  Pencil,
+  Trash2,
+  X,
+  AlertTriangle,
 } from "lucide-react";
 import Link from "next/link";
+import { toast } from "sonner";
 
 interface Stats {
   total_users: number;
@@ -59,6 +64,28 @@ async function adminFetch<T>(path: string): Promise<T> {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(body.detail || `Error ${res.status}`);
   }
+  return res.json();
+}
+
+async function adminMutate<T>(
+  path: string,
+  method: "PATCH" | "DELETE",
+  body?: Record<string, unknown>,
+): Promise<T | null> {
+  const token = localStorage.getItem("vision_token");
+  const res = await fetch(path, {
+    method,
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(data.detail || `Error ${res.status}`);
+  }
+  if (res.status === 204) return null;
   return res.json();
 }
 
@@ -116,6 +143,160 @@ function timeAgo(iso: string | null): string {
   return new Date(iso).toLocaleDateString();
 }
 
+function EditUserModal({
+  user: targetUser,
+  role,
+  isActive,
+  loading,
+  onRoleChange,
+  onActiveChange,
+  onSave,
+  onClose,
+}: {
+  user: UserRow;
+  role: string;
+  isActive: boolean;
+  loading: boolean;
+  onRoleChange: (r: string) => void;
+  onActiveChange: (a: boolean) => void;
+  onSave: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-sm rounded-2xl border border-[var(--color-border-primary)] bg-[var(--color-bg-secondary)] shadow-2xl overflow-hidden">
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 p-1.5 rounded-lg text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-hover)] transition-colors z-10"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
+        <div className="px-6 pt-6 pb-5 space-y-5">
+          <div>
+            <h3 className="text-sm font-mono font-bold text-[var(--color-text-primary)]">
+              Edit User
+            </h3>
+            <p className="text-[11px] font-mono text-[var(--color-text-muted)] mt-1">
+              {targetUser.username} ({targetUser.email})
+            </p>
+          </div>
+
+          {/* Role selector */}
+          <div>
+            <label className="block text-[10px] font-mono uppercase tracking-wider text-[var(--color-text-muted)] mb-2">
+              Role
+            </label>
+            <div className="flex gap-2">
+              {["admin", "trader", "viewer"].map((r) => (
+                <button
+                  key={r}
+                  onClick={() => onRoleChange(r)}
+                  className={`flex-1 py-2 rounded-lg text-[11px] font-mono font-semibold uppercase border transition-colors ${
+                    role === r
+                      ? "border-[var(--color-neon-blue)] bg-[var(--color-neon-blue)]/15 text-[var(--color-neon-blue)]"
+                      : "border-[var(--color-border-primary)] text-[var(--color-text-muted)] hover:border-[var(--color-text-muted)]"
+                  }`}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Active toggle */}
+          <div className="flex items-center justify-between">
+            <label className="text-[10px] font-mono uppercase tracking-wider text-[var(--color-text-muted)]">
+              Account Active
+            </label>
+            <button
+              onClick={() => onActiveChange(!isActive)}
+              className={`relative w-10 h-5 rounded-full transition-colors ${
+                isActive ? "bg-[var(--color-neon-green)]" : "bg-[var(--color-bg-hover)]"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                  isActive ? "left-5" : "left-0.5"
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={onClose}
+              className="flex-1 py-2 rounded-lg border border-[var(--color-border-primary)] text-xs font-mono text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onSave}
+              disabled={loading}
+              className="flex-1 py-2 rounded-lg bg-[var(--color-neon-blue)] text-xs font-mono font-semibold text-white hover:opacity-90 disabled:opacity-50 transition-colors"
+            >
+              {loading ? "Saving..." : "Save"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeleteUserModal({
+  user: targetUser,
+  loading,
+  onConfirm,
+  onClose,
+}: {
+  user: UserRow;
+  loading: boolean;
+  onConfirm: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-sm rounded-2xl border border-[var(--color-bear)]/30 bg-[var(--color-bg-secondary)] shadow-2xl overflow-hidden">
+        <div className="px-6 pt-6 pb-5 space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[var(--color-bear)]/15 flex items-center justify-center shrink-0">
+              <AlertTriangle className="w-5 h-5 text-[var(--color-bear)]" />
+            </div>
+            <div>
+              <h3 className="text-sm font-mono font-bold text-[var(--color-text-primary)]">
+                Delete User
+              </h3>
+              <p className="text-[11px] font-mono text-[var(--color-text-muted)] mt-1">
+                Permanently delete <span className="text-[var(--color-text-primary)] font-semibold">{targetUser.username}</span>? This action cannot be undone.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={onClose}
+              className="flex-1 py-2 rounded-lg border border-[var(--color-border-primary)] text-xs font-mono text-[var(--color-text-muted)] hover:bg-[var(--color-bg-hover)] transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={loading}
+              className="flex-1 py-2 rounded-lg bg-[var(--color-bear)] text-xs font-mono font-semibold text-white hover:opacity-90 disabled:opacity-50 transition-colors"
+            >
+              {loading ? "Deleting..." : "Delete"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminPage() {
   const { user, token, loading: authLoading, checkAuth } = useAuthStore();
   const router = useRouter();
@@ -125,6 +306,11 @@ export default function AdminPage() {
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [loadingData, setLoadingData] = useState(true);
+  const [editingUser, setEditingUser] = useState<UserRow | null>(null);
+  const [deletingUser, setDeletingUser] = useState<UserRow | null>(null);
+  const [editRole, setEditRole] = useState("");
+  const [editActive, setEditActive] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
 
   // Auth check
   useEffect(() => {
@@ -182,6 +368,60 @@ export default function AdminPage() {
     }, 400);
     return () => clearTimeout(t);
   }, [searchInput]);
+
+  // --- Mutation handlers ---
+  const handleUpdateUser = useCallback(async () => {
+    if (!editingUser) return;
+    setActionLoading(true);
+    try {
+      await adminMutate(`/api/v1/admin/users/${editingUser.id}`, "PATCH", {
+        role: editRole,
+        is_active: editActive,
+      });
+      toast.success(`Updated ${editingUser.username}`);
+      setEditingUser(null);
+      fetchUsers();
+      adminFetch<Stats>("/api/v1/admin/stats").then(setStats);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Update failed");
+    } finally {
+      setActionLoading(false);
+    }
+  }, [editingUser, editRole, editActive, fetchUsers]);
+
+  const handleDeleteUser = useCallback(async () => {
+    if (!deletingUser) return;
+    setActionLoading(true);
+    try {
+      await adminMutate(`/api/v1/admin/users/${deletingUser.id}`, "DELETE");
+      toast.success(`Deleted ${deletingUser.username}`);
+      setDeletingUser(null);
+      fetchUsers();
+      adminFetch<Stats>("/api/v1/admin/stats").then(setStats);
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Delete failed");
+    } finally {
+      setActionLoading(false);
+    }
+  }, [deletingUser, fetchUsers]);
+
+  const handleToggleActive = useCallback(async (u: UserRow) => {
+    try {
+      await adminMutate(`/api/v1/admin/users/${u.id}`, "PATCH", {
+        is_active: !u.is_active,
+      });
+      toast.success(`${u.username} ${u.is_active ? "deactivated" : "activated"}`);
+      fetchUsers();
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Toggle failed");
+    }
+  }, [fetchUsers]);
+
+  const openEditModal = (u: UserRow) => {
+    setEditRole(u.role);
+    setEditActive(u.is_active);
+    setEditingUser(u);
+  };
 
   if (authLoading || !user || user.role !== "admin") {
     return (
@@ -360,6 +600,9 @@ export default function AdminPage() {
                   <th className="text-left px-5 py-3 text-[var(--color-text-muted)] uppercase tracking-wider font-semibold">
                     Joined
                   </th>
+                  <th className="text-right px-5 py-3 text-[var(--color-text-muted)] uppercase tracking-wider font-semibold">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -392,18 +635,51 @@ export default function AdminPage() {
                     <td className="px-5 py-3 text-[var(--color-text-muted)]">
                       {timeAgo(u.created_at)}
                     </td>
+                    <td className="px-5 py-3 text-right">
+                      {u.id !== user?.id && (
+                        <div className="inline-flex items-center gap-1">
+                          <button
+                            onClick={() => openEditModal(u)}
+                            className="p-1.5 rounded hover:bg-[var(--color-bg-hover)] transition-colors group"
+                            title="Edit user"
+                          >
+                            <Pencil className="w-3.5 h-3.5 text-[var(--color-text-muted)] group-hover:text-[var(--color-neon-blue)]" />
+                          </button>
+                          <button
+                            onClick={() => handleToggleActive(u)}
+                            className="p-1.5 rounded hover:bg-[var(--color-bg-hover)] transition-colors group"
+                            title={u.is_active ? "Deactivate" : "Activate"}
+                          >
+                            <span
+                              className={`block w-3.5 h-3.5 rounded-full border-2 transition-colors ${
+                                u.is_active
+                                  ? "border-[var(--color-neon-green)] bg-[var(--color-neon-green)]/20 group-hover:bg-[var(--color-bear)]/20 group-hover:border-[var(--color-bear)]"
+                                  : "border-[var(--color-bear)] bg-[var(--color-bear)]/20 group-hover:bg-[var(--color-neon-green)]/20 group-hover:border-[var(--color-neon-green)]"
+                              }`}
+                            />
+                          </button>
+                          <button
+                            onClick={() => setDeletingUser(u)}
+                            className="p-1.5 rounded hover:bg-[var(--color-bear)]/10 transition-colors group"
+                            title="Delete user"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 text-[var(--color-text-muted)] group-hover:text-[var(--color-bear)]" />
+                          </button>
+                        </div>
+                      )}
+                    </td>
                   </tr>
                 ))}
                 {usersData && usersData.users.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-5 py-8 text-center text-[var(--color-text-muted)]">
+                    <td colSpan={6} className="px-5 py-8 text-center text-[var(--color-text-muted)]">
                       {search ? "No users match your search" : "No users yet"}
                     </td>
                   </tr>
                 )}
                 {loadingData && !usersData && (
                   <tr>
-                    <td colSpan={5} className="px-5 py-8 text-center text-[var(--color-text-muted)] animate-pulse">
+                    <td colSpan={6} className="px-5 py-8 text-center text-[var(--color-text-muted)] animate-pulse">
                       Loading users...
                     </td>
                   </tr>
@@ -438,6 +714,29 @@ export default function AdminPage() {
           )}
         </div>
       </div>
+
+      {/* Modals */}
+      {editingUser && (
+        <EditUserModal
+          user={editingUser}
+          role={editRole}
+          isActive={editActive}
+          loading={actionLoading}
+          onRoleChange={setEditRole}
+          onActiveChange={setEditActive}
+          onSave={handleUpdateUser}
+          onClose={() => setEditingUser(null)}
+        />
+      )}
+
+      {deletingUser && (
+        <DeleteUserModal
+          user={deletingUser}
+          loading={actionLoading}
+          onConfirm={handleDeleteUser}
+          onClose={() => setDeletingUser(null)}
+        />
+      )}
     </div>
   );
 }

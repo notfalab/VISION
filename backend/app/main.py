@@ -287,10 +287,11 @@ async def lifespan(app: FastAPI):
         logger.info("database_tables_ready")
 
         # 2. Auto-seed assets if the assets table is empty
-        from backend.app.seed import seed_assets
+        from backend.app.seed import seed_assets, seed_admin
         try:
             async with asyncio.timeout(30):
                 await seed_assets()
+                await seed_admin()
         except Exception as e:
             logger.warning("seed_failed", error=str(e))
     except Exception as e:

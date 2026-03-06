@@ -11,8 +11,11 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 # Ensure project root on path
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+import bcrypt
+
 from backend.app.database import async_session
 from backend.app.models.asset import Asset, MarketType
+from backend.app.models.user import User, UserRole
 from backend.app.logging_config import get_logger
 
 logger = get_logger("seed")
@@ -98,5 +101,29 @@ async def seed_assets():
         logger.info("assets_seeded", count=count)
 
 
+async def seed_admin():
+    """Create default admin user if none exists."""
+    async with async_session() as session:
+        result = await session.execute(
+            select(User).where(User.role == UserRole.ADMIN)
+        )
+        if result.scalar_one_or_none():
+            logger.info("admin_already_exists")
+            return
+
+        hashed = bcrypt.hashpw(b"Vision2025!", bcrypt.gensalt()).decode()
+        admin = User(
+            email="admin@vision.io",
+            username="admin",
+            hashed_password=hashed,
+            role=UserRole.ADMIN,
+            is_active=True,
+        )
+        session.add(admin)
+        await session.commit()
+        logger.info("admin_created", username="admin")
+
+
 if __name__ == "__main__":
     asyncio.run(seed_assets())
+    asyncio.run(seed_admin())
