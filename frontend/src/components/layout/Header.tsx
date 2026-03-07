@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useTransition } from "react";
-import { ChevronDown, LogOut, User, Palette, GraduationCap, Shield } from "lucide-react";
+import { ChevronDown, LogOut, User, Palette, GraduationCap, Shield, Map as MapIcon, Building2, Grid3X3, LayoutGrid } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -505,8 +505,40 @@ export default function Header() {
 
         </div>
 
-        {/* Right — community + status + user */}
+        {/* Right — nav links + status + user */}
         <div className="flex items-center gap-3 shrink-0 ml-auto">
+          <Link
+            href="/heatmap"
+            className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-semibold uppercase tracking-wider transition-colors hover:bg-[var(--color-bg-hover)] text-[var(--color-neon-amber)]"
+            title="Market Heat Map"
+          >
+            <MapIcon className="w-4 h-4" />
+            <span>Heat Map</span>
+          </Link>
+          <Link
+            href="/institutional"
+            className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-semibold uppercase tracking-wider transition-colors hover:bg-[var(--color-bg-hover)] text-[var(--color-neon-purple)]"
+            title="Institutional Flow"
+          >
+            <Building2 className="w-4 h-4" />
+            <span>Flow</span>
+          </Link>
+          <Link
+            href="/correlations"
+            className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-semibold uppercase tracking-wider transition-colors hover:bg-[var(--color-bg-hover)] text-[var(--color-neon-cyan)]"
+            title="Correlation Matrix"
+          >
+            <Grid3X3 className="w-4 h-4" />
+            <span>Matrix</span>
+          </Link>
+          <Link
+            href="/charts"
+            className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-semibold uppercase tracking-wider transition-colors hover:bg-[var(--color-bg-hover)] text-[var(--color-neon-green)]"
+            title="Multi-Chart"
+          >
+            <LayoutGrid className="w-4 h-4" />
+            <span>Charts</span>
+          </Link>
           <Link
             href="/learn"
             className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-semibold uppercase tracking-wider transition-colors hover:bg-[var(--color-bg-hover)] text-[var(--color-neon-cyan)]"

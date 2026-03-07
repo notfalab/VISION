@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   GraduationCap,
   ChevronDown,
@@ -32,8 +32,11 @@ import {
   RotateCcw,
   Star,
   Award,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import Link from "next/link";
+import { useAcademyStore, BADGES } from "@/stores/academy";
 
 /* ═══════════════════════════════════════════════════════
    TYPES & DATA
@@ -1821,9 +1824,26 @@ function SubSectionCard({ section }: { section: SubSection }) {
 
 function ChapterCard({ chapter, isOpen, onToggle }: { chapter: Chapter; isOpen: boolean; onToggle: () => void }) {
   const Icon = chapter.icon;
+  const { completedChapters, markChapterComplete, addXp, earnBadge } = useAcademyStore();
+  const isCompleted = completedChapters.includes(chapter.id);
+
+  const handleMarkComplete = useCallback(() => {
+    if (isCompleted) return;
+    markChapterComplete(chapter.id);
+    addXp(50); // 50 XP per chapter
+
+    // Check badge conditions
+    const updated = [...completedChapters, chapter.id];
+    const chapterIds = CHAPTERS.map((c) => c.id);
+    if (updated.includes(chapterIds[0]) && updated.includes(chapterIds[1])) earnBadge("foundation");
+    if (updated.includes(chapterIds[2]) && updated.includes(chapterIds[3])) earnBadge("chart-reader");
+    if (updated.includes(chapterIds[4]) && updated.includes(chapterIds[5])) earnBadge("indicator-master");
+    if (updated.includes(chapterIds[6]) && updated.includes(chapterIds[7])) earnBadge("smart-money");
+    if (chapterIds.every((id) => updated.includes(id))) earnBadge("graduate");
+  }, [isCompleted, chapter.id, completedChapters, markChapterComplete, addXp, earnBadge]);
 
   return (
-    <div className="card-glass rounded-lg overflow-hidden">
+    <div className={`card-glass rounded-lg overflow-hidden ${isCompleted ? "ring-1 ring-[var(--color-bull)]/20" : ""}`}>
       {/* Chapter header — clickable */}
       <button
         onClick={onToggle}
@@ -1833,12 +1853,16 @@ function ChapterCard({ chapter, isOpen, onToggle }: { chapter: Chapter; isOpen: 
         <div
           className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-[13px] font-bold font-mono"
           style={{
-            color: chapter.color,
-            backgroundColor: `color-mix(in srgb, ${chapter.color} 15%, transparent)`,
-            border: `1px solid color-mix(in srgb, ${chapter.color} 30%, transparent)`,
+            color: isCompleted ? "var(--color-bull)" : chapter.color,
+            backgroundColor: isCompleted
+              ? "color-mix(in srgb, var(--color-bull) 15%, transparent)"
+              : `color-mix(in srgb, ${chapter.color} 15%, transparent)`,
+            border: isCompleted
+              ? "1px solid color-mix(in srgb, var(--color-bull) 30%, transparent)"
+              : `1px solid color-mix(in srgb, ${chapter.color} 30%, transparent)`,
           }}
         >
-          {chapter.number}
+          {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : chapter.number}
         </div>
 
         {/* Icon */}
@@ -1869,6 +1893,37 @@ function ChapterCard({ chapter, isOpen, onToggle }: { chapter: Chapter; isOpen: 
           {chapter.sections.map((section, i) => (
             <SubSectionCard key={i} section={section} />
           ))}
+
+          {/* Mark complete button */}
+          <div className="mt-4 flex justify-end">
+            <button
+              onClick={handleMarkComplete}
+              disabled={isCompleted}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-bold font-mono uppercase transition-all"
+              style={{
+                color: isCompleted ? "var(--color-bull)" : "var(--color-text-muted)",
+                backgroundColor: isCompleted
+                  ? "color-mix(in srgb, var(--color-bull) 10%, transparent)"
+                  : "var(--color-bg-hover)",
+                border: isCompleted
+                  ? "1px solid color-mix(in srgb, var(--color-bull) 25%, transparent)"
+                  : "1px solid var(--color-border-primary)",
+                cursor: isCompleted ? "default" : "pointer",
+              }}
+            >
+              {isCompleted ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  Completed
+                </>
+              ) : (
+                <>
+                  <Target className="w-3.5 h-3.5" />
+                  Mark as Complete (+50 XP)
+                </>
+              )}
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -2142,6 +2197,7 @@ function KnowledgeQuiz() {
   const [xp, setXp] = useState(0);
   const [finished, setFinished] = useState(false);
   const [answers, setAnswers] = useState<(boolean | null)[]>(new Array(QUIZ_QUESTIONS.length).fill(null));
+  const { setQuizResult, addXp: addGlobalXp, earnBadge } = useAcademyStore();
 
   const q = QUIZ_QUESTIONS[currentQ];
   const total = QUIZ_QUESTIONS.length;
@@ -2174,12 +2230,19 @@ function KnowledgeQuiz() {
   const handleNext = useCallback(() => {
     if (currentQ + 1 >= total) {
       setFinished(true);
+      // Persist to academy store
+      const finalScore = score + (selected === QUIZ_QUESTIONS[currentQ].correct ? 1 : 0);
+      const pct = Math.round((finalScore / total) * 100);
+      setQuizResult(finalScore, maxStreak, xp);
+      addGlobalXp(xp);
+      if (pct >= 90) earnBadge("quiz-master");
+      if (maxStreak >= 5) earnBadge("perfect-streak");
     } else {
       setCurrentQ((c) => c + 1);
       setSelected(null);
       setAnswered(false);
     }
-  }, [currentQ, total]);
+  }, [currentQ, total, score, selected, maxStreak, xp, setQuizResult, addGlobalXp, earnBadge]);
 
   const handleRestart = useCallback(() => {
     setStarted(true);
@@ -2541,6 +2604,7 @@ function KnowledgeQuiz() {
 
 export default function TradingAcademy() {
   const [openChapters, setOpenChapters] = useState<Set<string>>(new Set());
+  const { completedChapters, earnedBadges, totalXp, quizScore } = useAcademyStore();
 
   const toggleChapter = (id: string) => {
     setOpenChapters((prev) => {
@@ -2560,6 +2624,7 @@ export default function TradingAcademy() {
   };
 
   const totalTopics = CHAPTERS.reduce((sum, ch) => sum + ch.sections.length, 0);
+  const progressPct = Math.round((completedChapters.length / CHAPTERS.length) * 100);
 
   return (
     <div className="min-h-screen bg-[var(--color-bg-primary)]">
@@ -2618,6 +2683,73 @@ export default function TradingAcademy() {
               ~45 min read
             </span>
           </div>
+        </div>
+
+        {/* ── Progress & XP bar ── */}
+        <div className="mb-6 card-glass rounded-lg p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-mono font-bold text-[var(--color-text-muted)] uppercase tracking-wider">
+              Your Progress
+            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-[11px] font-mono text-[var(--color-neon-amber)]">
+                {totalXp} XP
+              </span>
+              <span className="text-[11px] font-mono text-[var(--color-text-muted)]">
+                {completedChapters.length}/{CHAPTERS.length} chapters
+              </span>
+            </div>
+          </div>
+          <div className="w-full h-2 rounded-full bg-[var(--color-bg-hover)] overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${progressPct}%`,
+                background: progressPct === 100
+                  ? "linear-gradient(90deg, var(--color-neon-cyan), var(--color-neon-green))"
+                  : "var(--color-neon-cyan)",
+              }}
+            />
+          </div>
+          {quizScore !== null && (
+            <div className="mt-2 text-[11px] font-mono text-[var(--color-text-muted)]">
+              Quiz best: {quizScore}/{QUIZ_QUESTIONS.length} ({Math.round((quizScore / QUIZ_QUESTIONS.length) * 100)}%)
+            </div>
+          )}
+
+          {/* Badges */}
+          {earnedBadges.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-[var(--color-border-primary)]">
+              <div className="text-[10px] font-mono font-bold text-[var(--color-text-muted)] uppercase tracking-wider mb-2">
+                Badges Earned
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {BADGES.map((badge) => {
+                  const earned = earnedBadges.includes(badge.id);
+                  return (
+                    <div
+                      key={badge.id}
+                      className="flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-mono"
+                      style={{
+                        color: earned ? badge.color : "var(--color-text-muted)",
+                        backgroundColor: earned
+                          ? `color-mix(in srgb, ${badge.color} 10%, transparent)`
+                          : "var(--color-bg-hover)",
+                        border: earned
+                          ? `1px solid color-mix(in srgb, ${badge.color} 25%, transparent)`
+                          : "1px solid var(--color-border-primary)",
+                        opacity: earned ? 1 : 0.5,
+                      }}
+                      title={badge.description}
+                    >
+                      {earned ? <Unlock className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+                      {badge.label}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Quick-jump chips ── */}
@@ -2681,8 +2813,29 @@ export default function TradingAcademy() {
           <KnowledgeQuiz />
         </div>
 
-        {/* ── Footer CTA ── */}
-        <div className="mt-8 mb-8">
+        {/* ── Footer CTAs ── */}
+        <div className="mt-8 mb-8 space-y-3">
+          <Link
+            href="/learn/simulator"
+            className="card-glass rounded-lg p-4 flex items-center gap-4 group transition-all hover:border-[color-mix(in_srgb,var(--color-neon-green)_30%,transparent)]"
+            style={{ display: "flex", textDecoration: "none", border: "1px solid var(--color-border-primary)" }}
+          >
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 transition-transform group-hover:scale-105" style={{
+              background: "linear-gradient(135deg, color-mix(in srgb, var(--color-neon-green) 15%, transparent), color-mix(in srgb, var(--color-neon-amber) 10%, transparent))",
+              border: "1px solid color-mix(in srgb, var(--color-neon-green) 20%, transparent)",
+            }}>
+              <TrendingUp className="w-5 h-5" style={{ color: "var(--color-neon-green)" }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-[13px] font-bold text-[var(--color-text-primary)] font-mono">
+                Paper Trading Simulator
+              </div>
+              <div className="text-[11px] text-[var(--color-text-muted)]">
+                Practice trading with $100K virtual balance using real-time prices. No risk, all learning.
+              </div>
+            </div>
+            <ChevronRight className="w-4 h-4 text-[var(--color-text-muted)] shrink-0 group-hover:text-[var(--color-neon-green)] transition-colors" />
+          </Link>
           <Link
             href="/"
             className="card-glass rounded-lg p-4 flex items-center gap-4 group transition-all hover:border-[color-mix(in_srgb,var(--color-neon-cyan)_30%,transparent)]"

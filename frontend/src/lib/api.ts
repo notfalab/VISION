@@ -478,4 +478,30 @@ export const api = {
       TTL.indicators,
       null,
     ),
+
+  // ── Market-wide endpoints ──
+
+  marketOverview: () =>
+    fetchCached<any>(
+      "/api/v1/market/overview",
+      "marketOverview",
+      TTL.indicators,
+      { tiles: [], count: 0 },
+    ),
+
+  marketCorrelations: (period = 30, group = "forex") =>
+    fetchCached<any>(
+      `/api/v1/market/correlations?period=${period}&group=${group}`,
+      `correlations:${period}:${group}`,
+      TTL.macro,
+      { symbols: [], matrix: [], correlation_breaks: [] },
+    ),
+
+  institutionalSummary: (symbols?: string) =>
+    fetchCached<any>(
+      `/api/v1/market/institutional-summary${symbols ? `?symbols=${symbols}` : ""}`,
+      `instSummary:${symbols ?? "all"}`,
+      TTL.indicators,
+      { symbols: [], count: 0 },
+    ),
 };

@@ -26,6 +26,9 @@ _CACHE_RULES = [
     ("/api/v1/news/sentiment",    "public, max-age=60"),       # 1 min
     ("/api/v1/ml/",               "public, max-age=30"),       # 30s
     ("/api/v1/divergence/",       "public, max-age=30"),       # 30s
+    ("/api/v1/market/overview",   "public, max-age=30"),       # 30s
+    ("/api/v1/market/correlations", "public, max-age=300"),    # 5 min
+    ("/api/v1/market/institutional", "public, max-age=60"),    # 1 min
     ("/health",                   "public, max-age=10"),       # 10s
 ]
 
