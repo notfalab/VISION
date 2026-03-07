@@ -1,10 +1,10 @@
 """Market-wide endpoints — overview, correlations, institutional summary."""
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.app.api.deps import get_db
@@ -21,7 +21,7 @@ _GROUPS = {
     "NZDUSD": "Forex Majors",
     "XAUUSD": "Commodities", "XAGUSD": "Commodities",
     "BTCUSD": "Crypto", "ETHUSD": "Crypto", "SOLUSD": "Crypto",
-    "XRPUSD": "Crypto", "ETHBTC": "Crypto",
+    "XRPUSD": "Crypto", "ETHBTC": "Crypto", "DOGEUSD": "Crypto",
     "NAS100": "Indices", "SPX500": "Indices",
 }
 
@@ -36,6 +36,7 @@ async def market_overview(db: AsyncSession = Depends(get_db)):
     """
     Global market overview — all active symbols with price, change, regime.
     Powers the Heat Map page.
+    Falls back to DB when Redis cache is empty.
     """
     from backend.app.data.redis_pubsub import get_latest_price
 
@@ -45,32 +46,63 @@ async def market_overview(db: AsyncSession = Depends(get_db)):
     )
     assets = result.scalars().all()
 
-    # 2. Fan out Redis price reads
+    # 2. Fan out Redis price reads, with DB fallback
     async def get_tile(asset: Asset):
         try:
+            # Try Redis first
             cached = await get_latest_price(asset.symbol)
-            if not cached:
-                return None
-
-            price = cached["price"]
-            open_price = cached.get("open", price)
-            change_pct = ((price - open_price) / open_price * 100) if open_price else 0
-
-            return {
-                "symbol": asset.symbol,
-                "name": asset.name,
-                "market_type": asset.market_type.value if hasattr(asset.market_type, "value") else str(asset.market_type),
-                "group": _GROUPS.get(asset.symbol, "Forex Minors"),
-                "price": round(price, 5),
-                "change_pct": round(change_pct, 3),
-                "volume": cached.get("volume", 0),
-                "high": cached.get("high", price),
-                "low": cached.get("low", price),
-                "timestamp": cached.get("timestamp"),
-                "is_major": asset.symbol in _MAJOR_SYMBOLS,
-            }
+            if cached and cached.get("price"):
+                price = cached["price"]
+                open_price = cached.get("open", price)
+                change_pct = ((price - open_price) / open_price * 100) if open_price else 0
+                return {
+                    "symbol": asset.symbol,
+                    "name": asset.name,
+                    "market_type": asset.market_type.value if hasattr(asset.market_type, "value") else str(asset.market_type),
+                    "group": _GROUPS.get(asset.symbol, "Other"),
+                    "price": round(float(price), 5),
+                    "change_pct": round(float(change_pct), 3),
+                    "volume": cached.get("volume", 0),
+                    "high": cached.get("high", price),
+                    "low": cached.get("low", price),
+                    "timestamp": cached.get("timestamp"),
+                    "is_major": asset.symbol in _MAJOR_SYMBOLS,
+                }
         except Exception:
-            return None
+            pass
+
+        # DB fallback — get 2 most recent candles (any timeframe) for price + change
+        try:
+            cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+            rows = await db.execute(
+                select(OHLCVData)
+                .where(OHLCVData.asset_id == asset.id, OHLCVData.timestamp >= cutoff)
+                .order_by(OHLCVData.timestamp.desc())
+                .limit(2)
+            )
+            candles = rows.scalars().all()
+            if candles:
+                latest = candles[0]
+                price = float(latest.close)
+                open_price = float(candles[1].close) if len(candles) > 1 else float(latest.open)
+                change_pct = ((price - open_price) / open_price * 100) if open_price else 0
+                return {
+                    "symbol": asset.symbol,
+                    "name": asset.name,
+                    "market_type": asset.market_type.value if hasattr(asset.market_type, "value") else str(asset.market_type),
+                    "group": _GROUPS.get(asset.symbol, "Other"),
+                    "price": round(price, 5),
+                    "change_pct": round(change_pct, 3),
+                    "volume": float(latest.volume),
+                    "high": float(latest.high),
+                    "low": float(latest.low),
+                    "timestamp": latest.timestamp.isoformat() if hasattr(latest.timestamp, "isoformat") else str(latest.timestamp),
+                    "is_major": asset.symbol in _MAJOR_SYMBOLS,
+                }
+        except Exception:
+            pass
+
+        return None
 
     tiles = await asyncio.gather(*[get_tile(a) for a in assets])
     tiles = [t for t in tiles if t is not None]
@@ -91,6 +123,7 @@ async def market_correlations(
     """
     NxN Pearson correlation matrix across symbols.
     Detects correlation breaks vs historical norms.
+    Falls back to H1 data if D1 is insufficient.
     """
     import numpy as np
     import pandas as pd
@@ -109,14 +142,22 @@ async def market_correlations(
         .order_by(Asset.symbol)
     )
     assets = result.scalars().all()
-    if len(assets) < 2:
-        raise HTTPException(status_code=400, detail="Not enough assets for correlation")
 
-    # 2. Fetch daily closes for each asset (use max 90 days for break detection)
+    empty_response = {
+        "symbols": [], "matrix": [], "correlation_breaks": [],
+        "period_days": period, "group": group,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    if len(assets) < 2:
+        return {**empty_response, "error": "Not enough assets for correlation"}
+
+    # 2. Fetch daily closes — try D1 first, fall back to H1 resampled to daily
     fetch_period = max(period, 90)
     symbol_closes: dict[str, pd.Series] = {}
 
     for asset in assets:
+        # Try D1 first
         query = (
             select(OHLCVData.timestamp, OHLCVData.close)
             .where(OHLCVData.asset_id == asset.id, OHLCVData.timeframe == Timeframe.D1)
@@ -125,19 +166,35 @@ async def market_correlations(
         )
         rows = await db.execute(query)
         data = rows.all()
+
         if len(data) >= 10:
             series = pd.Series(
                 {row.timestamp: float(row.close) for row in reversed(data)}
             )
             symbol_closes[asset.symbol] = series
+            continue
+
+        # Fallback: use H1 data, resample to daily close
+        query = (
+            select(OHLCVData.timestamp, OHLCVData.close)
+            .where(OHLCVData.asset_id == asset.id, OHLCVData.timeframe == Timeframe.H1)
+            .order_by(OHLCVData.timestamp.desc())
+            .limit(fetch_period * 24)  # ~24 candles per day
+        )
+        rows = await db.execute(query)
+        data = rows.all()
+
+        if len(data) >= 24:
+            s = pd.Series(
+                {row.timestamp: float(row.close) for row in reversed(data)}
+            )
+            s.index = pd.to_datetime(s.index)
+            daily = s.resample("1D").last().dropna()
+            if len(daily) >= 10:
+                symbol_closes[asset.symbol] = daily
 
     if len(symbol_closes) < 2:
-        return {
-            "symbols": [], "matrix": [], "correlation_breaks": [],
-            "period_days": period, "group": group,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "error": "Not enough price data for correlation",
-        }
+        return {**empty_response, "error": "Not enough price data for correlation"}
 
     # 3. Build DataFrame and compute correlations
     try:
@@ -149,31 +206,14 @@ async def market_correlations(
         returns = df.pct_change().dropna()
 
         if len(returns) < 5 or len(symbols) < 2:
-            return {
-                "symbols": [], "matrix": [], "correlation_breaks": [],
-                "period_days": period, "group": group,
-                "generated_at": datetime.now(timezone.utc).isoformat(),
-                "error": "Not enough data points for correlation",
-            }
+            return {**empty_response, "error": "Not enough data points for correlation"}
 
-        # Current period correlation
         current_returns = returns.tail(period)
-        corr_matrix = current_returns.corr()
-
-        # Historical correlation (full 90 days) for break detection
-        hist_corr = returns.corr()
-
-        # Replace NaN in correlation matrix with 0
-        corr_matrix = corr_matrix.fillna(0)
-        hist_corr = hist_corr.fillna(0)
+        corr_matrix = current_returns.corr().fillna(0)
+        hist_corr = returns.corr().fillna(0)
 
     except Exception as e:
-        return {
-            "symbols": [], "matrix": [], "correlation_breaks": [],
-            "period_days": period, "group": group,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "error": f"Correlation computation failed: {str(e)}",
-        }
+        return {**empty_response, "error": f"Correlation computation failed: {str(e)}"}
 
     # 4. Detect correlation breaks
     breaks = []
@@ -198,7 +238,6 @@ async def market_correlations(
             except (KeyError, ValueError):
                 continue
 
-    # Convert matrix to list of lists for JSON
     matrix = []
     for s in symbols:
         row = []
@@ -231,6 +270,7 @@ async def institutional_summary(
     """
     Batch institutional flow summary — heat scores + divergence for multiple symbols.
     Powers the Institutional Flow Dashboard.
+    Always returns data for every requested symbol, using sensible defaults.
     """
     from backend.app.core.institutional.heat_score import compute_heat_score
     from backend.app.core.institutional.divergence import calculate_divergence
@@ -240,12 +280,12 @@ async def institutional_summary(
     async def get_symbol_summary(symbol: str):
         result_data = {
             "symbol": symbol,
-            "heat_score": None,
-            "heat_label": None,
-            "divergence_score": None,
-            "divergence_signal": None,
-            "institutional_bias": None,
-            "retail_bias": None,
+            "heat_score": 0,
+            "heat_label": "No Data",
+            "divergence_score": 0,
+            "divergence_signal": "neutral",
+            "institutional_bias": "neutral",
+            "retail_bias": "neutral",
         }
 
         # Heat score
@@ -278,7 +318,7 @@ async def institutional_summary(
                 volume_profile=None,
             )
             result_data["heat_score"] = heat.get("heat_score", 0)
-            result_data["heat_label"] = heat.get("heat_label", "Unknown")
+            result_data["heat_label"] = heat.get("heat_label", "No Data")
         except Exception:
             pass
 
@@ -300,10 +340,16 @@ async def institutional_summary(
     )
 
     summaries = []
-    for r in results:
+    for i, r in enumerate(results):
         if isinstance(r, Exception):
-            continue
-        summaries.append(r)
+            summaries.append({
+                "symbol": symbol_list[i],
+                "heat_score": 0, "heat_label": "Error",
+                "divergence_score": 0, "divergence_signal": "neutral",
+                "institutional_bias": "neutral", "retail_bias": "neutral",
+            })
+        else:
+            summaries.append(r)
 
     return {
         "symbols": summaries,

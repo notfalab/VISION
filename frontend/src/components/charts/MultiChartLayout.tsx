@@ -1,9 +1,21 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { LayoutGrid, RefreshCw, Link2, Link2Off, Clock } from "lucide-react";
+import { LayoutGrid, Link2, Link2Off, Clock } from "lucide-react";
 import Header from "@/components/layout/Header";
 import { api } from "@/lib/api";
+import { useThemeStore, THEME_CANVAS } from "@/stores/theme";
+import {
+  createChart,
+  CandlestickSeries,
+  HistogramSeries,
+  ColorType,
+  CrosshairMode,
+  LineStyle,
+  type IChartApi,
+  type ISeriesApi,
+  type UTCTimestamp,
+} from "lightweight-charts";
 
 // ── Constants ──
 
@@ -38,7 +50,7 @@ const DEFAULT_PANELS = [
 
 type LayoutId = (typeof LAYOUTS)[number]["id"];
 
-// ── Mini Chart Component ──
+// ── Mini Chart Component (interactive, using lightweight-charts) ──
 
 interface MiniChartProps {
   symbol: string;
@@ -57,86 +69,149 @@ interface CandleData {
 }
 
 function MiniChart({ symbol, timeframe, onSymbolChange, onTimeframeChange }: MiniChartProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [data, setData] = useState<CandleData[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
   const [loading, setLoading] = useState(true);
   const [price, setPrice] = useState<{ close: number; change: number } | null>(null);
+  const [noData, setNoData] = useState(false);
+  const theme = useThemeStore((s) => s.theme);
 
-  // Fetch data
+  // Create chart on mount
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const tc = THEME_CANVAS[theme];
+    const chart = createChart(el, {
+      layout: {
+        background: { type: ColorType.Solid, color: "transparent" },
+        textColor: tc.textMuted,
+        fontFamily: "JetBrains Mono, monospace",
+        fontSize: 9,
+        attributionLogo: false,
+      },
+      grid: {
+        vertLines: { color: tc.grid, style: LineStyle.Dotted },
+        horzLines: { color: tc.grid, style: LineStyle.Dotted },
+      },
+      crosshair: {
+        mode: CrosshairMode.Normal,
+        vertLine: { color: tc.textMuted, width: 1, style: LineStyle.Dotted, labelBackgroundColor: "#1e293b" },
+        horzLine: { color: tc.textMuted, width: 1, style: LineStyle.Dotted, labelBackgroundColor: "#1e293b" },
+      },
+      rightPriceScale: {
+        borderColor: tc.grid,
+        scaleMargins: { top: 0.05, bottom: 0.2 },
+      },
+      timeScale: {
+        borderColor: tc.grid,
+        timeVisible: true,
+        secondsVisible: false,
+        rightOffset: 3,
+        barSpacing: 6,
+        minBarSpacing: 2,
+      },
+      handleScroll: { mouseWheel: true, pressedMouseMove: true },
+      handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
+      autoSize: true,
+    });
+
+    const candleSeries = chart.addSeries(CandlestickSeries, {
+      upColor: "#10b981",
+      downColor: "#ef4444",
+      borderUpColor: "#10b981",
+      borderDownColor: "#ef4444",
+      wickUpColor: "#10b98180",
+      wickDownColor: "#ef444480",
+      priceFormat: { type: "price", precision: symbol.includes("JPY") ? 3 : symbol.includes("BTC") || symbol.includes("XAU") ? 2 : 5, minMove: 0.00001 },
+    });
+
+    const volumeSeries = chart.addSeries(HistogramSeries, {
+      priceFormat: { type: "volume" },
+      priceScaleId: "vol",
+    });
+    chart.priceScale("vol").applyOptions({
+      scaleMargins: { top: 0.85, bottom: 0 },
+    });
+
+    chartRef.current = chart;
+    candleSeriesRef.current = candleSeries;
+    volumeSeriesRef.current = volumeSeries;
+
+    return () => {
+      chart.remove();
+      chartRef.current = null;
+      candleSeriesRef.current = null;
+      volumeSeriesRef.current = null;
+    };
+  }, [theme]);
+
+  // Fetch & set data when symbol/timeframe change
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    api.prices(symbol, timeframe, 100).then((d: CandleData[]) => {
+    setNoData(false);
+
+    api.prices(symbol, timeframe, 200).then((d: CandleData[]) => {
       if (cancelled) return;
-      setData(d ?? []);
-      setLoading(false);
-      if (d && d.length > 1) {
-        const last = d[d.length - 1];
-        const prev = d[d.length - 2];
-        setPrice({
-          close: last.close,
-          change: ((last.close - prev.close) / prev.close) * 100,
-        });
+
+      if (!d || d.length < 2) {
+        setLoading(false);
+        setNoData(true);
+        setPrice(null);
+        return;
       }
+
+      // Set candle data
+      const candleData = d.map((c) => ({
+        time: (new Date(c.timestamp).getTime() / 1000) as UTCTimestamp,
+        open: c.open,
+        high: c.high,
+        low: c.low,
+        close: c.close,
+      }));
+
+      const volData = d.map((c) => ({
+        time: (new Date(c.timestamp).getTime() / 1000) as UTCTimestamp,
+        value: c.volume,
+        color: c.close >= c.open ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)",
+      }));
+
+      candleSeriesRef.current?.setData(candleData);
+      volumeSeriesRef.current?.setData(volData);
+      chartRef.current?.timeScale().fitContent();
+
+      // Update price display
+      const last = d[d.length - 1];
+      const prev = d[d.length - 2];
+      setPrice({
+        close: last.close,
+        change: ((last.close - prev.close) / prev.close) * 100,
+      });
+
+      setLoading(false);
     }).catch(() => {
-      if (!cancelled) setLoading(false);
+      if (!cancelled) {
+        setLoading(false);
+        setNoData(true);
+      }
     });
+
     return () => { cancelled = true; };
   }, [symbol, timeframe]);
 
-  // Draw canvas chart
+  // Update price precision when symbol changes
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas || data.length < 2) return;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
-    canvas.width = rect.width * dpr;
-    canvas.height = rect.height * dpr;
-    ctx.scale(dpr, dpr);
-    const W = rect.width;
-    const H = rect.height;
-
-    ctx.clearRect(0, 0, W, H);
-
-    // Price range
-    const closes = data.map((d) => d.close);
-    const highs = data.map((d) => d.high);
-    const lows = data.map((d) => d.low);
-    const min = Math.min(...lows);
-    const max = Math.max(...highs);
-    const range = max - min || 1;
-
-    const candleW = Math.max(1, (W - 8) / data.length - 1);
-    const gap = 1;
-
-    data.forEach((candle, i) => {
-      const x = 4 + i * (candleW + gap);
-      const isUp = candle.close >= candle.open;
-
-      // Wick
-      const wickX = x + candleW / 2;
-      const wickTop = H - ((candle.high - min) / range) * (H - 8) - 4;
-      const wickBot = H - ((candle.low - min) / range) * (H - 8) - 4;
-      ctx.strokeStyle = isUp ? "rgba(16, 185, 129, 0.5)" : "rgba(239, 68, 68, 0.5)";
-      ctx.lineWidth = 0.5;
-      ctx.beginPath();
-      ctx.moveTo(wickX, wickTop);
-      ctx.lineTo(wickX, wickBot);
-      ctx.stroke();
-
-      // Body
-      const bodyTop = H - ((Math.max(candle.open, candle.close) - min) / range) * (H - 8) - 4;
-      const bodyBot = H - ((Math.min(candle.open, candle.close) - min) / range) * (H - 8) - 4;
-      const bodyH = Math.max(bodyBot - bodyTop, 1);
-
-      ctx.fillStyle = isUp ? "rgba(16, 185, 129, 0.8)" : "rgba(239, 68, 68, 0.7)";
-      ctx.fillRect(x, bodyTop, candleW, bodyH);
+    candleSeriesRef.current?.applyOptions({
+      priceFormat: {
+        type: "price",
+        precision: symbol.includes("JPY") ? 3 : symbol.includes("BTC") || symbol.includes("XAU") ? 2 : 5,
+        minMove: 0.00001,
+      },
     });
-  }, [data]);
+  }, [symbol]);
 
   const isUp = price && price.change >= 0;
 
@@ -175,19 +250,19 @@ function MiniChart({ symbol, timeframe, onSymbolChange, onTimeframeChange }: Min
         )}
       </div>
 
-      {/* Chart canvas */}
+      {/* Chart */}
       <div className="flex-1 relative min-h-0">
-        {loading ? (
-          <div className="absolute inset-0 flex items-center justify-center">
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center z-10">
             <div className="w-5 h-5 border-2 border-[var(--color-neon-blue)] border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : data.length < 2 ? (
-          <div className="absolute inset-0 flex items-center justify-center text-[10px] text-[var(--color-text-muted)]">
+        )}
+        {noData && !loading && (
+          <div className="absolute inset-0 flex items-center justify-center z-10 text-[10px] text-[var(--color-text-muted)]">
             No data
           </div>
-        ) : (
-          <canvas ref={canvasRef} className="w-full h-full" />
         )}
+        <div ref={containerRef} className="w-full h-full" />
       </div>
     </div>
   );
@@ -274,7 +349,7 @@ export default function MultiChartLayout() {
       >
         {visiblePanels.map((panel, idx) => (
           <MiniChart
-            key={panel.id}
+            key={`${panel.id}-${layoutId}`}
             symbol={panel.symbol}
             timeframe={panel.timeframe}
             onSymbolChange={(s) => handleSymbolChange(idx, s)}
