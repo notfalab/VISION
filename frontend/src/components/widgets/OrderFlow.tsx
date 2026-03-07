@@ -204,7 +204,7 @@ function OrderFlow() {
                       }}
                     >
                       {level.delta >= 0 ? "+" : ""}
-                      {level.delta.toFixed(0)}
+                      {(level.delta ?? 0).toFixed(0)}
                     </span>
                   </div>
                 );
@@ -226,7 +226,7 @@ function OrderFlow() {
                   key={`b${i}`}
                   className="text-[11px] font-mono text-[var(--color-bull)]"
                 >
-                  BUY ${w.price.toFixed(2)} ({w.strength}x)
+                  BUY ${(w.price ?? 0).toFixed(2)} ({w.strength}x)
                 </div>
               ))}
               {data.sell_walls.slice(0, 3).map((w, i) => (
@@ -234,7 +234,7 @@ function OrderFlow() {
                   key={`s${i}`}
                   className="text-[11px] font-mono text-[var(--color-bear)]"
                 >
-                  SELL ${w.price.toFixed(2)} ({w.strength}x)
+                  SELL ${(w.price ?? 0).toFixed(2)} ({w.strength}x)
                 </div>
               ))}
             </div>

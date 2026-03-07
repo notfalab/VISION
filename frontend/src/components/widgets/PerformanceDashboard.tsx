@@ -217,8 +217,8 @@ function PerformanceDashboard() {
     );
   }
 
-  const pnlPositive = analytics.total_pnl >= 0;
-  const pfText = analytics.profit_factor === Infinity ? "∞" : analytics.profit_factor.toFixed(2);
+  const pnlPositive = (analytics.total_pnl ?? 0) >= 0;
+  const pfText = analytics.profit_factor === Infinity ? "∞" : (analytics.profit_factor ?? 0).toFixed(2);
 
   // Compute drawdown from equity curve
   const drawdownData = (() => {
@@ -300,7 +300,7 @@ function PerformanceDashboard() {
           />
           <KPICard
             label="Total P&L"
-            value={`${pnlPositive ? "+" : ""}${analytics.total_pnl.toFixed(2)}`}
+            value={`${pnlPositive ? "+" : ""}${(analytics.total_pnl ?? 0).toFixed(2)}`}
             icon={pnlPositive ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
             color={pnlPositive ? "var(--color-bull)" : "var(--color-bear)"}
             sub={`${analytics.completed} trades`}
@@ -314,10 +314,10 @@ function PerformanceDashboard() {
           />
           <KPICard
             label="Best / Worst"
-            value={`+${analytics.best_trade.toFixed(0)}`}
+            value={`+${(analytics.best_trade ?? 0).toFixed(0)}`}
             icon={<Trophy className="w-3.5 h-3.5" />}
             color="var(--color-neon-amber)"
-            sub={<span className="text-[var(--color-bear)]"><Skull className="w-2.5 h-2.5 inline mr-0.5" />{analytics.worst_trade.toFixed(0)}</span>}
+            sub={<span className="text-[var(--color-bear)]"><Skull className="w-2.5 h-2.5 inline mr-0.5" />{(analytics.worst_trade ?? 0).toFixed(0)}</span>}
           />
         </div>
 

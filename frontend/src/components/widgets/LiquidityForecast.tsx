@@ -99,10 +99,10 @@ function LiquidityForecast() {
                       style={{ backgroundColor: typeColor }}
                     />
                     <span className="text-[11px] font-mono text-[var(--color-text-primary)]">
-                      {m.price.toFixed(2)}
+                      {(m.price ?? 0).toFixed(2)}
                     </span>
                     <span className="text-[10px] font-mono text-[var(--color-text-muted)]">
-                      {(m.strength * 100).toFixed(0)}%
+                      {((m.strength ?? 0) * 100).toFixed(0)}%
                     </span>
                   </div>
                 );
@@ -132,7 +132,7 @@ function LiquidityForecast() {
                 <span className={`text-[9px] font-mono w-14 text-right shrink-0 ${
                   isCurrentPrice ? "text-[var(--color-neon-amber)] font-bold" : "text-[var(--color-text-muted)]"
                 }`}>
-                  {isCurrentPrice ? "►" : ""}{level.price.toFixed(2)}
+                  {isCurrentPrice ? "►" : ""}{(level.price ?? 0).toFixed(2)}
                 </span>
                 <div
                   className="h-[5px] rounded-sm transition-all"

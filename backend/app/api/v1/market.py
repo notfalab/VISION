@@ -132,25 +132,48 @@ async def market_correlations(
             symbol_closes[asset.symbol] = series
 
     if len(symbol_closes) < 2:
-        raise HTTPException(status_code=400, detail="Not enough price data for correlation")
+        return {
+            "symbols": [], "matrix": [], "correlation_breaks": [],
+            "period_days": period, "group": group,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "error": "Not enough price data for correlation",
+        }
 
     # 3. Build DataFrame and compute correlations
-    df = pd.DataFrame(symbol_closes)
-    df = df.dropna(axis=1, thresh=int(len(df) * 0.5))  # drop symbols with >50% missing
-    df = df.fillna(method="ffill").fillna(method="bfill")
+    try:
+        df = pd.DataFrame(symbol_closes)
+        df = df.dropna(axis=1, thresh=max(1, int(len(df) * 0.5)))
+        df = df.ffill().bfill()
 
-    symbols = list(df.columns)
-    returns = df.pct_change().dropna()
+        symbols = list(df.columns)
+        returns = df.pct_change().dropna()
 
-    if len(returns) < 5:
-        raise HTTPException(status_code=400, detail="Not enough data points for correlation")
+        if len(returns) < 5 or len(symbols) < 2:
+            return {
+                "symbols": [], "matrix": [], "correlation_breaks": [],
+                "period_days": period, "group": group,
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "error": "Not enough data points for correlation",
+            }
 
-    # Current period correlation
-    current_returns = returns.tail(period)
-    corr_matrix = current_returns.corr()
+        # Current period correlation
+        current_returns = returns.tail(period)
+        corr_matrix = current_returns.corr()
 
-    # Historical correlation (full 90 days) for break detection
-    hist_corr = returns.corr()
+        # Historical correlation (full 90 days) for break detection
+        hist_corr = returns.corr()
+
+        # Replace NaN in correlation matrix with 0
+        corr_matrix = corr_matrix.fillna(0)
+        hist_corr = hist_corr.fillna(0)
+
+    except Exception as e:
+        return {
+            "symbols": [], "matrix": [], "correlation_breaks": [],
+            "period_days": period, "group": group,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "error": f"Correlation computation failed: {str(e)}",
+        }
 
     # 4. Detect correlation breaks
     breaks = []
@@ -158,25 +181,33 @@ async def market_correlations(
         for j, s2 in enumerate(symbols):
             if j <= i:
                 continue
-            current_val = float(corr_matrix.loc[s1, s2]) if s1 in corr_matrix.index and s2 in corr_matrix.columns else 0
-            hist_val = float(hist_corr.loc[s1, s2]) if s1 in hist_corr.index and s2 in hist_corr.columns else 0
-            diff = abs(current_val - hist_val)
-            if diff >= 0.3:
-                breaks.append({
-                    "pair": [s1, s2],
-                    "historical": round(hist_val, 3),
-                    "current": round(current_val, 3),
-                    "break_magnitude": round(diff, 3),
-                    "significance": "high" if diff >= 0.5 else "medium",
-                })
+            try:
+                current_val = float(corr_matrix.loc[s1, s2])
+                hist_val = float(hist_corr.loc[s1, s2])
+                if np.isnan(current_val) or np.isnan(hist_val):
+                    continue
+                diff = abs(current_val - hist_val)
+                if diff >= 0.3:
+                    breaks.append({
+                        "pair": [s1, s2],
+                        "historical": round(hist_val, 3),
+                        "current": round(current_val, 3),
+                        "break_magnitude": round(diff, 3),
+                        "significance": "high" if diff >= 0.5 else "medium",
+                    })
+            except (KeyError, ValueError):
+                continue
 
     # Convert matrix to list of lists for JSON
     matrix = []
     for s in symbols:
         row = []
         for s2 in symbols:
-            val = float(corr_matrix.loc[s, s2]) if s in corr_matrix.index and s2 in corr_matrix.columns else 0
-            row.append(round(val, 3))
+            try:
+                val = float(corr_matrix.loc[s, s2])
+                row.append(round(val, 3) if not np.isnan(val) else 0)
+            except (KeyError, ValueError):
+                row.append(0)
         matrix.append(row)
 
     return {

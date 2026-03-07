@@ -420,8 +420,8 @@ function SignalCard({ signal }: { signal: Signal }) {
             className="text-[13px] font-mono font-bold"
             style={{ color: signal.outcome_pnl >= 0 ? "var(--color-bull)" : "var(--color-bear)" }}
           >
-            {signal.outcome_pnl >= 0 ? "+" : ""}{signal.outcome_pnl.toFixed(2)}
-            ({signal.outcome_pnl_pct?.toFixed(3)}%)
+            {(signal.outcome_pnl ?? 0) >= 0 ? "+" : ""}{(signal.outcome_pnl ?? 0).toFixed(2)}
+            ({(signal.outcome_pnl_pct ?? 0).toFixed(3)}%)
           </span>
           {signal.loss_category && (
             <span className="ml-auto text-[11px] text-[var(--color-neon-amber)]">
@@ -507,7 +507,7 @@ function JournalTab({ journal, analytics }: { journal: JournalData | null; analy
                 </span>
                 {entry.outcome_pnl != null && (
                   <span className="ml-auto text-[12px] font-mono font-bold" style={{ color: statusColor }}>
-                    {entry.outcome_pnl >= 0 ? "+" : ""}{entry.outcome_pnl.toFixed(1)}
+                    {(entry.outcome_pnl ?? 0) >= 0 ? "+" : ""}{(entry.outcome_pnl ?? 0).toFixed(1)}
                   </span>
                 )}
                 {entry.loss_category && (

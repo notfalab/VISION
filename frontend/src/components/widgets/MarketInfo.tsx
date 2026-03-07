@@ -132,7 +132,7 @@ export default function MarketInfo() {
               <div className="flex items-center justify-between">
                 <span className="text-[10px] text-[var(--color-text-muted)]">Avg Volume</span>
                 <span className="text-[10px] font-mono text-[var(--color-text-secondary)]">
-                  {data.avgVolume.toFixed(2)}
+                  {(data.avgVolume ?? 0).toFixed(2)}
                 </span>
               </div>
 

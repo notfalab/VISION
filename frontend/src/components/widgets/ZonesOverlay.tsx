@@ -266,7 +266,7 @@ function ZoneBar({
         </span>
       </div>
       <span className="text-[9px] font-mono tabular-nums" style={{ color: distance > 0 ? "var(--color-text-muted)" : "var(--color-text-muted)" }}>
-        {distance > 0 ? "+" : ""}{distance.toFixed(2)}%
+        {distance > 0 ? "+" : ""}{(distance ?? 0).toFixed(2)}%
       </span>
     </div>
   );
@@ -294,7 +294,7 @@ function LevelRow({
         {formatPrice(price, symbol)}
       </span>
       <span className="text-[9px] font-mono tabular-nums text-[var(--color-text-muted)]">
-        {distance > 0 ? "+" : ""}{distance.toFixed(2)}%
+        {distance > 0 ? "+" : ""}{(distance ?? 0).toFixed(2)}%
       </span>
       <div className="flex gap-0.5">
         {[...Array(Math.min(strength, 5))].map((_, i) => (

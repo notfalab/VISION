@@ -95,8 +95,8 @@ function DivergenceWidget() {
               />
             </div>
             <div className="flex justify-between text-[10px] font-mono">
-              <span className="text-[var(--color-bull)]">L {data.retail_long_pct.toFixed(0)}%</span>
-              <span className="text-[var(--color-bear)]">S {data.retail_short_pct.toFixed(0)}%</span>
+              <span className="text-[var(--color-bull)]">L {(data.retail_long_pct ?? 0).toFixed(0)}%</span>
+              <span className="text-[var(--color-bear)]">S {(data.retail_short_pct ?? 0).toFixed(0)}%</span>
             </div>
           </div>
 
@@ -141,7 +141,7 @@ function DivergenceWidget() {
           <div className="flex items-center justify-between mb-1">
             <span className="text-[11px] text-[var(--color-text-muted)] uppercase">Divergence Score</span>
             <span className="text-sm font-mono font-bold" style={{ color: divColor }}>
-              {data.divergence_score > 0 ? "+" : ""}{data.divergence_score.toFixed(0)}
+              {(data.divergence_score ?? 0) > 0 ? "+" : ""}{(data.divergence_score ?? 0).toFixed(0)}
             </span>
           </div>
           {/* Centered bar */}
@@ -173,7 +173,7 @@ function DivergenceWidget() {
             Flow: {data.has_orderflow ? "YES" : "N/A"}
           </span>
           <span>•</span>
-          <span>Str: {(data.signal_strength * 100).toFixed(0)}%</span>
+          <span>Str: {((data.signal_strength ?? 0) * 100).toFixed(0)}%</span>
         </div>
       </div>
     </div>

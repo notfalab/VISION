@@ -62,7 +62,7 @@ function ClusterRow({ c, symbol }: { c: Cluster; symbol: string }) {
         {formatPrice(midPrice, symbol)}
       </span>
       <span className="text-[10px] font-mono text-[var(--color-text-muted)] w-10 text-right">
-        {c.distance_pct.toFixed(1)}%
+        {(c.distance_pct ?? 0).toFixed(1)}%
       </span>
       <div className="w-16">
         <StrengthBar strength={c.strength} />
@@ -209,7 +209,7 @@ function TPSLWidget() {
                       : "transparent",
                   }}
                 >
-                  {formatPrice(r.price, activeSymbol)} ({r.distance_pct.toFixed(1)}%)
+                  {formatPrice(r.price, activeSymbol)} ({(r.distance_pct ?? 0).toFixed(1)}%)
                 </span>
               ))}
           </div>

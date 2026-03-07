@@ -296,7 +296,7 @@ function CurrencyHeatmap() {
                     className="text-[11px] font-mono font-semibold tabular-nums"
                     style={{ color: getStrengthColor(cs.strength) }}
                   >
-                    {cs.strength > 0 ? "+" : ""}{cs.strength.toFixed(1)}
+                    {(cs.strength ?? 0) > 0 ? "+" : ""}{(cs.strength ?? 0).toFixed(1)}
                   </span>
                 </div>
               </div>
@@ -349,7 +349,7 @@ function CurrencyHeatmap() {
                           className="p-1 text-center text-[var(--color-text-primary)]"
                           style={{ background: getCorrelationColor(val) }}
                         >
-                          {val.toFixed(2)}
+                          {(val ?? 0).toFixed(2)}
                         </td>
                       );
                     })}

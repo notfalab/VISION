@@ -23,7 +23,8 @@ interface Tile {
   is_major: boolean;
 }
 
-function formatPrice(price: number, symbol: string): string {
+function formatPrice(price: number | null | undefined, symbol: string): string {
+  if (price == null || isNaN(price)) return "--";
   if (symbol.includes("JPY")) return price.toFixed(3);
   if (symbol.startsWith("BTC") || symbol.startsWith("XAU")) return price.toFixed(2);
   if (symbol.startsWith("ETH") || symbol.startsWith("SOL") || symbol.startsWith("XRP")) return price.toFixed(2);
@@ -173,7 +174,7 @@ export default function GlobalHeatMap() {
                       }`}
                     >
                       {isUp ? "+" : ""}
-                      {tile.change_pct.toFixed(2)}%
+                      {(tile.change_pct ?? 0).toFixed(2)}%
                     </div>
                   </button>
                 );

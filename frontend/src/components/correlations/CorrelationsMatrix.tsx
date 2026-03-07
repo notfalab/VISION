@@ -148,10 +148,10 @@ export default function CorrelationsMatrix() {
                     {b.pair[0]} / {b.pair[1]}
                   </span>
                   <span className="text-[var(--color-text-muted)]">
-                    {b.historical.toFixed(2)} → {b.current.toFixed(2)}
+                    {(b.historical ?? 0).toFixed(2)} → {(b.current ?? 0).toFixed(2)}
                   </span>
                   <span className={`font-semibold ${b.significance === "high" ? "text-[var(--color-neon-amber)]" : "text-[var(--color-text-secondary)]"}`}>
-                    Δ{b.break_magnitude.toFixed(2)}
+                    Δ{(b.break_magnitude ?? 0).toFixed(2)}
                   </span>
                 </div>
               ))}
@@ -212,13 +212,13 @@ export default function CorrelationsMatrix() {
                           title={
                             isDiag
                               ? row
-                              : `${row} / ${symbols[ci]}: ${val.toFixed(3)}${
-                                  breakInfo ? ` (break: ${breakInfo.historical.toFixed(2)} → ${breakInfo.current.toFixed(2)})` : ""
+                              : `${row} / ${symbols[ci]}: ${(val ?? 0).toFixed(3)}${
+                                  breakInfo ? ` (break: ${(breakInfo.historical ?? 0).toFixed(2)} → ${(breakInfo.current ?? 0).toFixed(2)})` : ""
                                 }`
                           }
                         >
                           <span className={`text-[8px] font-mono ${isDiag ? "text-white font-bold" : "text-[var(--color-text-primary)]"}`}>
-                            {isDiag ? "1" : val.toFixed(1) === "0.0" ? "" : val > 0 ? `+${val.toFixed(1)}` : val.toFixed(1)}
+                            {isDiag ? "1" : (val ?? 0).toFixed(1) === "0.0" ? "" : val > 0 ? `+${(val ?? 0).toFixed(1)}` : (val ?? 0).toFixed(1)}
                           </span>
                         </td>
                       );

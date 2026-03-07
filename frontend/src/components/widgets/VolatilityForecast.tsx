@@ -126,7 +126,7 @@ function VolatilityForecast() {
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-[20px] font-bold font-mono" style={{ color: regimeColor }}>
-              {data.percentile.toFixed(0)}%
+              {(data.percentile ?? 0).toFixed(0)}%
             </div>
             <div className="text-[11px] text-[var(--color-text-muted)]">
               Volatility percentile (vs 90d)
@@ -141,14 +141,14 @@ function VolatilityForecast() {
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-lg font-bold font-mono text-[var(--color-text-primary)]">
-              ±{data.implied_move.toFixed(2)}
+              ±{(data.implied_move ?? 0).toFixed(2)}
             </span>
             <span className="text-[12px] font-mono text-[var(--color-text-muted)]">
-              ({data.implied_move_pct.toFixed(3)}%)
+              ({(data.implied_move_pct ?? 0).toFixed(3)}%)
             </span>
           </div>
           <div className="text-[11px] font-mono text-[var(--color-text-muted)] mt-0.5">
-            Range: {(data.last_close - data.implied_move).toFixed(2)} — {(data.last_close + data.implied_move).toFixed(2)}
+            Range: {((data.last_close ?? 0) - (data.implied_move ?? 0)).toFixed(2)} — {((data.last_close ?? 0) + (data.implied_move ?? 0)).toFixed(2)}
           </div>
         </div>
 
@@ -164,7 +164,7 @@ function VolatilityForecast() {
                   : "var(--color-text-muted)",
             }}
           >
-            {data.term_structure.toUpperCase()} ({data.term_structure_ratio.toFixed(2)}x)
+            {(data.term_structure ?? "flat").toUpperCase()} ({(data.term_structure_ratio ?? 0).toFixed(2)}x)
           </span>
         </div>
 
@@ -175,7 +175,7 @@ function VolatilityForecast() {
               <div key={label} className="text-center">
                 <div className="text-[10px] text-[var(--color-text-muted)] uppercase">{label}</div>
                 <div className="text-[12px] font-mono font-bold text-[var(--color-text-primary)]">
-                  {(vol * 100).toFixed(2)}%
+                  {((vol ?? 0) * 100).toFixed(2)}%
                 </div>
               </div>
             ))}
@@ -201,7 +201,7 @@ function VolatilityForecast() {
                       backgroundColor: regimeColor,
                       opacity: 0.4 + (i / data.forecast.length) * 0.6,
                     }}
-                    title={`+${f.period}: ${(f.vol * 100).toFixed(3)}%`}
+                    title={`+${f.period}: ${((f.vol ?? 0) * 100).toFixed(3)}%`}
                   />
                 );
               })}

@@ -155,7 +155,7 @@ export default function InstitutionalFlowDashboard() {
                       <td className="py-2 px-2 text-center"><BiasArrow bias={s.institutional_bias} /></td>
                       <td className="py-2 px-2 text-center"><BiasArrow bias={s.retail_bias} /></td>
                       <td className="py-2 px-2 text-right font-mono text-xs text-[var(--color-text-secondary)]">
-                        {s.divergence_score !== null ? Math.abs(s.divergence_score).toFixed(0) : "--"}
+                        {s.divergence_score != null ? Math.abs(s.divergence_score).toFixed(0) : "--"}
                       </td>
                     </tr>
                   ))}
