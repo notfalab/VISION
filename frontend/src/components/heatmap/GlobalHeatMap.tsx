@@ -184,8 +184,16 @@ export default function GlobalHeatMap() {
         ))}
 
         {!loading && tiles.length === 0 && (
-          <div className="text-center py-16 text-[var(--color-text-muted)]">
-            No market data available. The backend may not be running.
+          <div className="text-center py-16">
+            <div className="text-[var(--color-text-muted)] mb-3">
+              Loading market data...
+            </div>
+            <button
+              onClick={refresh}
+              className="px-4 py-2 text-xs font-semibold rounded bg-[var(--color-neon-blue)]/20 text-[var(--color-neon-blue)] hover:bg-[var(--color-neon-blue)]/30 transition-colors"
+            >
+              Retry
+            </button>
           </div>
         )}
       </div>

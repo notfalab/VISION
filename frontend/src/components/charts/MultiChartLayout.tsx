@@ -26,13 +26,26 @@ const LAYOUTS = [
   { id: "3x3", label: "9", cols: 3, rows: 3 },
 ] as const;
 
-const SYMBOLS = [
-  "EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD",
-  "XAUUSD", "XAGUSD",
-  "BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD",
-  "NAS100", "SPX500",
-  "EURGBP", "EURJPY", "GBPJPY",
-];
+const SYMBOL_GROUPS = {
+  "Forex Majors": ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD"],
+  "Forex Minors": [
+    "EURGBP", "EURJPY", "GBPJPY", "EURCHF", "GBPAUD", "EURAUD", "GBPCAD",
+    "AUDNZD", "AUDCAD", "AUDJPY", "NZDJPY", "CADJPY", "CADCHF", "NZDCAD",
+    "EURNZD", "GBPCHF", "GBPNZD", "EURCAD", "AUDCHF", "NZDCHF", "CHFJPY",
+  ],
+  "Commodities": ["XAUUSD"],
+  "Indices": ["NAS100", "SPX500"],
+  "Crypto": [
+    "BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "DOGEUSD", "BNBUSD", "ADAUSD",
+    "PEPEUSD", "TRXUSD", "SUIUSD", "NEARUSD", "AVAXUSD", "LINKUSD", "LTCUSD",
+    "AAVEUSD", "TAOUSD", "BCHUSD", "UNIUSD", "DOTUSD", "ICPUSD", "APTUSD",
+    "SHIBUSD", "HBARUSD", "FILUSD", "XLMUSD", "ARBUSD", "SEIUSD", "TONUSD",
+    "ONDOUSD", "BONKUSD", "ENAUSD", "WLDUSD", "TIAUSD", "RENDERUSD", "FTMUSD",
+    "INJUSD", "OPUSD", "MATICUSD", "ATOMUSD", "WIFUSD",
+  ],
+};
+
+const ALL_SYMBOLS = Object.values(SYMBOL_GROUPS).flat();
 
 const TIMEFRAMES = ["1m", "5m", "15m", "30m", "1h", "4h", "1d"] as const;
 
@@ -224,8 +237,12 @@ function MiniChart({ symbol, timeframe, onSymbolChange, onTimeframeChange }: Min
           onChange={(e) => onSymbolChange(e.target.value)}
           className="bg-transparent text-[10px] font-bold text-[var(--color-text-primary)] outline-none cursor-pointer"
         >
-          {SYMBOLS.map((s) => (
-            <option key={s} value={s} className="bg-[var(--color-bg-primary)]">{s}</option>
+          {Object.entries(SYMBOL_GROUPS).map(([group, syms]) => (
+            <optgroup key={group} label={group}>
+              {syms.map((s) => (
+                <option key={s} value={s} className="bg-[var(--color-bg-primary)]">{s}</option>
+              ))}
+            </optgroup>
           ))}
         </select>
         <select
@@ -251,7 +268,7 @@ function MiniChart({ symbol, timeframe, onSymbolChange, onTimeframeChange }: Min
       </div>
 
       {/* Chart */}
-      <div className="flex-1 relative min-h-0">
+      <div className="flex-1 relative" style={{ minHeight: 120 }}>
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center z-10">
             <div className="w-5 h-5 border-2 border-[var(--color-neon-blue)] border-t-transparent rounded-full animate-spin" />
@@ -262,7 +279,7 @@ function MiniChart({ symbol, timeframe, onSymbolChange, onTimeframeChange }: Min
             No data
           </div>
         )}
-        <div ref={containerRef} className="w-full h-full" />
+        <div ref={containerRef} className="absolute inset-0" />
       </div>
     </div>
   );
@@ -341,10 +358,11 @@ export default function MultiChartLayout() {
 
       {/* Chart grid */}
       <div
-        className="flex-1 grid gap-1 p-1"
+        className="flex-1 grid gap-1 p-1 min-h-0"
         style={{
           gridTemplateColumns: `repeat(${layout.cols}, 1fr)`,
           gridTemplateRows: `repeat(${layout.rows}, 1fr)`,
+          height: "calc(100vh - 100px)",
         }}
       >
         {visiblePanels.map((panel, idx) => (

@@ -15,15 +15,35 @@ router = APIRouter(prefix="/market", tags=["market"])
 
 # ── Symbol grouping for display ──────────────────────────────────────────
 
-_GROUPS = {
-    "EURUSD": "Forex Majors", "GBPUSD": "Forex Majors", "USDJPY": "Forex Majors",
-    "USDCHF": "Forex Majors", "AUDUSD": "Forex Majors", "USDCAD": "Forex Majors",
-    "NZDUSD": "Forex Majors",
-    "XAUUSD": "Commodities", "XAGUSD": "Commodities",
-    "BTCUSD": "Crypto", "ETHUSD": "Crypto", "SOLUSD": "Crypto",
-    "XRPUSD": "Crypto", "ETHBTC": "Crypto", "DOGEUSD": "Crypto",
-    "NAS100": "Indices", "SPX500": "Indices",
+_CRYPTO_SYMBOLS = {
+    "BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "DOGEUSD", "BNBUSD", "ADAUSD",
+    "PEPEUSD", "TRXUSD", "SUIUSD", "NEARUSD", "AVAXUSD", "LINKUSD", "LTCUSD",
+    "AAVEUSD", "TAOUSD", "BCHUSD", "UNIUSD", "DOTUSD", "ICPUSD", "APTUSD",
+    "SHIBUSD", "HBARUSD", "FILUSD", "XLMUSD", "ARBUSD", "SEIUSD", "TONUSD",
+    "ONDOUSD", "BONKUSD", "ENAUSD", "WLDUSD", "TIAUSD", "RENDERUSD", "FTMUSD",
+    "INJUSD", "OPUSD", "MATICUSD", "ATOMUSD", "WIFUSD", "ETHBTC",
 }
+
+_FOREX_MAJORS = {"EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD"}
+
+_FOREX_MINORS = {
+    "EURGBP", "EURJPY", "GBPJPY", "EURCHF", "GBPAUD", "EURAUD", "GBPCAD",
+    "AUDNZD", "AUDCAD", "AUDJPY", "NZDJPY", "CADJPY", "CADCHF", "NZDCAD",
+    "EURNZD", "GBPCHF", "GBPNZD", "EURCAD", "AUDCHF", "NZDCHF", "CHFJPY",
+}
+
+def _get_group(symbol: str) -> str:
+    if symbol in _CRYPTO_SYMBOLS:
+        return "Crypto"
+    if symbol in _FOREX_MAJORS:
+        return "Forex Majors"
+    if symbol in _FOREX_MINORS:
+        return "Forex Minors"
+    if symbol in ("XAUUSD", "XAGUSD"):
+        return "Commodities"
+    if symbol in ("NAS100", "SPX500"):
+        return "Indices"
+    return "Other"
 
 _MAJOR_SYMBOLS = {
     "EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "BTCUSD", "ETHUSD",
@@ -36,9 +56,9 @@ async def market_overview(db: AsyncSession = Depends(get_db)):
     """
     Global market overview — all active symbols with price, change, regime.
     Powers the Heat Map page.
-    Falls back to DB when Redis cache is empty.
+    Chain: Redis → DB → Live adapter (same as /prices/{symbol}/latest).
     """
-    from backend.app.data.redis_pubsub import get_latest_price
+    from backend.app.data.redis_pubsub import get_latest_price, cache_latest_price
 
     # 1. Get all active assets
     result = await db.execute(
@@ -46,32 +66,36 @@ async def market_overview(db: AsyncSession = Depends(get_db)):
     )
     assets = result.scalars().all()
 
-    # 2. Fan out Redis price reads, with DB fallback
+    # 2. Fan out price reads: Redis → DB → live adapter
     async def get_tile(asset: Asset):
+        def _make_tile(price, open_price, high, low, volume, timestamp):
+            change_pct = ((price - open_price) / open_price * 100) if open_price else 0
+            return {
+                "symbol": asset.symbol,
+                "name": asset.name,
+                "market_type": asset.market_type.value if hasattr(asset.market_type, "value") else str(asset.market_type),
+                "group": _get_group(asset.symbol),
+                "price": round(float(price), 5),
+                "change_pct": round(float(change_pct), 3),
+                "volume": float(volume),
+                "high": float(high),
+                "low": float(low),
+                "timestamp": timestamp,
+                "is_major": asset.symbol in _MAJOR_SYMBOLS,
+            }
+
+        # ── Try Redis ──
         try:
-            # Try Redis first
             cached = await get_latest_price(asset.symbol)
             if cached and cached.get("price"):
-                price = cached["price"]
-                open_price = cached.get("open", price)
-                change_pct = ((price - open_price) / open_price * 100) if open_price else 0
-                return {
-                    "symbol": asset.symbol,
-                    "name": asset.name,
-                    "market_type": asset.market_type.value if hasattr(asset.market_type, "value") else str(asset.market_type),
-                    "group": _GROUPS.get(asset.symbol, "Other"),
-                    "price": round(float(price), 5),
-                    "change_pct": round(float(change_pct), 3),
-                    "volume": cached.get("volume", 0),
-                    "high": cached.get("high", price),
-                    "low": cached.get("low", price),
-                    "timestamp": cached.get("timestamp"),
-                    "is_major": asset.symbol in _MAJOR_SYMBOLS,
-                }
+                p = cached["price"]
+                return _make_tile(p, cached.get("open", p), cached.get("high", p),
+                                  cached.get("low", p), cached.get("volume", 0),
+                                  cached.get("timestamp"))
         except Exception:
             pass
 
-        # DB fallback — get 2 most recent candles (any timeframe) for price + change
+        # ── DB fallback ──
         try:
             cutoff = datetime.now(timezone.utc) - timedelta(days=7)
             rows = await db.execute(
@@ -85,20 +109,43 @@ async def market_overview(db: AsyncSession = Depends(get_db)):
                 latest = candles[0]
                 price = float(latest.close)
                 open_price = float(candles[1].close) if len(candles) > 1 else float(latest.open)
-                change_pct = ((price - open_price) / open_price * 100) if open_price else 0
-                return {
-                    "symbol": asset.symbol,
-                    "name": asset.name,
-                    "market_type": asset.market_type.value if hasattr(asset.market_type, "value") else str(asset.market_type),
-                    "group": _GROUPS.get(asset.symbol, "Other"),
-                    "price": round(price, 5),
-                    "change_pct": round(change_pct, 3),
-                    "volume": float(latest.volume),
-                    "high": float(latest.high),
-                    "low": float(latest.low),
-                    "timestamp": latest.timestamp.isoformat() if hasattr(latest.timestamp, "isoformat") else str(latest.timestamp),
-                    "is_major": asset.symbol in _MAJOR_SYMBOLS,
-                }
+                ts = latest.timestamp.isoformat() if hasattr(latest.timestamp, "isoformat") else str(latest.timestamp)
+                return _make_tile(price, open_price, float(latest.high),
+                                  float(latest.low), float(latest.volume), ts)
+        except Exception:
+            pass
+
+        # ── Live adapter fallback (same chain as /prices/{symbol}/latest) ──
+        try:
+            from backend.app.data.registry import data_registry
+            adapter = data_registry.route_symbol(asset.symbol)
+            await adapter.connect()
+            try:
+                ticker = await adapter.fetch_ticker(asset.symbol)
+                if ticker and ticker.get("price", 0) > 0:
+                    p = float(ticker["price"])
+                    op = float(ticker.get("open", p))
+                    hi = float(ticker.get("high", p))
+                    lo = float(ticker.get("low", p))
+                    vol = float(ticker.get("volume", 0))
+                    ts_raw = ticker.get("timestamp", "")
+                    if ts_raw:
+                        import pandas as _pd
+                        ts_dt = _pd.Timestamp(ts_raw)
+                        if ts_dt.tzinfo is None:
+                            ts_dt = ts_dt.tz_localize("UTC")
+                        ts = ts_dt.to_pydatetime()
+                    else:
+                        ts = datetime.now(timezone.utc)
+                    # Cache for next request
+                    from backend.app.data.base import Candle
+                    await cache_latest_price(asset.symbol, Candle(
+                        timestamp=ts, open=op, high=hi, low=lo, close=p, volume=vol,
+                    ))
+                    ts_str = ts.isoformat() if hasattr(ts, "isoformat") else str(ts)
+                    return _make_tile(p, op, hi, lo, vol, ts_str)
+            finally:
+                await adapter.disconnect()
         except Exception:
             pass
 
@@ -152,46 +199,52 @@ async def market_correlations(
     if len(assets) < 2:
         return {**empty_response, "error": "Not enough assets for correlation"}
 
-    # 2. Fetch daily closes — try D1 first, fall back to H1 resampled to daily
+    # 2. Fetch daily closes — try D1, then H4, H1, M30 resampled to daily
     fetch_period = max(period, 90)
     symbol_closes: dict[str, pd.Series] = {}
 
+    # Timeframes to try, in preference order, with candles-per-day multiplier
+    _TF_CHAIN = [
+        (Timeframe.D1, 1),
+        (Timeframe.H4, 6),
+        (Timeframe.H1, 24),
+        (Timeframe.M30, 48),
+        (Timeframe.M15, 96),
+    ]
+
     for asset in assets:
-        # Try D1 first
-        query = (
-            select(OHLCVData.timestamp, OHLCVData.close)
-            .where(OHLCVData.asset_id == asset.id, OHLCVData.timeframe == Timeframe.D1)
-            .order_by(OHLCVData.timestamp.desc())
-            .limit(fetch_period)
-        )
-        rows = await db.execute(query)
-        data = rows.all()
-
-        if len(data) >= 10:
-            series = pd.Series(
-                {row.timestamp: float(row.close) for row in reversed(data)}
+        found = False
+        for tf, cpd in _TF_CHAIN:
+            query = (
+                select(OHLCVData.timestamp, OHLCVData.close)
+                .where(OHLCVData.asset_id == asset.id, OHLCVData.timeframe == tf)
+                .order_by(OHLCVData.timestamp.desc())
+                .limit(fetch_period * cpd)
             )
-            symbol_closes[asset.symbol] = series
+            rows = await db.execute(query)
+            data = rows.all()
+
+            if tf == Timeframe.D1 and len(data) >= 10:
+                series = pd.Series(
+                    {row.timestamp: float(row.close) for row in reversed(data)}
+                )
+                symbol_closes[asset.symbol] = series
+                found = True
+                break
+
+            if tf != Timeframe.D1 and len(data) >= cpd:
+                s = pd.Series(
+                    {row.timestamp: float(row.close) for row in reversed(data)}
+                )
+                s.index = pd.to_datetime(s.index)
+                daily = s.resample("1D").last().dropna()
+                if len(daily) >= 10:
+                    symbol_closes[asset.symbol] = daily
+                    found = True
+                    break
+
+        if found:
             continue
-
-        # Fallback: use H1 data, resample to daily close
-        query = (
-            select(OHLCVData.timestamp, OHLCVData.close)
-            .where(OHLCVData.asset_id == asset.id, OHLCVData.timeframe == Timeframe.H1)
-            .order_by(OHLCVData.timestamp.desc())
-            .limit(fetch_period * 24)  # ~24 candles per day
-        )
-        rows = await db.execute(query)
-        data = rows.all()
-
-        if len(data) >= 24:
-            s = pd.Series(
-                {row.timestamp: float(row.close) for row in reversed(data)}
-            )
-            s.index = pd.to_datetime(s.index)
-            daily = s.resample("1D").last().dropna()
-            if len(daily) >= 10:
-                symbol_closes[asset.symbol] = daily
 
     if len(symbol_closes) < 2:
         return {**empty_response, "error": "Not enough price data for correlation"}

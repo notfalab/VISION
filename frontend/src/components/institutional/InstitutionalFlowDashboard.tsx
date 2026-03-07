@@ -17,7 +17,9 @@ interface SymbolSummary {
 }
 
 function HeatBadge({ score, label }: { score: number | null; label: string | null }) {
-  if (score === null) return <span className="text-xs text-[var(--color-text-muted)]">--</span>;
+  if (score === null || (score === 0 && (!label || label === "No Data"))) {
+    return <span className="text-[10px] text-[var(--color-text-muted)] bg-[var(--color-bg-hover)] px-2 py-0.5 rounded">Awaiting</span>;
+  }
   const color =
     score >= 70 ? "text-[var(--color-bull)] bg-[var(--color-bull)]/10" :
     score >= 40 ? "text-[var(--color-neon-amber)] bg-[var(--color-neon-amber)]/10" :
