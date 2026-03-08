@@ -492,7 +492,7 @@ function MiniChart({ symbol, timeframe, onSymbolChange, onTimeframeChange }: Min
 
   // Overlay rendering
   useEffect(() => {
-    if (loading) return;
+    if (loading || !chartReady) return;
 
     const series = candleSeriesRef.current;
     if (!series) return;
@@ -526,8 +526,7 @@ function MiniChart({ symbol, timeframe, onSymbolChange, onTimeframeChange }: Min
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, activeOverlayKey, symbol, timeframe]);
+  }, [loading, chartReady, activeOverlayKey, symbol, timeframe]);
 
   const isUp = price && price.change >= 0;
 
