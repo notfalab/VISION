@@ -77,8 +77,10 @@ function MiniSparkline({
     ctx.lineTo(0, height);
     ctx.closePath();
     const grad = ctx.createLinearGradient(0, 0, 0, height);
-    grad.addColorStop(0, color + "30");
-    grad.addColorStop(1, color + "05");
+    // Expand short hex (#abc → #aabbcc) so appending alpha digits works
+    const c = color.length === 4 ? `#${color[1]}${color[1]}${color[2]}${color[2]}${color[3]}${color[3]}` : color;
+    grad.addColorStop(0, c + "30");
+    grad.addColorStop(1, c + "05");
     ctx.fillStyle = grad;
     ctx.fill();
   }, [data, color, width, height]);
