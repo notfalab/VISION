@@ -45,6 +45,8 @@ const SYMBOL_GROUPS = {
   ],
 };
 
+const CRYPTO_SET = new Set(SYMBOL_GROUPS["Crypto"]);
+
 const TIMEFRAMES = ["1m", "5m", "15m", "30m", "1h", "4h", "1d"] as const;
 
 const DEFAULT_PANELS = [
@@ -85,6 +87,14 @@ const OVERLAY_ACTIVE_COLORS: Record<OverlayType, string> = {
 
 // ── Overlay data fetcher ──
 
+// Cache 404s for 5 min to avoid spamming broken endpoints
+const _failedCache = new Map<string, number>();
+const FAIL_TTL = 5 * 60_000;
+
+function isCryptoSymbol(s: string) {
+  return CRYPTO_SET.has(s);
+}
+
 async function fetchOverlayLines(
   type: OverlayType,
   symbol: string,
@@ -92,6 +102,14 @@ async function fetchOverlayLines(
   series: ISeriesApi<"Candlestick">,
 ): Promise<any[]> {
   const lines: any[] = [];
+
+  // LIQ is crypto-only
+  if (type === "liq" && !isCryptoSymbol(symbol)) return lines;
+
+  // Skip if this endpoint recently failed (404/500)
+  const cacheKey = `${type}:${symbol}`;
+  const failedAt = _failedCache.get(cacheKey);
+  if (failedAt && Date.now() - failedAt < FAIL_TTL) return lines;
 
   try {
     switch (type) {
@@ -257,7 +275,8 @@ async function fetchOverlayLines(
       }
     }
   } catch {
-    // Silently ignore — overlay data not available for this symbol
+    // Cache the failure to avoid repeated 404 spam
+    _failedCache.set(cacheKey, Date.now());
   }
 
   return lines;
@@ -507,7 +526,8 @@ function MiniChart({ symbol, timeframe, onSymbolChange, onTimeframeChange }: Min
     return () => {
       cancelled = true;
     };
-  }, [loading, chartReady, activeOverlayKey, symbol, timeframe]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, activeOverlayKey, symbol, timeframe]);
 
   const isUp = price && price.change >= 0;
 
