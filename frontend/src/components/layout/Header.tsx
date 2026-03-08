@@ -242,9 +242,9 @@ export default function Header() {
       <div className="md:hidden">
         {/* Row 1: Logo + Community + Theme + User */}
         <div className="flex items-center h-14 px-3">
-          <div className="flex items-center shrink-0">
+          <Link href="/" className="flex items-center shrink-0">
             <Image src="/logo-vision.png" alt="VISION" width={110} height={18} priority />
-          </div>
+          </Link>
 
           <div className="flex items-center gap-3 shrink-0 ml-auto">
             <Link
@@ -408,9 +408,9 @@ export default function Header() {
       {/* ===== Desktop: Single-row layout (md+) ===== */}
       <div className="hidden md:flex items-center h-14 px-4">
         {/* Logo */}
-        <div className="flex items-center shrink-0">
+        <Link href="/" className="flex items-center shrink-0">
           <Image src="/logo-vision.png" alt="VISION" width={130} height={22} priority />
-        </div>
+        </Link>
 
         <div className="h-5 w-px bg-[var(--color-border-primary)] mx-4 shrink-0" />
 

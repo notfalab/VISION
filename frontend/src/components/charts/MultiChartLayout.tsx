@@ -45,8 +45,6 @@ const SYMBOL_GROUPS = {
   ],
 };
 
-const ALL_SYMBOLS = Object.values(SYMBOL_GROUPS).flat();
-
 const TIMEFRAMES = ["1m", "5m", "15m", "30m", "1h", "4h", "1d"] as const;
 
 const DEFAULT_PANELS = [
@@ -63,7 +61,209 @@ const DEFAULT_PANELS = [
 
 type LayoutId = (typeof LAYOUTS)[number]["id"];
 
-// ── Mini Chart Component (interactive, using lightweight-charts) ──
+// ── Overlay types ──
+
+type OverlayType = "liq" | "stops" | "tpsl" | "mbo" | "walls";
+
+const OVERLAY_TYPES: OverlayType[] = ["liq", "stops", "tpsl", "mbo", "walls"];
+
+const OVERLAY_LABELS: Record<OverlayType, string> = {
+  liq: "LIQ",
+  stops: "Stops",
+  tpsl: "TP/SL",
+  mbo: "MBO",
+  walls: "Walls",
+};
+
+const OVERLAY_ACTIVE_COLORS: Record<OverlayType, string> = {
+  liq: "text-orange-400 bg-orange-400/15",
+  stops: "text-amber-400 bg-amber-400/15",
+  tpsl: "text-emerald-400 bg-emerald-400/15",
+  mbo: "text-cyan-400 bg-cyan-400/15",
+  walls: "text-purple-400 bg-purple-400/15",
+};
+
+// ── Overlay data fetcher ──
+
+async function fetchOverlayLines(
+  type: OverlayType,
+  symbol: string,
+  timeframe: string,
+  series: ISeriesApi<"Candlestick">,
+): Promise<any[]> {
+  const lines: any[] = [];
+
+  try {
+    switch (type) {
+      case "liq": {
+        const data = await api.liquidationMap(symbol);
+        if (!data?.levels?.length) return lines;
+        const top = [...data.levels]
+          .sort((a: any, b: any) =>
+            (b.long_liq_usd + b.short_liq_usd) - (a.long_liq_usd + a.short_liq_usd),
+          )
+          .slice(0, 5);
+        for (const level of top) {
+          const isLong = level.long_liq_usd > level.short_liq_usd;
+          lines.push(
+            series.createPriceLine({
+              price: level.price,
+              color: isLong ? "#ef4444a0" : "#10b981a0",
+              lineWidth: 1,
+              lineStyle: LineStyle.Dashed,
+              axisLabelVisible: false,
+              title: isLong ? "LIQ \u2193" : "LIQ \u2191",
+            }),
+          );
+        }
+        break;
+      }
+
+      case "stops": {
+        const data = await api.stopHeatmap(symbol, timeframe);
+        if (!data?.columns?.length || !data.n_levels) return lines;
+        const n = data.n_levels;
+        const sums = new Float64Array(n);
+        for (const col of data.columns) {
+          for (let i = 0; i < Math.min(col.v.length, n); i++) {
+            sums[i] += col.v[i];
+          }
+        }
+        const indexed = Array.from(sums).map((sum, i) => ({ sum, i }));
+        const top = indexed.sort((a, b) => b.sum - a.sum).slice(0, 5);
+        for (const { sum, i } of top) {
+          if (sum === 0) break;
+          const price = data.price_min + i * data.price_step;
+          lines.push(
+            series.createPriceLine({
+              price,
+              color: "#f59e0b90",
+              lineWidth: 1,
+              lineStyle: LineStyle.Dotted,
+              axisLabelVisible: false,
+              title: "Stop",
+            }),
+          );
+        }
+        break;
+      }
+
+      case "tpsl": {
+        const data = await api.tpslHeatmap(symbol);
+        if (!data) return lines;
+        const tps = (data.tp_clusters || [])
+          .sort((a: any, b: any) => b.volume - a.volume)
+          .slice(0, 3);
+        const sls = (data.sl_clusters || [])
+          .sort((a: any, b: any) => b.volume - a.volume)
+          .slice(0, 3);
+        for (const tp of tps) {
+          lines.push(
+            series.createPriceLine({
+              price: tp.price,
+              color: "#10b981a0",
+              lineWidth: 1,
+              lineStyle: LineStyle.SparseDotted,
+              axisLabelVisible: false,
+              title: "TP",
+            }),
+          );
+        }
+        for (const sl of sls) {
+          lines.push(
+            series.createPriceLine({
+              price: sl.price,
+              color: "#ef4444a0",
+              lineWidth: 1,
+              lineStyle: LineStyle.SparseDotted,
+              axisLabelVisible: false,
+              title: "SL",
+            }),
+          );
+        }
+        break;
+      }
+
+      case "mbo": {
+        const data = await api.mboProfile(symbol);
+        if (!data) return lines;
+        const instBids = (data.bids || [])
+          .filter((b: any) => b.segment === "institutional")
+          .slice(0, 3);
+        const instAsks = (data.asks || [])
+          .filter((a: any) => a.segment === "institutional")
+          .slice(0, 3);
+        for (const bid of instBids) {
+          lines.push(
+            series.createPriceLine({
+              price: bid.price,
+              color: "#06b6d4a0",
+              lineWidth: 1,
+              lineStyle: LineStyle.Solid,
+              axisLabelVisible: false,
+              title: "MBO Bid",
+            }),
+          );
+        }
+        for (const ask of instAsks) {
+          lines.push(
+            series.createPriceLine({
+              price: ask.price,
+              color: "#e879f9a0",
+              lineWidth: 1,
+              lineStyle: LineStyle.Solid,
+              axisLabelVisible: false,
+              title: "MBO Ask",
+            }),
+          );
+        }
+        break;
+      }
+
+      case "walls": {
+        const data = await api.deepOrderBook(symbol);
+        if (!data) return lines;
+        const topBids = (data.bids || [])
+          .sort((a: any, b: any) => b.quantity - a.quantity)
+          .slice(0, 3);
+        const topAsks = (data.asks || [])
+          .sort((a: any, b: any) => b.quantity - a.quantity)
+          .slice(0, 3);
+        for (const bid of topBids) {
+          lines.push(
+            series.createPriceLine({
+              price: bid.price,
+              color: "#22c55ea0",
+              lineWidth: 2,
+              lineStyle: LineStyle.Solid,
+              axisLabelVisible: false,
+              title: "Wall",
+            }),
+          );
+        }
+        for (const ask of topAsks) {
+          lines.push(
+            series.createPriceLine({
+              price: ask.price,
+              color: "#f43f5ea0",
+              lineWidth: 2,
+              lineStyle: LineStyle.Solid,
+              axisLabelVisible: false,
+              title: "Wall",
+            }),
+          );
+        }
+        break;
+      }
+    }
+  } catch {
+    // Silently ignore — overlay data not available for this symbol
+  }
+
+  return lines;
+}
+
+// ── Mini Chart Component ──
 
 interface MiniChartProps {
   symbol: string;
@@ -86,10 +286,32 @@ function MiniChart({ symbol, timeframe, onSymbolChange, onTimeframeChange }: Min
   const chartRef = useRef<IChartApi | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+  const overlayLinesRef = useRef<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [price, setPrice] = useState<{ close: number; change: number } | null>(null);
   const [noData, setNoData] = useState(false);
+  const [chartReady, setChartReady] = useState(0);
+  const [overlays, setOverlays] = useState<Record<OverlayType, boolean>>({
+    liq: false,
+    stops: false,
+    tpsl: false,
+    mbo: false,
+    walls: false,
+  });
   const theme = useThemeStore((s) => s.theme);
+
+  const activeOverlayKey = useMemo(
+    () =>
+      Object.entries(overlays)
+        .filter(([, v]) => v)
+        .map(([k]) => k)
+        .join(","),
+    [overlays],
+  );
+
+  const toggleOverlay = useCallback((type: OverlayType) => {
+    setOverlays((prev) => ({ ...prev, [type]: !prev[type] }));
+  }, []);
 
   // Create chart on mount
   useEffect(() => {
@@ -152,12 +374,14 @@ function MiniChart({ symbol, timeframe, onSymbolChange, onTimeframeChange }: Min
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;
     volumeSeriesRef.current = volumeSeries;
+    setChartReady((n) => n + 1);
 
     return () => {
       chart.remove();
       chartRef.current = null;
       candleSeriesRef.current = null;
       volumeSeriesRef.current = null;
+      overlayLinesRef.current = [];
     };
   }, [theme]);
 
@@ -167,11 +391,9 @@ function MiniChart({ symbol, timeframe, onSymbolChange, onTimeframeChange }: Min
     setLoading(true);
     setNoData(false);
 
-    // Try DB data first, then trigger ingestion if empty
     async function loadData() {
       let d: CandleData[] = await api.prices(symbol, timeframe, 200);
 
-      // If no DB data, trigger ingestion and retry
       if (!d || d.length < 2) {
         try {
           await api.fetchPrices(symbol, timeframe, 200);
@@ -188,7 +410,6 @@ function MiniChart({ symbol, timeframe, onSymbolChange, onTimeframeChange }: Min
         return;
       }
 
-      // Sort ASCENDING (API returns DESC) + deduplicate
       const sorted = [...d]
         .filter((c) => c.open > 0 && c.close > 0)
         .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
@@ -217,7 +438,6 @@ function MiniChart({ symbol, timeframe, onSymbolChange, onTimeframeChange }: Min
       volumeSeriesRef.current?.setData(volData);
       chartRef.current?.timeScale().fitContent();
 
-      // Update price display (last = most recent after sort)
       const last = sorted[sorted.length - 1];
       const prev = sorted[sorted.length - 2];
       setPrice({
@@ -235,7 +455,9 @@ function MiniChart({ symbol, timeframe, onSymbolChange, onTimeframeChange }: Min
       }
     });
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [symbol, timeframe]);
 
   // Update price precision when symbol changes
@@ -249,12 +471,50 @@ function MiniChart({ symbol, timeframe, onSymbolChange, onTimeframeChange }: Min
     });
   }, [symbol]);
 
+  // Overlay rendering
+  useEffect(() => {
+    if (loading) return;
+
+    const series = candleSeriesRef.current;
+    if (!series) return;
+
+    // Clear existing overlay lines
+    for (const line of overlayLinesRef.current) {
+      try {
+        series.removePriceLine(line);
+      } catch {}
+    }
+    overlayLinesRef.current = [];
+
+    if (!activeOverlayKey) return;
+
+    let cancelled = false;
+    const s = series; // capture non-null ref for async closure
+
+    async function loadOverlays() {
+      const active = activeOverlayKey.split(",") as OverlayType[];
+      for (const type of active) {
+        if (cancelled) break;
+        const newLines = await fetchOverlayLines(type, symbol, timeframe, s);
+        if (!cancelled) {
+          overlayLinesRef.current.push(...newLines);
+        }
+      }
+    }
+
+    loadOverlays();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loading, chartReady, activeOverlayKey, symbol, timeframe]);
+
   const isUp = price && price.change >= 0;
 
   return (
     <div className="flex flex-col h-full bg-[var(--color-bg-card)] border border-[var(--color-border-primary)] rounded-lg overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-2 px-2 py-1.5 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border-primary)]">
+      <div className="flex items-center gap-1 px-2 py-1 bg-[var(--color-bg-secondary)] border-b border-[var(--color-border-primary)]">
         <select
           value={symbol}
           onChange={(e) => onSymbolChange(e.target.value)}
@@ -277,6 +537,25 @@ function MiniChart({ symbol, timeframe, onSymbolChange, onTimeframeChange }: Min
             <option key={tf} value={tf} className="bg-[var(--color-bg-primary)]">{tf}</option>
           ))}
         </select>
+
+        {/* Overlay toggles */}
+        <div className="flex gap-px ml-1">
+          {OVERLAY_TYPES.map((type) => (
+            <button
+              key={type}
+              onClick={() => toggleOverlay(type)}
+              className={`px-1 py-0.5 rounded text-[7px] font-bold uppercase transition-colors ${
+                overlays[type]
+                  ? OVERLAY_ACTIVE_COLORS[type]
+                  : "text-[var(--color-text-muted)]/40 hover:text-[var(--color-text-muted)]"
+              }`}
+              title={OVERLAY_LABELS[type]}
+            >
+              {OVERLAY_LABELS[type]}
+            </button>
+          ))}
+        </div>
+
         <div className="flex-1" />
         {price && (
           <>
