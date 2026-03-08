@@ -69,6 +69,7 @@ async def delete_alert(
     if not alert:
         raise HTTPException(status_code=404, detail="Alert not found")
     await db.delete(alert)
+    await db.commit()
 
 
 @router.get("/{alert_id}/history")

@@ -171,8 +171,8 @@ async def _forex_price_refresh(logger):
                 try:
                     adapter = data_registry.route_symbol(pair)
                     adapter_pairs.setdefault(adapter.name, []).append(pair)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("route_symbol_failed", pair=pair, error=str(e))
 
             for adapter_name, pairs in adapter_pairs.items():
                 try:
@@ -194,8 +194,8 @@ async def _forex_price_refresh(logger):
                                         volume=float(row["volume"]),
                                     )
                                     await cache_latest_price(pair, candle)
-                            except Exception:
-                                pass  # Don't spam logs every 30s
+                            except Exception as e:
+                                logger.debug("pair_refresh_failed", pair=pair, error=str(e))
                     finally:
                         await adapter.disconnect()
                 except Exception as e:

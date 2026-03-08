@@ -65,15 +65,18 @@ async def cache_latest_price(symbol: str, candle: Candle) -> None:
     """Cache the most recent price for instant lookups."""
     r = await get_redis()
     key = f"latest:{symbol.upper()}"
-    await r.hset(key, mapping={
-        "price": str(candle.close),
-        "open": str(candle.open),
-        "high": str(candle.high),
-        "low": str(candle.low),
-        "volume": str(candle.volume),
-        "timestamp": candle.timestamp.isoformat(),
-    })
-    await r.expire(key, 300)  # 5 min TTL
+    # Use pipeline for atomic hset + expire (no TTL-less key window)
+    async with r.pipeline(transaction=True) as pipe:
+        pipe.hset(key, mapping={
+            "price": str(candle.close),
+            "open": str(candle.open),
+            "high": str(candle.high),
+            "low": str(candle.low),
+            "volume": str(candle.volume),
+            "timestamp": candle.timestamp.isoformat(),
+        })
+        pipe.expire(key, 300)  # 5 min TTL
+        await pipe.execute()
 
 
 async def get_latest_price(symbol: str) -> dict | None:

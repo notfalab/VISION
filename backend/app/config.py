@@ -133,4 +133,11 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    s = Settings()
+    # Block default secrets in production
+    if s.app_env == "production":
+        if s.jwt_secret_key in ("change-me-jwt-secret", ""):
+            raise RuntimeError("FATAL: JWT_SECRET_KEY must be set in production. Do not use default.")
+        if s.secret_key in ("change-me-to-a-random-string-in-production", ""):
+            raise RuntimeError("FATAL: SECRET_KEY must be set in production. Do not use default.")
+    return s

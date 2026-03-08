@@ -100,6 +100,12 @@ class OandaAdapter(DataSourceAdapter):
 
     async def connect(self) -> None:
         """Initialize connection and auto-detect account ID."""
+        # Guard against double connect — close existing client first
+        if self._client:
+            try:
+                await self._client.aclose()
+            except Exception:
+                pass
         self._client = httpx.AsyncClient(timeout=30.0, headers=self._headers())
         logger.info("connecting", adapter=self.name)
 

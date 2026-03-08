@@ -221,5 +221,8 @@ class BinanceAdapter(DataSourceAdapter):
                     )
                     await callback(candle)
             except websockets.ConnectionClosed:
-                logger.warning("ws_reconnecting", symbol=symbol)
+                logger.warning("ws_reconnecting", symbol=symbol, reason="connection_closed")
+                continue
+            except Exception as e:
+                logger.warning("ws_error_reconnecting", symbol=symbol, error=str(e))
                 continue

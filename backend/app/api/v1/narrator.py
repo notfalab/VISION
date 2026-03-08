@@ -20,7 +20,10 @@ async def _fetch_ohlcv_df(db, symbol: str, timeframe: str, limit: int = 200):
     if not asset:
         return None, None
 
-    tf = Timeframe(timeframe)
+    try:
+        tf = Timeframe(timeframe)
+    except ValueError:
+        return asset, None
     rows = await db.execute(
         select(OHLCVData)
         .where(OHLCVData.asset_id == asset.id, OHLCVData.timeframe == tf)

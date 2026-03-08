@@ -28,8 +28,14 @@ class DataSourceRegistry:
             raise KeyError(f"Adapter '{name}' not registered. Available: {list(self._adapters)}")
         return self._adapters[name]
 
-    # Known crypto base currencies for auto-detection
-    _CRYPTO_BASES = {"BTC", "ETH", "SOL", "XRP", "BNB", "ADA", "DOGE", "DOT", "AVAX", "MATIC", "LINK", "UNI"}
+    # Known crypto base currencies for auto-detection (must match platform's full crypto list)
+    _CRYPTO_BASES = {
+        "BTC", "ETH", "SOL", "XRP", "BNB", "ADA", "DOGE", "DOT", "AVAX",
+        "MATIC", "LINK", "UNI", "LTC", "NEAR", "SUI", "TRX", "PEPE", "SHIB",
+        "AAVE", "TAO", "BCH", "ICP", "APT", "HBAR", "FIL", "XLM", "ARB",
+        "SEI", "TON", "ONDO", "BONK", "ENA", "WLD", "TIA", "RENDER", "FTM",
+        "INJ", "OP", "ATOM", "WIF",
+    }
 
     # Known forex base currencies
     _FOREX_BASES = {"EUR", "GBP", "USD", "JPY", "AUD", "CAD", "NZD", "CHF"}
@@ -102,6 +108,11 @@ class DataSourceRegistry:
                         return ob
                 except Exception as e:
                     logger.warning("orderbook_failed", symbol=symbol, adapter=name, error=str(e))
+                finally:
+                    try:
+                        await adapter.disconnect()
+                    except Exception:
+                        pass
 
         # 2. Try the primary symbol adapter
         try:
@@ -109,11 +120,17 @@ class DataSourceRegistry:
             if primary.name not in tried:
                 tried.add(primary.name)
                 await primary.connect()
-                ob = await primary.fetch_orderbook(symbol, depth)
-                if ob and ob.bids and ob.asks:
-                    logger.info("orderbook_real", symbol=symbol, adapter=primary.name,
-                                bids=len(ob.bids), asks=len(ob.asks))
-                    return ob
+                try:
+                    ob = await primary.fetch_orderbook(symbol, depth)
+                    if ob and ob.bids and ob.asks:
+                        logger.info("orderbook_real", symbol=symbol, adapter=primary.name,
+                                    bids=len(ob.bids), asks=len(ob.asks))
+                        return ob
+                finally:
+                    try:
+                        await primary.disconnect()
+                    except Exception:
+                        pass
         except Exception as e:
             logger.warning("orderbook_primary_failed", symbol=symbol, error=str(e))
 
@@ -130,6 +147,11 @@ class DataSourceRegistry:
                     return ob
             except Exception:
                 continue
+            finally:
+                try:
+                    await adapter.disconnect()
+                except Exception:
+                    pass
 
         logger.warning("no_real_orderbook_available", symbol=symbol)
         return None
