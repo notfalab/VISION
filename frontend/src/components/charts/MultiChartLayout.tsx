@@ -611,7 +611,7 @@ function MiniChart({ symbol, timeframe, onSymbolChange, onTimeframeChange }: Min
 
 export default function MultiChartLayout() {
   const [layoutId, setLayoutId] = useState<LayoutId>("2x2");
-  const [syncTf, setSyncTf] = useState(true);
+  const [syncTf, setSyncTf] = useState(false);
   const [panels, setPanels] = useState(DEFAULT_PANELS.map((p, i) => ({ ...p, id: i })));
 
   const layout = LAYOUTS.find((l) => l.id === layoutId)!;
