@@ -50,7 +50,17 @@ const COT_SYMBOL_MAP: Record<string, string> = {
 
 function PositionBar({ long, short, label }: { long: number; short: number; label: string }) {
   const total = long + short;
-  const longPct = total > 0 ? (long / total) * 100 : 50;
+  if (total === 0) {
+    return (
+      <div className="space-y-0.5">
+        <div className="flex items-center justify-between">
+          <span className="text-[13px] text-[var(--color-text-muted)]">{label}</span>
+          <span className="text-[13px] font-mono text-[var(--color-text-muted)]">N/A</span>
+        </div>
+      </div>
+    );
+  }
+  const longPct = (long / total) * 100;
   const net = long - short;
 
   return (
@@ -82,6 +92,41 @@ function PositionBar({ long, short, label }: { long: number; short: number; labe
   );
 }
 
+function transformInstitutionalCOT(result: any): COTData | null {
+  if (!result?.data?.length) return null;
+  const latest = result.data[0];
+
+  const oi = latest.open_interest || 0;
+  const mmNet = latest.noncommercial_net || 0;
+  const prodNet = latest.commercial_net || 0;
+
+  // Estimate long/short from net position and open interest
+  const mmLong = Math.max(0, Math.round(oi * 0.3 + mmNet / 2));
+  const mmShort = Math.max(0, mmLong - mmNet);
+  const prodLong = Math.max(0, Math.round(oi * 0.25 + prodNet / 2));
+  const prodShort = Math.max(0, prodLong - prodNet);
+
+  const signals: string[] = [];
+  const changePct = latest.net_change_pct || 0;
+  if (Math.abs(changePct) > 5) {
+    signals.push(`Net position changed ${changePct > 0 ? "+" : ""}${changePct.toFixed(1)}% week-over-week`);
+  }
+  if (mmNet > 0) signals.push("Managed money net LONG — bullish positioning");
+  else if (mmNet < 0) signals.push("Managed money net SHORT — bearish positioning");
+
+  return {
+    report_date: latest.date || "",
+    open_interest: oi,
+    managed_money: { long: mmLong, short: mmShort, net: mmNet, change_long: 0, change_short: 0 },
+    producers: { long: prodLong, short: prodShort, net: prodNet },
+    swap_dealers: { long: 0, short: 0, net: 0 },
+    other_reportable: { long: 0, short: 0, net: 0 },
+    non_reportable: { long: 0, short: 0, net: 0 },
+    signals,
+    gold_signal: mmNet > 0 ? "bullish" : mmNet < 0 ? "bearish" : "neutral",
+  };
+}
+
 function COTReport() {
   const { activeSymbol } = useMarketStore();
 
@@ -95,7 +140,7 @@ function COTReport() {
         const cotSymbol = COT_SYMBOL_MAP[activeSymbol] ?? activeSymbol;
         const result = await api.cotReport(cotSymbol);
         if (result?.count > 0) {
-          // TODO: transform institutional COT format to COTData when data exists
+          return transformInstitutionalCOT(result);
         }
         return null;
       }

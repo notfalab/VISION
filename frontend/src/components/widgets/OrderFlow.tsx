@@ -1,11 +1,12 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import { ArrowDownUp, ShieldAlert, TrendingUp, TrendingDown } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
 import { useApiData } from "@/hooks/useApiData";
 import RefreshIndicator from "@/components/RefreshIndicator";
+import TimeframeSelector from "@/components/widgets/TimeframeSelector";
 
 interface FlowData {
   delta: number;
@@ -60,11 +61,12 @@ const SIGNAL_CONFIG: Record<
 };
 
 function OrderFlow() {
-  const { activeSymbol } = useMarketStore();
+  const { activeSymbol, activeTimeframe } = useMarketStore();
+  const [localTf, setLocalTf] = useState<string>(activeTimeframe);
   const { data, loading, error } = useApiData<FlowData>(
     () => api.orderFlow(activeSymbol),
-    [activeSymbol],
-    { interval: 120_000, key: `orderFlow:${activeSymbol}` }
+    [activeSymbol, localTf],
+    { interval: 120_000, key: `orderFlow:${activeSymbol}:${localTf}` }
   );
 
   if (loading && !data) {
@@ -113,8 +115,10 @@ function OrderFlow() {
         <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
           Order Flow
         </h3>
+        <span className="ml-auto" />
+        <TimeframeSelector value={localTf} onChange={setLocalTf} />
         <span
-          className="text-[11px] font-mono px-1.5 py-0.5 rounded uppercase font-bold ml-auto"
+          className="text-[11px] font-mono px-1.5 py-0.5 rounded uppercase font-bold"
           style={{
             color: sig.color,
             backgroundColor: `color-mix(in srgb, ${sig.color} 12%, transparent)`,

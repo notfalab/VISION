@@ -85,11 +85,11 @@ function ZonesOverlay() {
               expanded={expanded.sd}
               onToggle={() => toggleSection("sd")}
             >
-              {zones.demand.length === 0 && zones.supply.length === 0 ? (
+              {(zones.demand || []).length === 0 && (zones.supply || []).length === 0 ? (
                 <p className="text-[10px] text-[var(--color-text-muted)] px-2 py-1">No active zones</p>
               ) : (
                 <div className="space-y-1">
-                  {zones.demand.map((z, i) => (
+                  {(zones.demand || []).map((z, i) => (
                     <ZoneBar
                       key={`d-${i}`}
                       label="DEMAND"
@@ -101,7 +101,7 @@ function ZonesOverlay() {
                       currentPrice={currentPrice}
                     />
                   ))}
-                  {zones.supply.map((z, i) => (
+                  {(zones.supply || []).map((z, i) => (
                     <ZoneBar
                       key={`s-${i}`}
                       label="SUPPLY"
@@ -125,7 +125,7 @@ function ZonesOverlay() {
               onToggle={() => toggleSection("sr")}
             >
               <div className="space-y-0.5">
-                {zones.resistance.slice(0, 3).map((r, i) => (
+                {(zones.resistance || []).slice(0, 3).map((r, i) => (
                   <LevelRow
                     key={`r-${i}`}
                     label={`R${i + 1}`}
@@ -144,7 +144,7 @@ function ZonesOverlay() {
                     </span>
                   </div>
                 )}
-                {zones.support.slice(0, 3).map((s, i) => (
+                {(zones.support || []).slice(0, 3).map((s, i) => (
                   <LevelRow
                     key={`s-${i}`}
                     label={`S${i + 1}`}
@@ -159,7 +159,7 @@ function ZonesOverlay() {
             </Section>
 
             {/* Smart Money Concepts */}
-            {(zones.order_blocks.length > 0 || zones.fvg.length > 0) && (
+            {((zones.order_blocks || []).length > 0 || (zones.fvg || []).length > 0) && (
               <Section
                 title="Smart Money"
                 icon={<Zap className="w-3.5 h-3.5 text-[var(--color-neon-orange)]" />}
@@ -167,7 +167,7 @@ function ZonesOverlay() {
                 onToggle={() => toggleSection("smc")}
               >
                 <div className="space-y-1">
-                  {zones.order_blocks.filter((ob) => ob.active).slice(0, 3).map((ob, i) => (
+                  {(zones.order_blocks || []).filter((ob) => ob.active).slice(0, 3).map((ob, i) => (
                     <ZoneBar
                       key={`ob-${i}`}
                       label={`OB ${ob.type === "bullish" ? "Bull" : "Bear"}`}
@@ -179,7 +179,7 @@ function ZonesOverlay() {
                       currentPrice={currentPrice}
                     />
                   ))}
-                  {zones.fvg.filter((f) => !f.filled).slice(0, 3).map((f, i) => (
+                  {(zones.fvg || []).filter((f) => !f.filled).slice(0, 3).map((f, i) => (
                     <ZoneBar
                       key={`fvg-${i}`}
                       label={`FVG ${f.type === "bullish" ? "Bull" : "Bear"}`}

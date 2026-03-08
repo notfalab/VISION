@@ -42,6 +42,10 @@ import { LiquidationHeatmapPrimitive } from "./primitives/LiquidationHeatmapPrim
 import { StopHeatmapPrimitive } from "./primitives/StopHeatmapPrimitive";
 import { MBOProfilePrimitive } from "./primitives/MBOProfilePrimitive";
 import { getMarketType } from "@/stores/market";
+import { toast } from "sonner";
+import { Camera } from "lucide-react";
+import DrawingToolbar, { type DrawingMode } from "./DrawingToolbar";
+import { TrendLinePrimitive, type TrendLineData } from "./primitives/TrendLinePrimitive";
 
 const TIMEFRAMES: { label: string; value: Timeframe }[] = [
   { label: "1m", value: "1m" },
@@ -174,6 +178,7 @@ export default function PriceChart() {
   const { activeSymbol, activeTimeframe, setActiveTimeframe, setCandles, candles, livePrices, chartExpanded, toggleChartExpanded } = useMarketStore();
   const theme = useThemeStore((s) => s.theme);
   const [data, setData] = useState<OHLCV[]>([]);
+  const hasData = data.length > 0;
   const [loading, setLoading] = useState(false);
   const [hoveredCandle, setHoveredCandle] = useState<OHLCV | null>(null);
   const [isLive, setIsLive] = useState(false);
@@ -185,8 +190,42 @@ export default function PriceChart() {
   const [showWalls, setShowWalls] = useState(false);
   const wallLinesRef = useRef<any[]>([]);
   const [isPannedAway, _setIsPannedAway] = useState(false);
+
+  const handleScreenshot = useCallback(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    const canvas = chart.takeScreenshot();
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      if (navigator.clipboard && typeof ClipboardItem !== "undefined") {
+        navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]).then(
+          () => toast.success("Chart copied to clipboard"),
+          () => downloadChartBlob(blob),
+        );
+      } else {
+        downloadChartBlob(blob);
+      }
+    }, "image/png");
+  }, []);
+
+  const downloadChartBlob = useCallback((blob: Blob) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `VISION_${activeSymbol}_${activeTimeframe}_${new Date().toISOString().slice(0, 10)}.png`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Chart downloaded");
+  }, [activeSymbol, activeTimeframe]);
   const isPannedRef = useRef(false);
   const [countdown, setCountdown] = useState("");
+
+  // Drawing tools state
+  const [drawingMode, setDrawingMode] = useState<DrawingMode>("none");
+  const [drawings, setDrawings] = useState<{ type: string; id: string; price?: number; line?: TrendLineData }[]>([]);
+  const [pendingPoint, setPendingPoint] = useState<{ time: number; price: number } | null>(null);
+  const trendLinePrimRef = useRef<TrendLinePrimitive | null>(null);
+  const hLinesRef = useRef<any[]>([]);
 
   // Zone state
   const [zones, setZones] = useState<AccZone[]>([]);
@@ -368,6 +407,11 @@ export default function PriceChart() {
     stopPrimRef.current = stopPrim;
     mboPrimRef.current = mboPrim;
 
+    // Drawing tools primitive
+    const trendPrim = new TrendLinePrimitive();
+    candleSeries.attachPrimitive(trendPrim);
+    trendLinePrimRef.current = trendPrim;
+
     return () => {
       chart.remove();
       chartRef.current = null;
@@ -383,8 +427,129 @@ export default function PriceChart() {
       liqPrimRef.current = null;
       stopPrimRef.current = null;
       mboPrimRef.current = null;
+      trendLinePrimRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Drawing click handler
+  useEffect(() => {
+    const chart = chartRef.current;
+    const series = candleSeriesRef.current;
+    if (!chart || !series || drawingMode === "none") return;
+
+    const container = chartContainerRef.current;
+    if (container) container.style.cursor = "crosshair";
+
+    const handler = (param: any) => {
+      if (!param.point || !param.time) return;
+      const price = series.coordinateToPrice(param.point.y);
+      if (price === null) return;
+      const time = param.time as number;
+
+      if (drawingMode === "hline") {
+        const id = crypto.randomUUID();
+        const priceLine = series.createPriceLine({
+          price,
+          color: "#f59e0b",
+          lineWidth: 1,
+          lineStyle: 2,
+          axisLabelVisible: true,
+          title: "",
+        });
+        hLinesRef.current.push({ id, priceLine });
+        setDrawings((prev) => [...prev, { type: "hline", id, price }]);
+        setDrawingMode("none");
+      } else if (drawingMode === "trendline") {
+        if (!pendingPoint) {
+          setPendingPoint({ time, price });
+        } else {
+          const id = crypto.randomUUID();
+          const lineData: TrendLineData = {
+            id,
+            p1: pendingPoint,
+            p2: { time, price },
+            color: "#3b82f6",
+            lineWidth: 1,
+          };
+          trendLinePrimRef.current?.addLine(lineData);
+          setDrawings((prev) => [...prev, { type: "trendline", id, line: lineData }]);
+          setPendingPoint(null);
+          setDrawingMode("none");
+        }
+      }
+    };
+
+    chart.subscribeClick(handler);
+    return () => {
+      chart.unsubscribeClick(handler);
+      if (container) container.style.cursor = "";
+    };
+  }, [drawingMode, pendingPoint]);
+
+  // Persist drawings per symbol
+  useEffect(() => {
+    if (drawings.length > 0) {
+      localStorage.setItem(`vision_drawings_${activeSymbol}`, JSON.stringify(drawings));
+    } else {
+      localStorage.removeItem(`vision_drawings_${activeSymbol}`);
+    }
+  }, [drawings, activeSymbol]);
+
+  // Restore drawings when symbol changes
+  useEffect(() => {
+    // Clear existing drawings from chart
+    const series = candleSeriesRef.current;
+    if (series) {
+      for (const entry of hLinesRef.current) {
+        try { series.removePriceLine(entry.priceLine); } catch {}
+      }
+    }
+    hLinesRef.current = [];
+    trendLinePrimRef.current?.setLines([]);
+
+    // Load from localStorage
+    const stored = localStorage.getItem(`vision_drawings_${activeSymbol}`);
+    if (!stored || !series) { setDrawings([]); return; }
+    try {
+      const parsed = JSON.parse(stored);
+      const restoredDrawings: typeof drawings = [];
+      for (const d of parsed) {
+        if (d.type === "hline" && d.price) {
+          const priceLine = series.createPriceLine({
+            price: d.price,
+            color: "#f59e0b",
+            lineWidth: 1,
+            lineStyle: 2,
+            axisLabelVisible: true,
+            title: "",
+          });
+          hLinesRef.current.push({ id: d.id, priceLine });
+          restoredDrawings.push(d);
+        } else if (d.type === "trendline" && d.line) {
+          trendLinePrimRef.current?.addLine(d.line);
+          restoredDrawings.push(d);
+        }
+      }
+      setDrawings(restoredDrawings);
+    } catch {
+      setDrawings([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSymbol]);
+
+  const clearAllDrawings = useCallback(() => {
+    const series = candleSeriesRef.current;
+    if (series) {
+      for (const entry of hLinesRef.current) {
+        try { series.removePriceLine(entry.priceLine); } catch {}
+      }
+    }
+    hLinesRef.current = [];
+    trendLinePrimRef.current?.setLines([]);
+    setDrawings([]);
+    setPendingPoint(null);
+    setDrawingMode("none");
   }, []);
 
   /* ──────────────────────────────────────────────────
@@ -726,7 +891,7 @@ export default function PriceChart() {
       setIsLive(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canStream, activeSymbol, activeTimeframe, data.length > 0]);
+  }, [canStream, activeSymbol, activeTimeframe, hasData]);
 
   /* ──────────────────────────────────────────────────
      REST polling for non-Binance (forex, gold)
@@ -820,7 +985,7 @@ export default function PriceChart() {
       setIsLive(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canStream, activeSymbol, activeTimeframe, data.length > 0]);
+  }, [canStream, activeSymbol, activeTimeframe, hasData]);
 
   /* ──────────────────────────────────────────────────
      Pattern markers
@@ -1182,8 +1347,15 @@ export default function PriceChart() {
             {" zones"}
           </span>
         )}
-        {/* Spacer + Expand button — always visible */}
+        {/* Spacer + Screenshot + Expand button */}
         <div className="flex-1" />
+        <button
+          onClick={handleScreenshot}
+          className="shrink-0 px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[28px] md:min-h-[32px] border-[var(--color-border-primary)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+          title="Screenshot (copy to clipboard)"
+        >
+          <Camera className="w-3.5 h-3.5" />
+        </button>
         <button
           onClick={toggleChartExpanded}
           className={`
@@ -1276,6 +1448,14 @@ export default function PriceChart() {
           >
             Walls
           </button>
+          {/* Separator — Drawing Tools */}
+          <div className="w-px h-5 bg-[var(--color-border-primary)] shrink-0 mx-0.5" />
+          <DrawingToolbar
+            mode={drawingMode}
+            onModeChange={setDrawingMode}
+            onClearAll={clearAllDrawings}
+            drawingCount={drawings.length}
+          />
           {/* Separator */}
           <div className="w-px h-5 bg-[var(--color-border-primary)] shrink-0 mx-0.5" />
           {/* Timeframe selector */}

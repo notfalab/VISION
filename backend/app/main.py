@@ -20,7 +20,7 @@ SCAN_INTERVAL = 300  # 5 minutes
 # ── Cache-Control header rules (prefix → header value) ──
 _CACHE_RULES = [
     ("/api/v1/institutional/cot", "public, max-age=3600"),    # 1 hour
-    ("/api/v1/macro/",            "public, max-age=300"),      # 5 min
+    ("/api/v1/macro/",            "public, max-age=3600"),     # 1 hour
     ("/api/v1/calendar/events",   "public, max-age=120"),      # 2 min
     ("/api/v1/narrator/",         "public, max-age=60"),       # 1 min
     ("/api/v1/news/sentiment",    "public, max-age=60"),       # 1 min

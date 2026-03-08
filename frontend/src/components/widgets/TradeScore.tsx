@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import {
   Zap,
   TrendingUp,
@@ -15,6 +15,7 @@ import {
 import { useMarketStore, getMarketType } from "@/stores/market";
 import { api } from "@/lib/api";
 import { useApiData } from "@/hooks/useApiData";
+import TimeframeSelector from "@/components/widgets/TimeframeSelector";
 
 interface RegimeData {
   regime: string;
@@ -83,15 +84,16 @@ const DIRECTION_CONFIG: Record<string, { label: string; color: string; icon: typ
 
 function TradeScore() {
   const { activeSymbol, activeTimeframe } = useMarketStore();
+  const [localTf, setLocalTf] = useState<string>(activeTimeframe);
 
   const { data: scoreData, loading, error } = useApiData<{ result: CompositeResult; regime: RegimeData | null }>(
     async () => {
       try {
         // Ensure price data exists for this timeframe
-        await api.fetchPrices(activeSymbol, activeTimeframe, 200);
+        await api.fetchPrices(activeSymbol, localTf, 200);
         const [compositeData, regimeData] = await Promise.allSettled([
-          api.compositeScore(activeSymbol, activeTimeframe),
-          api.mlRegime(activeSymbol, activeTimeframe),
+          api.compositeScore(activeSymbol, localTf),
+          api.mlRegime(activeSymbol, localTf),
         ]);
         const result = compositeData.status === "fulfilled" ? compositeData.value : null;
         const regime = regimeData.status === "fulfilled" ? regimeData.value : null;
@@ -99,7 +101,7 @@ function TradeScore() {
       } catch {
         // Fallback to basic indicators
         try {
-          const data = await api.indicators(activeSymbol, activeTimeframe, 200);
+          const data = await api.indicators(activeSymbol, localTf, 200);
           const indicators = data?.indicators || [];
           return { result: computeFallbackScore(indicators, activeSymbol), regime: null };
         } catch {
@@ -108,8 +110,8 @@ function TradeScore() {
       }
       return null;
     },
-    [activeSymbol, activeTimeframe],
-    { interval: 120_000, key: `tradeScore:${activeSymbol}:${activeTimeframe}` },
+    [activeSymbol, localTf],
+    { interval: 120_000, key: `tradeScore:${activeSymbol}:${localTf}` },
   );
 
   const result = scoreData?.result ?? null;
@@ -186,8 +188,10 @@ function TradeScore() {
             {regime.regime.replace(/_/g, " ")}
           </span>
         )}
+        <span className="ml-auto" />
+        <TimeframeSelector value={localTf} onChange={setLocalTf} />
         <span
-          className="text-[12px] font-mono px-1.5 py-0.5 rounded ml-auto uppercase font-bold"
+          className="text-[12px] font-mono px-1.5 py-0.5 rounded uppercase font-bold"
           style={{
             color: scoreColor,
             backgroundColor: `color-mix(in srgb, ${scoreColor} 12%, transparent)`,

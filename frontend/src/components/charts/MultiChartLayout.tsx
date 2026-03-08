@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { LayoutGrid, Link2, Link2Off, Clock } from "lucide-react";
+import { LayoutGrid, Link2, Link2Off, Clock, Camera } from "lucide-react";
+import { toast } from "sonner";
 import Header from "@/components/layout/Header";
 import { api } from "@/lib/api";
 import { useThemeStore, THEME_CANVAS } from "@/stores/theme";
@@ -332,6 +333,22 @@ function MiniChart({ symbol, timeframe, onSymbolChange, onTimeframeChange }: Min
     setOverlays((prev) => ({ ...prev, [type]: !prev[type] }));
   }, []);
 
+  const handleScreenshot = useCallback(() => {
+    const chart = chartRef.current;
+    if (!chart) return;
+    const canvas = chart.takeScreenshot();
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `VISION_${symbol}_${timeframe}.png`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success(`${symbol} chart saved`);
+    }, "image/png");
+  }, [symbol, timeframe]);
+
   // Create chart on mount
   useEffect(() => {
     const el = containerRef.current;
@@ -576,6 +593,13 @@ function MiniChart({ symbol, timeframe, onSymbolChange, onTimeframeChange }: Min
         </div>
 
         <div className="flex-1" />
+        <button
+          onClick={handleScreenshot}
+          className="p-0.5 rounded hover:bg-[var(--color-bg-hover)] transition-colors"
+          title="Screenshot"
+        >
+          <Camera className="w-3 h-3 text-[var(--color-text-muted)]" />
+        </button>
         {price && (
           <>
             <span className="text-[10px] font-mono font-bold text-[var(--color-text-primary)]">

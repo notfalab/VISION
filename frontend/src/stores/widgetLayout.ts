@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 const STORAGE_KEY = "vision_widget_order";
+const HIDDEN_KEY = "vision_hidden_widgets";
 
 /** Default widget order — matches the DashboardContent section layout */
 export const DEFAULT_WIDGET_ORDER = [
@@ -18,7 +19,9 @@ export const DEFAULT_WIDGET_ORDER = [
 
 interface WidgetLayoutState {
   widgetOrder: string[];
+  hiddenWidgets: string[];
   setWidgetOrder: (order: string[]) => void;
+  toggleWidget: (id: string) => void;
   resetOrder: () => void;
 }
 
@@ -41,14 +44,37 @@ function readStored(): string[] {
   return DEFAULT_WIDGET_ORDER;
 }
 
+function readHidden(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const stored = localStorage.getItem(HIDDEN_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch { /* ignore */ }
+  return [];
+}
+
 export const useWidgetLayoutStore = create<WidgetLayoutState>((set) => ({
   widgetOrder: readStored(),
+  hiddenWidgets: readHidden(),
   setWidgetOrder: (order) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(order));
     set({ widgetOrder: order });
   },
+  toggleWidget: (id) => {
+    set((state) => {
+      const next = state.hiddenWidgets.includes(id)
+        ? state.hiddenWidgets.filter((w) => w !== id)
+        : [...state.hiddenWidgets, id];
+      localStorage.setItem(HIDDEN_KEY, JSON.stringify(next));
+      return { hiddenWidgets: next };
+    });
+  },
   resetOrder: () => {
     localStorage.removeItem(STORAGE_KEY);
-    set({ widgetOrder: DEFAULT_WIDGET_ORDER });
+    localStorage.removeItem(HIDDEN_KEY);
+    set({ widgetOrder: DEFAULT_WIDGET_ORDER, hiddenWidgets: [] });
   },
 }));

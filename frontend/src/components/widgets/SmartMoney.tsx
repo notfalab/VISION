@@ -1,11 +1,12 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Brain, Target, ArrowUpDown, Flame } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
 import { formatPrice } from "@/lib/format";
 import { useApiData } from "@/hooks/useApiData";
+import TimeframeSelector from "@/components/widgets/TimeframeSelector";
 
 interface SMCData {
   classification: string;
@@ -48,14 +49,15 @@ interface KeyLevelsData {
 
 function SmartMoney() {
   const { activeSymbol, activeTimeframe } = useMarketStore();
+  const [localTf, setLocalTf] = useState<string>(activeTimeframe);
 
   const { data: smData, loading } = useApiData<{ smc: SMCData | null; levels: KeyLevelsData | null; heat: HeatData | null }>(
     async () => {
       // Ensure price data exists for this timeframe
-      await api.fetchPrices(activeSymbol, activeTimeframe, 200);
+      await api.fetchPrices(activeSymbol, localTf, 200);
       const [indData, heatData] = await Promise.allSettled([
-        api.indicators(activeSymbol, activeTimeframe, 200),
-        api.institutionalHeat(activeSymbol, activeTimeframe),
+        api.indicators(activeSymbol, localTf, 200),
+        api.institutionalHeat(activeSymbol, localTf),
       ]);
       let smc: SMCData | null = null;
       let levels: KeyLevelsData | null = null;
@@ -69,8 +71,8 @@ function SmartMoney() {
       const heat = heatData.status === "fulfilled" ? heatData.value : null;
       return { smc, levels, heat };
     },
-    [activeSymbol, activeTimeframe],
-    { interval: 120_000, key: `smartMoney:${activeSymbol}:${activeTimeframe}` },
+    [activeSymbol, localTf],
+    { interval: 120_000, key: `smartMoney:${activeSymbol}:${localTf}` },
   );
 
   const smc = smData?.smc ?? null;
@@ -99,9 +101,11 @@ function SmartMoney() {
         <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
           Smart Money & Levels
         </h3>
+        <span className="ml-auto" />
+        <TimeframeSelector value={localTf} onChange={setLocalTf} />
         {smc && (
           <span
-            className="text-[12px] font-mono px-1.5 py-0.5 rounded ml-auto uppercase font-bold"
+            className="text-[12px] font-mono px-1.5 py-0.5 rounded uppercase font-bold"
             style={{ color: trendColor, backgroundColor: `color-mix(in srgb, ${trendColor} 12%, transparent)` }}
           >
             {smc.confidence}% conf

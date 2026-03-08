@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useTransition } from "react";
-import { ChevronDown, LogOut, User, Palette, GraduationCap, Shield, Map as MapIcon, Building2, Grid3X3, LayoutGrid } from "lucide-react";
+import { ChevronDown, LogOut, User, Palette, GraduationCap, Shield, Map as MapIcon, Building2, Grid3X3, LayoutGrid, Bell } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -140,6 +140,14 @@ export default function Header() {
   const userMenuRef = useRef<HTMLDivElement>(null);
   const wsConnected = useRef(false);
 
+  // Signal notifications (PRO only)
+  const [signals, setSignals] = useState<any[]>([]);
+  const [signalCount, setSignalCount] = useState(0);
+  const [bellOpen, setBellOpen] = useState(false);
+  const bellRef = useRef<HTMLDivElement>(null);
+  const alertWsRef = useRef<WebSocket | null>(null);
+  const isPro = user?.has_access === true;
+
   // Connect Binance WebSocket for real-time prices (gold, crypto)
   useEffect(() => {
     if (wsConnected.current) return;
@@ -203,9 +211,46 @@ export default function Header() {
     return () => clearInterval(t);
   }, []);
 
+  // Connect to /ws/alerts for signal notifications (PRO only)
+  useEffect(() => {
+    if (!isPro) return;
+    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    const wsUrl = apiBase.replace(/^https?:/, proto).replace(/\/api\/v1\/?$/, "") + "/ws/alerts";
+    let ws: WebSocket;
+    let reconnectTimer: ReturnType<typeof setTimeout>;
+
+    function connect() {
+      try {
+        ws = new WebSocket(wsUrl);
+        alertWsRef.current = ws;
+        ws.onmessage = (ev) => {
+          try {
+            const msg = JSON.parse(ev.data);
+            if (msg.type === "signal" && msg.data) {
+              setSignals((prev) => [msg.data, ...prev].slice(0, 20));
+              setSignalCount((c) => c + 1);
+            }
+          } catch { /* ignore */ }
+        };
+        ws.onclose = () => {
+          reconnectTimer = setTimeout(connect, 10000);
+        };
+        ws.onerror = () => ws.close();
+      } catch { /* ignore */ }
+    }
+
+    connect();
+    return () => {
+      clearTimeout(reconnectTimer);
+      ws?.close();
+      alertWsRef.current = null;
+    };
+  }, [isPro]);
+
   // Close dropdowns on click outside
   useEffect(() => {
-    if (!selectorOpen && !cryptoOpen && !userMenuOpen) return;
+    if (!selectorOpen && !cryptoOpen && !userMenuOpen && !bellOpen) return;
     const handler = (e: MouseEvent) => {
       if (selectorOpen) {
         const inDesktop = selectorRef.current?.contains(e.target as Node);
@@ -220,10 +265,13 @@ export default function Header() {
       if (userMenuOpen && userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setUserMenuOpen(false);
       }
+      if (bellOpen && bellRef.current && !bellRef.current.contains(e.target as Node)) {
+        setBellOpen(false);
+      }
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [selectorOpen, cryptoOpen, userMenuOpen]);
+  }, [selectorOpen, cryptoOpen, userMenuOpen, bellOpen]);
 
   const cryptoMatch = CRYPTO_OPTIONS.find((c) => c.symbol === activeSymbol);
   const activeOption = ASSET_OPTIONS.find((a) => a.symbol === activeSymbol)
@@ -419,6 +467,7 @@ export default function Header() {
           <div className="relative" ref={selectorRef}>
             <button
               onClick={() => setSelectorOpen(!selectorOpen)}
+              data-tour="symbol-selector"
               className="flex items-center gap-1 px-2 py-1 rounded text-[12px] font-mono font-semibold transition-colors hover:bg-[var(--color-bg-hover)] border border-transparent hover:border-[var(--color-border-primary)] text-[var(--color-text-primary)]"
             >
               {activeOption.label}
@@ -509,6 +558,7 @@ export default function Header() {
         <div className="flex items-center gap-3 shrink-0 ml-auto">
           <Link
             href="/heatmap"
+            data-tour="nav-heatmap"
             className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-semibold uppercase tracking-wider transition-colors hover:bg-[var(--color-bg-hover)] text-[var(--color-neon-amber)]"
             title="Market Heat Map"
           >
@@ -533,6 +583,7 @@ export default function Header() {
           </Link>
           <Link
             href="/charts"
+            data-tour="nav-charts"
             className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-semibold uppercase tracking-wider transition-colors hover:bg-[var(--color-bg-hover)] text-[var(--color-neon-green)]"
             title="Multi-Chart"
           >
@@ -541,12 +592,81 @@ export default function Header() {
           </Link>
           <Link
             href="/learn"
+            data-tour="nav-academy"
             className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-semibold uppercase tracking-wider transition-colors hover:bg-[var(--color-bg-hover)] text-[var(--color-neon-cyan)]"
             title="VISION Academy"
           >
             <GraduationCap className="w-4 h-4" />
             <span>Academy</span>
           </Link>
+          {/* Signal Bell (PRO only) */}
+          {isPro && (
+            <div className="relative" ref={bellRef}>
+              <button
+                onClick={() => { setBellOpen(!bellOpen); if (!bellOpen) setSignalCount(0); }}
+                className="relative p-1.5 rounded transition-colors hover:bg-[var(--color-bg-hover)]"
+                title="Signal notifications"
+              >
+                <Bell className={`w-4 h-4 ${signalCount > 0 ? "text-[var(--color-neon-amber)]" : "text-[var(--color-text-muted)]"}`} />
+                {signalCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-[var(--color-neon-amber)] text-[8px] font-bold text-black flex items-center justify-center">
+                    {signalCount > 9 ? "9+" : signalCount}
+                  </span>
+                )}
+              </button>
+              {bellOpen && (
+                <div className="absolute top-full right-0 mt-1 z-50 w-[300px] max-h-[400px] overflow-y-auto rounded-md border border-[var(--color-border-primary)] bg-[var(--color-bg-secondary)] shadow-lg">
+                  <div className="px-3 py-2 border-b border-[var(--color-border-primary)]">
+                    <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">Signals</span>
+                  </div>
+                  {signals.length === 0 ? (
+                    <div className="px-3 py-6 text-center text-[11px] text-[var(--color-text-muted)]">
+                      No signals yet — waiting for scanner...
+                    </div>
+                  ) : (
+                    signals.map((sig, i) => (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          if (sig.symbol) {
+                            startTransition(() => setActiveSymbol(sig.symbol));
+                            updateDashboardURL(sig.symbol, activeTimeframe);
+                          }
+                          setBellOpen(false);
+                        }}
+                        className="w-full text-left px-3 py-2 hover:bg-[var(--color-bg-hover)] border-b border-[var(--color-border-primary)] last:border-b-0"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-mono font-bold text-[var(--color-text-primary)]">
+                            {sig.symbol}
+                          </span>
+                          <span className={`text-[10px] font-bold uppercase ${
+                            sig.direction === "LONG" ? "text-[var(--color-bull)]" : "text-[var(--color-bear)]"
+                          }`}>
+                            {sig.direction}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] text-[var(--color-text-muted)]">{sig.timeframe}</span>
+                          {sig.confidence && (
+                            <span className="text-[10px] text-[var(--color-neon-amber)]">
+                              {(sig.confidence * 100).toFixed(0)}%
+                            </span>
+                          )}
+                          {sig.composite_score && (
+                            <span className="text-[10px] text-[var(--color-text-muted)]">
+                              Score: {sig.composite_score}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex items-center gap-1.5">
             <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-neon-green)] pulse-live" />
             <span className="text-[11px] text-[var(--color-text-muted)]">LIVE</span>

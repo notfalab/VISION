@@ -202,6 +202,13 @@ async def _async_scan(symbol: str = "XAUUSD"):
         except Exception as e:
             logger.warning("discord_notify_failed", error=str(e))
 
+        # Broadcast to WebSocket /ws/alerts for in-app notifications
+        try:
+            from backend.app.api.websocket import alert_manager
+            await alert_manager.broadcast_signal(sig)
+        except Exception as e:
+            logger.warning("ws_alert_broadcast_failed", error=str(e))
+
         notified += 1
 
     # 6. Check active signals for SL/TP hits

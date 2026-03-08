@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import type { OHLCV, Ticker, Timeframe } from "@/types/market";
 import type { LivePrice } from "@/lib/binance-ws";
 
@@ -66,43 +67,56 @@ interface MarketState {
   setError: (e: string | null) => void;
 }
 
-export const useMarketStore = create<MarketState>((set) => ({
-  activeSymbol: "XAUUSD",
-  activeTimeframe: "1d",
-  setActiveSymbol: (s) => set({ activeSymbol: s }),
-  setActiveTimeframe: (tf) => set({ activeTimeframe: tf }),
+const DEFAULT_WATCHLIST = ["XAUUSD", "BTCUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDCHF"];
 
-  candles: {},
-  setCandles: (key, data) =>
-    set((state) => ({ candles: { ...state.candles, [key]: data } })),
+export const useMarketStore = create<MarketState>()(
+  persist(
+    (set) => ({
+      activeSymbol: "XAUUSD",
+      activeTimeframe: "1d",
+      setActiveSymbol: (s) => set({ activeSymbol: s }),
+      setActiveTimeframe: (tf) => set({ activeTimeframe: tf }),
 
-  tickers: {},
-  updateTicker: (symbol, ticker) =>
-    set((state) => ({ tickers: { ...state.tickers, [symbol]: ticker } })),
+      candles: {},
+      setCandles: (key, data) =>
+        set((state) => ({ candles: { ...state.candles, [key]: data } })),
 
-  livePrices: {},
-  updateLivePrice: (symbol, data) =>
-    set((state) => ({
-      livePrices: { ...state.livePrices, [symbol]: data },
-    })),
+      tickers: {},
+      updateTicker: (symbol, ticker) =>
+        set((state) => ({ tickers: { ...state.tickers, [symbol]: ticker } })),
 
-  watchlist: ["XAUUSD", "BTCUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDCHF"],
-  addToWatchlist: (symbol) =>
-    set((state) => ({
-      watchlist: state.watchlist.includes(symbol)
-        ? state.watchlist
-        : [...state.watchlist, symbol],
-    })),
-  removeFromWatchlist: (symbol) =>
-    set((state) => ({
-      watchlist: state.watchlist.filter((s) => s !== symbol),
-    })),
+      livePrices: {},
+      updateLivePrice: (symbol, data) =>
+        set((state) => ({
+          livePrices: { ...state.livePrices, [symbol]: data },
+        })),
 
-  chartExpanded: false,
-  toggleChartExpanded: () => set((state) => ({ chartExpanded: !state.chartExpanded })),
+      watchlist: DEFAULT_WATCHLIST,
+      addToWatchlist: (symbol) =>
+        set((state) => ({
+          watchlist: state.watchlist.includes(symbol)
+            ? state.watchlist
+            : [...state.watchlist, symbol],
+        })),
+      removeFromWatchlist: (symbol) =>
+        set((state) => ({
+          watchlist: state.watchlist.filter((s) => s !== symbol),
+        })),
 
-  loading: false,
-  setLoading: (v) => set({ loading: v }),
-  error: null,
-  setError: (e) => set({ error: e }),
-}));
+      chartExpanded: false,
+      toggleChartExpanded: () => set((state) => ({ chartExpanded: !state.chartExpanded })),
+
+      loading: false,
+      setLoading: (v) => set({ loading: v }),
+      error: null,
+      setError: (e) => set({ error: e }),
+    }),
+    {
+      name: "vision-market",
+      partialize: (state) => ({
+        watchlist: state.watchlist,
+        activeSymbol: state.activeSymbol,
+      }),
+    },
+  ),
+);

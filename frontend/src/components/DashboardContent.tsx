@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
+import { Settings, RotateCcw } from "lucide-react";
 import Header from "@/components/layout/Header";
 import BackendStatusBanner from "@/components/BackendStatusBanner";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -11,6 +12,8 @@ import IndicatorPanel from "@/components/widgets/IndicatorPanel";
 import LazyWidget from "@/components/LazyWidget";
 import SortableWidgetList from "@/components/SortableWidgetList";
 import { useMarketStore, getMarketType } from "@/stores/market";
+import { useWidgetLayoutStore } from "@/stores/widgetLayout";
+import OnboardingTour from "@/components/OnboardingTour";
 
 // Lazy-load heavy widgets — they won't be included in the initial JS bundle
 const ZonesOverlay = dynamic(() => import("@/components/widgets/ZonesOverlay"), { ssr: false });
@@ -39,6 +42,7 @@ const ZoneRetestProbability = dynamic(() => import("@/components/widgets/ZoneRet
 /** Widget registry entry */
 interface WidgetDef {
   id: string;
+  label: string;
   delay: number;
   /** Only show if condition is true (default: always show) */
   condition?: boolean;
@@ -52,6 +56,11 @@ export default function DashboardContent({ initialSymbol, initialTimeframe }: { 
   const marketType = getMarketType(activeSymbol);
   const isGold = activeSymbol === "XAUUSD";
   const isCrypto = marketType === "crypto";
+
+  const hiddenWidgets = useWidgetLayoutStore((s) => s.hiddenWidgets);
+  const toggleWidget = useWidgetLayoutStore((s) => s.toggleWidget);
+  const resetOrder = useWidgetLayoutStore((s) => s.resetOrder);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Sync URL symbol + timeframe → store on mount
   useEffect(() => {
@@ -90,41 +99,37 @@ export default function DashboardContent({ initialSymbol, initialTimeframe }: { 
     "cot": <ErrorBoundary><COTReport /></ErrorBoundary>,
   }), []);
 
-  // Widget definitions with loading delays and conditional visibility
+  // Widget definitions with loading delays, labels, and conditional visibility
   const WIDGET_DEFS: WidgetDef[] = useMemo(() => [
-    // Core
-    { id: "narrator", delay: 300 },
-    { id: "trade-score", delay: 500 },
-    // Zones & Volume
-    { id: "zones", delay: 500 },
-    { id: "zone-retest", delay: 800 },
-    { id: "volume-profile", delay: 700 },
-    { id: "divergence", delay: 700 },
-    { id: "liquidity-forecast", delay: 1500 },
-    // Market Data
-    { id: "calendar", delay: 1000 },
-    { id: "sentiment", delay: 1000 },
-    { id: "volatility", delay: 1200 },
-    { id: "heatmap", delay: 1500 },
-    // ML & Order Flow
-    { id: "ml-prediction", delay: 1000 },
-    { id: "order-flow", delay: 1000 },
-    { id: "tpsl", delay: 1000 },
-    { id: "deep-orderbook", delay: 1000 },
-    { id: "liquidation", delay: 1500, condition: isCrypto },
-    // Institutional
-    { id: "mtf", delay: 2000 },
-    { id: "smart-money", delay: 2000 },
-    { id: "whale-tracker", delay: 2500, condition: isCrypto },
-    { id: "correlations", delay: 2500, condition: isGold },
-    { id: "gold-macro", delay: 2500, condition: isGold },
-    { id: "cot", delay: 2500 },
+    { id: "narrator", label: "Market Narrator", delay: 300 },
+    { id: "trade-score", label: "Trade Score", delay: 500 },
+    { id: "zones", label: "Supply/Demand Zones", delay: 500 },
+    { id: "zone-retest", label: "Zone Retest Prob.", delay: 800 },
+    { id: "volume-profile", label: "Volume Profile", delay: 700 },
+    { id: "divergence", label: "Divergence", delay: 700 },
+    { id: "liquidity-forecast", label: "Liquidity Forecast", delay: 1500 },
+    { id: "calendar", label: "Economic Calendar", delay: 1000 },
+    { id: "sentiment", label: "News Sentiment", delay: 1000 },
+    { id: "volatility", label: "Volatility Forecast", delay: 1200 },
+    { id: "heatmap", label: "Currency Heatmap", delay: 1500 },
+    { id: "ml-prediction", label: "ML Prediction", delay: 1000 },
+    { id: "order-flow", label: "Order Flow", delay: 1000 },
+    { id: "tpsl", label: "TP/SL Heatmap", delay: 1000 },
+    { id: "deep-orderbook", label: "Deep Order Book", delay: 1000 },
+    { id: "liquidation", label: "Liquidation Map", delay: 1500, condition: isCrypto },
+    { id: "mtf", label: "Multi-Timeframe", delay: 2000 },
+    { id: "smart-money", label: "Smart Money", delay: 2000 },
+    { id: "whale-tracker", label: "Whale Tracker", delay: 2500, condition: isCrypto },
+    { id: "correlations", label: "Correlations", delay: 2500, condition: isGold },
+    { id: "gold-macro", label: "Gold Macro", delay: 2500, condition: isGold },
+    { id: "cot", label: "COT Report", delay: 2500 },
   ], [isCrypto, isGold]);
 
-  // Build widget entries for sortable list (filtered by condition)
+  // Build widget entries for sortable list (filtered by condition + hidden)
   const widgetEntries = useMemo(() => {
     return WIDGET_DEFS
       .filter((def) => def.condition !== false)
+      .filter((def) => !hiddenWidgets.includes(def.id))
       .map((def) => ({
         id: def.id,
         node: def.delay > 0 ? (
@@ -135,16 +140,23 @@ export default function DashboardContent({ initialSymbol, initialTimeframe }: { 
           WIDGET_COMPONENTS[def.id]
         ),
       }));
-  }, [WIDGET_DEFS, WIDGET_COMPONENTS]);
+  }, [WIDGET_DEFS, WIDGET_COMPONENTS, hiddenWidgets]);
+
+  // Widgets available for settings panel (only those passing condition)
+  const availableWidgets = useMemo(
+    () => WIDGET_DEFS.filter((d) => d.condition !== false),
+    [WIDGET_DEFS],
+  );
 
   return (
     <div className="h-screen flex flex-col bg-[var(--color-bg-primary)] grid-pattern overflow-hidden lg:overflow-hidden">
+      <OnboardingTour />
       <Header />
       <BackendStatusBanner />
       <div className="flex-1 min-h-0 p-2 md:p-3 overflow-y-auto lg:overflow-hidden">
         <div className="flex flex-col lg:flex-row gap-2 md:gap-3 lg:h-full">
           {/* Left: Chart + Bottom row */}
-          <div className="lg:flex-1 flex flex-col gap-2 min-w-0 lg:min-h-0">
+          <div className="lg:flex-1 flex flex-col gap-2 min-w-0 lg:min-h-0" data-tour="chart">
             {/* Chart — expanded mode takes full height, otherwise capped */}
             <div className={chartExpanded ? "h-[calc(100dvh-100px)] lg:h-auto lg:flex-1 lg:min-h-0" : "h-[350px] md:h-[380px] lg:h-[45%] lg:min-h-[200px] shrink-0"}>
               <ErrorBoundary>
@@ -179,7 +191,54 @@ export default function DashboardContent({ initialSymbol, initialTimeframe }: { 
           </div>
 
           {/* Right panel — scrollable on desktop, inline on mobile — hidden when chart expanded */}
-          <div className={`w-full lg:w-[440px] lg:shrink-0 lg:overflow-y-auto lg:min-h-0 px-1 sm:px-0 ${chartExpanded ? "hidden" : ""}`}>
+          <div className={`w-full lg:w-[440px] lg:shrink-0 lg:overflow-y-auto lg:min-h-0 px-1 sm:px-0 ${chartExpanded ? "hidden" : ""}`} data-tour="widgets">
+            {/* Widget toolbar */}
+            <div className="flex items-center justify-between px-1 py-1.5 mb-1">
+              <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+                Widgets ({widgetEntries.length})
+              </span>
+              <button
+                onClick={() => setShowSettings(!showSettings)}
+                className={`p-1.5 rounded transition-colors ${
+                  showSettings ? "bg-[var(--color-neon-blue)]/10 text-[var(--color-neon-blue)]" : "hover:bg-[var(--color-bg-hover)] text-[var(--color-text-muted)]"
+                }`}
+                title="Toggle widget visibility"
+              >
+                <Settings className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {showSettings && (
+              <div className="card-glass rounded-lg mb-2 p-3 space-y-0.5 max-h-[300px] overflow-y-auto">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase">
+                    Show / Hide
+                  </p>
+                  <button
+                    onClick={resetOrder}
+                    className="flex items-center gap-1 text-[10px] text-[var(--color-text-muted)] hover:text-[var(--color-neon-blue)] transition-colors"
+                    title="Reset to defaults"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    Reset
+                  </button>
+                </div>
+                {availableWidgets.map((def) => (
+                  <label key={def.id} className="flex items-center gap-2 py-1 cursor-pointer hover:bg-[var(--color-bg-hover)] rounded px-1">
+                    <input
+                      type="checkbox"
+                      checked={!hiddenWidgets.includes(def.id)}
+                      onChange={() => toggleWidget(def.id)}
+                      className="accent-[var(--color-neon-blue)] w-3.5 h-3.5"
+                    />
+                    <span className="text-xs text-[var(--color-text-secondary)]">
+                      {def.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+
             <SortableWidgetList widgets={widgetEntries} />
           </div>
         </div>

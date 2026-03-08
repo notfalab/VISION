@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import RefreshIndicator from "@/components/RefreshIndicator";
 import {
   BookOpen,
@@ -13,6 +13,7 @@ import {
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
 import { useApiData } from "@/hooks/useApiData";
+import TimeframeSelector from "@/components/widgets/TimeframeSelector";
 
 interface Prediction {
   direction: string;
@@ -62,10 +63,11 @@ const TF_ORDER = ["15m", "1h", "4h", "1d"];
 
 function MarketNarrator() {
   const { activeSymbol, activeTimeframe } = useMarketStore();
+  const [localTf, setLocalTf] = useState<string>(activeTimeframe);
   const { data, loading } = useApiData<NarrativeData>(
-    () => api.narrator(activeSymbol, activeTimeframe),
-    [activeSymbol, activeTimeframe],
-    { interval: 120_000, key: `narrator:${activeSymbol}:${activeTimeframe}` },
+    () => api.narrator(activeSymbol, localTf),
+    [activeSymbol, localTf],
+    { interval: 120_000, key: `narrator:${activeSymbol}:${localTf}` },
   );
 
   if (loading && !data) {
@@ -97,6 +99,8 @@ function MarketNarrator() {
         <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
           Market Narrator
         </h3>
+        <span className="ml-auto" />
+        <TimeframeSelector value={localTf} onChange={setLocalTf} />
         <span
           className="text-[11px] font-mono px-1.5 py-0.5 rounded uppercase font-bold flex items-center gap-1"
           style={{

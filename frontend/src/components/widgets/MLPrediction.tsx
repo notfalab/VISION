@@ -1,11 +1,12 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import { Brain, TrendingUp, TrendingDown, Minus, Activity, Clock } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { api } from "@/lib/api";
 import { useApiData } from "@/hooks/useApiData";
 import RefreshIndicator from "@/components/RefreshIndicator";
+import TimeframeSelector from "@/components/widgets/TimeframeSelector";
 
 interface PredictionData {
   direction: string;
@@ -71,22 +72,23 @@ const FEATURE_LABELS: Record<string, string> = {
 
 function MLPrediction() {
   const { activeSymbol, activeTimeframe } = useMarketStore();
+  const [localTf, setLocalTf] = useState<string>(activeTimeframe);
   const { data: mlData, loading, error } = useApiData<{
     prediction: PredictionData | null;
     regime: RegimeData | null;
   }>(
     async () => {
       const [pred, reg] = await Promise.allSettled([
-        api.mlPredict(activeSymbol, activeTimeframe),
-        api.mlRegime(activeSymbol, activeTimeframe),
+        api.mlPredict(activeSymbol, localTf),
+        api.mlRegime(activeSymbol, localTf),
       ]);
       return {
         prediction: pred.status === "fulfilled" ? pred.value : null,
         regime: reg.status === "fulfilled" ? reg.value : null,
       };
     },
-    [activeSymbol, activeTimeframe],
-    { interval: 120_000, key: `ml:${activeSymbol}:${activeTimeframe}` }
+    [activeSymbol, localTf],
+    { interval: 120_000, key: `ml:${activeSymbol}:${localTf}` }
   );
   const prediction = mlData?.prediction ?? null;
   const regime = mlData?.regime ?? null;
@@ -141,6 +143,8 @@ function MLPrediction() {
         <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
           ML Prediction
         </h3>
+        <span className="ml-auto" />
+        <TimeframeSelector value={localTf} onChange={setLocalTf} />
         {regime && (
           <span
             className="text-[11px] font-mono px-1.5 py-0.5 rounded uppercase font-bold"
