@@ -167,7 +167,18 @@ function MiniChart({ symbol, timeframe, onSymbolChange, onTimeframeChange }: Min
     setLoading(true);
     setNoData(false);
 
-    api.prices(symbol, timeframe, 200).then((d: CandleData[]) => {
+    // Try DB data first, then trigger ingestion if empty
+    async function loadData() {
+      let d: CandleData[] = await api.prices(symbol, timeframe, 200);
+
+      // If no DB data, trigger ingestion and retry
+      if (!d || d.length < 2) {
+        try {
+          await api.fetchPrices(symbol, timeframe, 200);
+          d = await api.prices(symbol, timeframe, 200);
+        } catch {}
+      }
+
       if (cancelled) return;
 
       if (!d || d.length < 2) {
@@ -177,8 +188,18 @@ function MiniChart({ symbol, timeframe, onSymbolChange, onTimeframeChange }: Min
         return;
       }
 
-      // Set candle data
-      const candleData = d.map((c) => ({
+      // Sort ASCENDING (API returns DESC) + deduplicate
+      const sorted = [...d]
+        .filter((c) => c.open > 0 && c.close > 0)
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+      if (sorted.length < 2) {
+        setLoading(false);
+        setNoData(true);
+        return;
+      }
+
+      const candleData = sorted.map((c) => ({
         time: (new Date(c.timestamp).getTime() / 1000) as UTCTimestamp,
         open: c.open,
         high: c.high,
@@ -186,7 +207,7 @@ function MiniChart({ symbol, timeframe, onSymbolChange, onTimeframeChange }: Min
         close: c.close,
       }));
 
-      const volData = d.map((c) => ({
+      const volData = sorted.map((c) => ({
         time: (new Date(c.timestamp).getTime() / 1000) as UTCTimestamp,
         value: c.volume,
         color: c.close >= c.open ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)",
@@ -196,16 +217,18 @@ function MiniChart({ symbol, timeframe, onSymbolChange, onTimeframeChange }: Min
       volumeSeriesRef.current?.setData(volData);
       chartRef.current?.timeScale().fitContent();
 
-      // Update price display
-      const last = d[d.length - 1];
-      const prev = d[d.length - 2];
+      // Update price display (last = most recent after sort)
+      const last = sorted[sorted.length - 1];
+      const prev = sorted[sorted.length - 2];
       setPrice({
         close: last.close,
         change: ((last.close - prev.close) / prev.close) * 100,
       });
 
       setLoading(false);
-    }).catch(() => {
+    }
+
+    loadData().catch(() => {
       if (!cancelled) {
         setLoading(false);
         setNoData(true);
