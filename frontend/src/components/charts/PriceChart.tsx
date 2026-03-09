@@ -41,6 +41,9 @@ import { TPSLHeatmapPrimitive } from "./primitives/TPSLHeatmapPrimitive";
 import { LiquidationHeatmapPrimitive } from "./primitives/LiquidationHeatmapPrimitive";
 import { StopHeatmapPrimitive } from "./primitives/StopHeatmapPrimitive";
 import { MBOProfilePrimitive } from "./primitives/MBOProfilePrimitive";
+import { VolumeBubblesPrimitive, type CandleForBubbles } from "./primitives/VolumeBubblesPrimitive";
+import { BarStatsPrimitive, type CandleForStats } from "./primitives/BarStatsPrimitive";
+import { TradeCounterPrimitive, type CandleForTrades } from "./primitives/TradeCounterPrimitive";
 import { getMarketType } from "@/stores/market";
 import { toast } from "sonner";
 import { Camera } from "lucide-react";
@@ -174,6 +177,9 @@ export default function PriceChart() {
   const liqPrimRef = useRef<LiquidationHeatmapPrimitive | null>(null);
   const stopPrimRef = useRef<StopHeatmapPrimitive | null>(null);
   const mboPrimRef = useRef<MBOProfilePrimitive | null>(null);
+  const volBubblesPrimRef = useRef<VolumeBubblesPrimitive | null>(null);
+  const barStatsPrimRef = useRef<BarStatsPrimitive | null>(null);
+  const tradeCounterPrimRef = useRef<TradeCounterPrimitive | null>(null);
 
   const { activeSymbol, activeTimeframe, setActiveTimeframe, setCandles, candles, livePrices, chartExpanded, toggleChartExpanded } = useMarketStore();
   const theme = useThemeStore((s) => s.theme);
@@ -188,6 +194,9 @@ export default function PriceChart() {
   const [showStops, setShowStops] = useState(false);
   const [showMBO, setShowMBO] = useState(false);
   const [showWalls, setShowWalls] = useState(false);
+  const [showVolBubbles, setShowVolBubbles] = useState(false);
+  const [showBarStats, setShowBarStats] = useState(false);
+  const [showTradeCounter, setShowTradeCounter] = useState(false);
   const wallLinesRef = useRef<any[]>([]);
   const [isPannedAway, _setIsPannedAway] = useState(false);
 
@@ -367,6 +376,18 @@ export default function PriceChart() {
     const mboPrim = new MBOProfilePrimitive(theme);
     candleSeries.attachPrimitive(mboPrim);
 
+    // Volume Bubbles primitive
+    const volBubblesPrim = new VolumeBubblesPrimitive(theme);
+    candleSeries.attachPrimitive(volBubblesPrim);
+
+    // Bar Stats primitive
+    const barStatsPrim = new BarStatsPrimitive(theme);
+    candleSeries.attachPrimitive(barStatsPrim);
+
+    // Trade Counter primitive
+    const tradeCounterPrim = new TradeCounterPrimitive(theme);
+    candleSeries.attachPrimitive(tradeCounterPrim);
+
     // Series markers plugin
     const markersPlugin = createSeriesMarkers(candleSeries, []);
 
@@ -417,6 +438,9 @@ export default function PriceChart() {
     liqPrimRef.current = liqPrim;
     stopPrimRef.current = stopPrim;
     mboPrimRef.current = mboPrim;
+    volBubblesPrimRef.current = volBubblesPrim;
+    barStatsPrimRef.current = barStatsPrim;
+    tradeCounterPrimRef.current = tradeCounterPrim;
 
     // Drawing tools primitive
     const trendPrim = new TrendLinePrimitive();
@@ -438,6 +462,9 @@ export default function PriceChart() {
       liqPrimRef.current = null;
       stopPrimRef.current = null;
       mboPrimRef.current = null;
+      volBubblesPrimRef.current = null;
+      barStatsPrimRef.current = null;
+      tradeCounterPrimRef.current = null;
       trendLinePrimRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -832,6 +859,9 @@ export default function PriceChart() {
     liqPrimRef.current?.setTheme(theme);
     stopPrimRef.current?.setTheme(theme);
     mboPrimRef.current?.setTheme(theme);
+    volBubblesPrimRef.current?.setTheme(theme);
+    barStatsPrimRef.current?.setTheme(theme);
+    tradeCounterPrimRef.current?.setTheme(theme);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [theme]);
 
@@ -1540,6 +1570,37 @@ export default function PriceChart() {
   }, [showWalls, activeSymbol]);
 
   /* ──────────────────────────────────────────────────
+     Volume Bubbles / Bar Stats / Trade Counter overlays
+     (all use OHLCV candle data — no API fetch needed)
+     ────────────────────────────────────────────────── */
+  useEffect(() => {
+    volBubblesPrimRef.current?.setVisible(showVolBubbles);
+    barStatsPrimRef.current?.setVisible(showBarStats);
+    tradeCounterPrimRef.current?.setVisible(showTradeCounter);
+
+    if (!showVolBubbles && !showBarStats && !showTradeCounter) return;
+
+    const key = `${activeSymbol}:${activeTimeframe}`;
+    const storeCandles = candles[key];
+    // Fallback to local data state if store not yet populated
+    const source = storeCandles?.length ? storeCandles : data;
+    if (!source?.length) return;
+
+    const mapped: CandleForBubbles[] = source.map((c) => ({
+      time: (new Date(c.timestamp).getTime() / 1000) as unknown as import("lightweight-charts").Time,
+      open: c.open,
+      high: c.high,
+      low: c.low,
+      close: c.close,
+      volume: c.volume,
+    }));
+
+    if (showVolBubbles) volBubblesPrimRef.current?.updateData(mapped, 1.0, 1.0);
+    if (showBarStats) barStatsPrimRef.current?.updateData(mapped as CandleForStats[]);
+    if (showTradeCounter) tradeCounterPrimRef.current?.updateData(mapped as CandleForTrades[]);
+  }, [showVolBubbles, showBarStats, showTradeCounter, activeSymbol, activeTimeframe, data, candles]);
+
+  /* ──────────────────────────────────────────────────
      JSX
      ────────────────────────────────────────────────── */
   const buyZoneCount = zones.filter((z) => z.type === "buy").length;
@@ -1703,6 +1764,42 @@ export default function PriceChart() {
             `}
           >
             Walls
+          </button>
+          <button
+            onClick={() => setShowVolBubbles(!showVolBubbles)}
+            className={`
+              shrink-0 px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[28px]
+              ${showVolBubbles
+                ? "border-[var(--color-neon-cyan)]/30 text-[var(--color-neon-cyan)] bg-[var(--color-neon-cyan)]/10"
+                : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
+              }
+            `}
+          >
+            Vol Bubbles
+          </button>
+          <button
+            onClick={() => setShowBarStats(!showBarStats)}
+            className={`
+              shrink-0 px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[28px]
+              ${showBarStats
+                ? "border-amber-500/30 text-amber-500 bg-amber-500/10"
+                : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
+              }
+            `}
+          >
+            Bar Stats
+          </button>
+          <button
+            onClick={() => setShowTradeCounter(!showTradeCounter)}
+            className={`
+              shrink-0 px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[28px]
+              ${showTradeCounter
+                ? "border-emerald-500/30 text-emerald-500 bg-emerald-500/10"
+                : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
+              }
+            `}
+          >
+            Trades
           </button>
           {/* Separator — Drawing Tools */}
           <div className="w-px h-5 bg-[var(--color-border-primary)] shrink-0 mx-0.5" />
