@@ -1410,7 +1410,7 @@ export default function PriceChart() {
     let cancelled = false;
     const fetchLiq = async () => {
       try {
-        const result = await api.liquidationHeatmap(activeSymbol, activeTimeframe, 200);
+        const result = await api.liquidationHeatmap(activeSymbol, activeTimeframe, 2000);
         if (cancelled) return;
         if (result.columns?.length > 0) {
           liqPrimRef.current?.updateGrid(result);
@@ -1433,7 +1433,7 @@ export default function PriceChart() {
     let cancelled = false;
     const fetchStops = async () => {
       try {
-        const result = await api.stopHeatmap(activeSymbol, activeTimeframe, 200);
+        const result = await api.stopHeatmap(activeSymbol, activeTimeframe, 2000);
         if (cancelled) return;
         if (result.columns?.length > 0) {
           stopPrimRef.current?.updateGrid(result);

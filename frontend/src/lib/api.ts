@@ -360,7 +360,7 @@ export const api = {
       { levels: [], current_price: 0, symbol },
     ),
 
-  liquidationHeatmap: (symbol: string, timeframe = "1h", limit = 200) =>
+  liquidationHeatmap: (symbol: string, timeframe = "1h", limit = 2000) =>
     fetchCached<any>(
       `/api/v1/prices/${symbol}/liquidation-heatmap?timeframe=${timeframe}&limit=${limit}`,
       `liqHeatmap:${symbol}:${timeframe}:${limit}`,
@@ -377,7 +377,7 @@ export const api = {
     ),
 
   // Stop Heatmap
-  stopHeatmap: (symbol: string, timeframe = "1h", limit = 200) =>
+  stopHeatmap: (symbol: string, timeframe = "1h", limit = 2000) =>
     fetchCached<any>(
       `/api/v1/prices/${symbol}/stop-heatmap?timeframe=${timeframe}&limit=${limit}`,
       `stopHeat:${symbol}:${timeframe}:${limit}`,

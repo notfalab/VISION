@@ -618,7 +618,7 @@ def _compute_stop_heatmap_grid(candles: list[dict]) -> dict:
     if max_val > 0:
         inv = 1.0 / max_val
         for col in columns:
-            col["v"] = [round(v * inv, 3) for v in col["v"]]
+            col["v"] = [round(v * inv, 2) for v in col["v"]]
 
     return {
         "price_min": prices[0] if prices else 0,
@@ -633,7 +633,7 @@ def _compute_stop_heatmap_grid(candles: list[dict]) -> dict:
 async def get_stop_heatmap(
     symbol: str,
     timeframe: str = Query("1h"),
-    limit: int = Query(200, ge=50, le=500),
+    limit: int = Query(500, ge=50, le=2000),
     db: AsyncSession = Depends(get_db),
 ):
     """
@@ -916,7 +916,7 @@ def _compute_liq_heatmap_grid(candles: list[dict]) -> dict:
     if max_val > 0:
         inv = 1.0 / max_val
         for col in columns:
-            col["v"] = [round(v * inv, 3) for v in col["v"]]
+            col["v"] = [round(v * inv, 2) for v in col["v"]]
 
     return {
         "price_min": prices[0] if prices else 0,
@@ -931,7 +931,7 @@ def _compute_liq_heatmap_grid(candles: list[dict]) -> dict:
 async def get_liquidation_heatmap(
     symbol: str,
     timeframe: str = Query("1h"),
-    limit: int = Query(200, ge=50, le=500),
+    limit: int = Query(500, ge=50, le=2000),
     db: AsyncSession = Depends(get_db),
 ):
     """
