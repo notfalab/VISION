@@ -155,7 +155,7 @@ type Tab = "overview" | "positions" | "history" | "journal" | "learning";
 
 export default function AdminSignalsPage() {
   const router = useRouter();
-  const { user } = useAuthStore();
+  const { user, token, loading: authLoading, checkAuth } = useAuthStore();
   const [tab, setTab] = useState<Tab>("overview");
   const [loading, setLoading] = useState(true);
 
@@ -170,10 +170,24 @@ export default function AdminSignalsPage() {
   const [historySymbol, setHistorySymbol] = useState<string>("");
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
 
-  // Admin guard
+  // Auth check — ensure user is loaded on direct navigation / refresh
   useEffect(() => {
-    if (user && user.role !== "admin") router.replace("/");
-  }, [user, router]);
+    if (!token) {
+      checkAuth();
+    }
+  }, [token, checkAuth]);
+
+  // Admin guard — redirect non-admin or unauthenticated
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+    if (user.role !== "admin") {
+      router.replace("/");
+    }
+  }, [user, authLoading, router]);
 
   const loadDashboard = useCallback(async () => {
     try {
@@ -264,7 +278,13 @@ export default function AdminSignalsPage() {
     }
   };
 
-  if (!user || user.role !== "admin") return null;
+  if (authLoading || !user || user.role !== "admin") {
+    return (
+      <div className="min-h-screen bg-[#0a0a0f] flex items-center justify-center">
+        <RefreshCw className="w-6 h-6 text-cyan-400 animate-spin" />
+      </div>
+    );
+  }
 
   const tabs: { key: Tab; label: string; icon: React.ReactNode }[] = [
     { key: "overview", label: "Overview", icon: <BarChart3 className="w-4 h-4" /> },
