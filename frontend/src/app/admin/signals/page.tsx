@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth";
 import {
@@ -18,6 +18,16 @@ import {
   Zap,
 } from "lucide-react";
 import Link from "next/link";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  ReferenceLine,
+} from "recharts";
 import { toast } from "sonner";
 
 /* ─── Types ─── */
@@ -92,6 +102,11 @@ interface LearningVersion {
   rolling_win_rate_50: number;
   rolling_win_rate_200: number;
   total_trades: number;
+  total_wins: number;
+  total_losses: number;
+  indicator_weights: Record<string, number> | null;
+  feature_importance: Record<string, { win_rate: number; total_appearances: number; weight: number }> | null;
+  skip_regimes: string[] | null;
   adjustments_log: string[];
   is_active: boolean;
   created_at: string;
@@ -152,6 +167,7 @@ export default function AdminSignalsPage() {
   const [learning, setLearning] = useState<LearningVersion[]>([]);
   const [historyPage, setHistoryPage] = useState(1);
   const [historyOutcome, setHistoryOutcome] = useState<string>("");
+  const [historySymbol, setHistorySymbol] = useState<string>("");
   const [expandedRow, setExpandedRow] = useState<number | null>(null);
 
   // Admin guard
@@ -187,6 +203,7 @@ export default function AdminSignalsPage() {
       params.set("page", String(historyPage));
       params.set("limit", "50");
       if (historyOutcome) params.set("outcome", historyOutcome);
+      if (historySymbol) params.set("symbol", historySymbol);
       const data = await adminFetch<{ results: Position[] }>(
         `/api/v1/admin/signals/history?${params}`
       );
@@ -194,7 +211,7 @@ export default function AdminSignalsPage() {
     } catch (e: any) {
       toast.error(e.message);
     }
-  }, [historyPage, historyOutcome]);
+  }, [historyPage, historyOutcome, historySymbol]);
 
   const loadJournal = useCallback(async () => {
     try {
@@ -326,8 +343,10 @@ export default function AdminSignalsPage() {
                 positions={history}
                 page={historyPage}
                 outcome={historyOutcome}
+                symbol={historySymbol}
                 onPageChange={setHistoryPage}
                 onOutcomeChange={setHistoryOutcome}
+                onSymbolChange={setHistorySymbol}
                 expandedRow={expandedRow}
                 onExpandRow={setExpandedRow}
               />
@@ -410,44 +429,65 @@ function OverviewTab({ data }: { data: DashboardData }) {
         />
       </div>
 
-      {/* Equity Curve (simple ASCII-style bar visualization) */}
+      {/* Equity Curve — Recharts area chart */}
       {data.equity_curve.length > 0 && (
         <div className="rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-bg-secondary)] p-4">
           <h3 className="text-xs font-mono font-bold text-[var(--color-text-secondary)] mb-3">
             Equity Curve (cumulative P&L)
           </h3>
-          <div className="flex items-end gap-[2px] h-32">
-            {(() => {
-              const pts = data.equity_curve;
-              const vals = pts.map((p) => p.pnl);
-              const max = Math.max(...vals, 1);
-              const min = Math.min(...vals, 0);
-              const range = max - min || 1;
-              // Show last 100 entries max
-              const display = pts.slice(-100);
-              return display.map((p, i) => {
-                const h = ((p.pnl - min) / range) * 100;
-                return (
-                  <div
-                    key={i}
-                    className={`flex-1 min-w-[2px] rounded-t ${
-                      p.pnl >= 0 ? "bg-emerald-500/70" : "bg-red-500/70"
-                    }`}
-                    style={{ height: `${Math.max(h, 2)}%` }}
-                    title={`${p.date?.split("T")[0] || ""}: ${p.pnl.toFixed(1)}`}
-                  />
-                );
-              });
-            })()}
-          </div>
-          <div className="flex justify-between mt-1 text-[9px] text-[var(--color-text-muted)]">
-            <span>
-              {data.equity_curve[0]?.date?.split("T")[0] || ""}
-            </span>
-            <span>
-              {data.equity_curve[data.equity_curve.length - 1]?.date?.split("T")[0] || ""}
-            </span>
-          </div>
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart
+              data={data.equity_curve.slice(-200).map((p) => ({
+                date: p.date?.split("T")[0] || "",
+                pnl: p.pnl,
+              }))}
+              margin={{ top: 5, right: 10, left: 10, bottom: 0 }}
+            >
+              <defs>
+                <linearGradient id="eqGreen" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="#10b981" stopOpacity={0.4} />
+                  <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
+              <XAxis
+                dataKey="date"
+                tick={{ fontSize: 9, fill: "#666" }}
+                tickLine={false}
+                axisLine={false}
+                interval="preserveStartEnd"
+              />
+              <YAxis
+                tick={{ fontSize: 9, fill: "#666" }}
+                tickLine={false}
+                axisLine={false}
+                width={50}
+              />
+              <ReferenceLine y={0} stroke="rgba(255,255,255,0.15)" />
+              <Tooltip
+                contentStyle={{
+                  background: "#1a1a2e",
+                  border: "1px solid #333",
+                  borderRadius: 6,
+                  fontSize: 11,
+                  fontFamily: "monospace",
+                }}
+                labelStyle={{ color: "#888" }}
+                formatter={(v: unknown) => {
+                  const n = Number(v) || 0;
+                  return [`${n >= 0 ? "+" : ""}${n.toFixed(1)} pts`, "P&L"];
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="pnl"
+                stroke="#10b981"
+                fill="url(#eqGreen)"
+                strokeWidth={1.5}
+                dot={false}
+              />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
       )}
 
@@ -581,27 +621,49 @@ function PositionsTab({
   );
 }
 
+const SIM_SYMBOLS = [
+  "XAUUSD", "BTCUSD", "ETHUSD",
+  "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDCHF",
+];
+
 function HistoryTab({
   positions,
   page,
   outcome,
+  symbol,
   onPageChange,
   onOutcomeChange,
+  onSymbolChange,
   expandedRow,
   onExpandRow,
 }: {
   positions: Position[];
   page: number;
   outcome: string;
+  symbol: string;
   onPageChange: (p: number) => void;
   onOutcomeChange: (o: string) => void;
+  onSymbolChange: (s: string) => void;
   expandedRow: number | null;
   onExpandRow: (id: number | null) => void;
 }) {
   return (
     <div>
-      <div className="flex items-center gap-3 mb-4">
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
         <h2 className="text-sm font-mono font-bold">Trade History</h2>
+        <select
+          value={symbol}
+          onChange={(e) => {
+            onSymbolChange(e.target.value);
+            onPageChange(1);
+          }}
+          className="text-xs font-mono bg-[var(--color-bg-secondary)] border border-[var(--color-border-primary)] rounded px-2 py-1 text-[var(--color-text-primary)]"
+        >
+          <option value="">All symbols</option>
+          {SIM_SYMBOLS.map((s) => (
+            <option key={s} value={s}>{s}</option>
+          ))}
+        </select>
         <select
           value={outcome}
           onChange={(e) => {
@@ -657,9 +719,8 @@ function HistoryTab({
             </thead>
             <tbody className="divide-y divide-[var(--color-border-primary)]">
               {positions.map((p) => (
-                <>
+                <React.Fragment key={p.id}>
                   <tr
-                    key={p.id}
                     onClick={() =>
                       onExpandRow(expandedRow === p.id ? null : p.id)
                     }
@@ -723,7 +784,7 @@ function HistoryTab({
                     </td>
                   </tr>
                   {expandedRow === p.id && (
-                    <tr key={`${p.id}-expand`}>
+                    <tr>
                       <td
                         colSpan={10}
                         className="px-6 py-3 bg-[var(--color-bg-secondary)] text-[10px]"
@@ -769,7 +830,7 @@ function HistoryTab({
                       </td>
                     </tr>
                   )}
-                </>
+                </React.Fragment>
               ))}
             </tbody>
           </table>
@@ -954,6 +1015,49 @@ function LearningTab({
                       {a}
                     </p>
                   ))}
+                </div>
+              )}
+
+              {/* Feature Importance */}
+              {v.feature_importance && Object.keys(v.feature_importance).length > 0 && (
+                <div className="mt-2 pt-2 border-t border-[var(--color-border-primary)]">
+                  <p className="text-[10px] text-[var(--color-text-muted)] mb-1.5">
+                    Feature Importance:
+                  </p>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-1">
+                    {Object.entries(v.feature_importance)
+                      .sort((a, b) => b[1].win_rate - a[1].win_rate)
+                      .map(([name, fi]) => (
+                        <div key={name} className="flex items-center justify-between text-[10px] font-mono">
+                          <span className="text-[var(--color-text-muted)] truncate mr-1">{name}</span>
+                          <span className={`font-bold ${wrColor(fi.win_rate * 100)}`}>
+                            {(fi.win_rate * 100).toFixed(0)}%
+                          </span>
+                          <span className="text-[var(--color-text-muted)] ml-1">
+                            w={fi.weight.toFixed(1)}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Skip Regimes */}
+              {v.skip_regimes && v.skip_regimes.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-[var(--color-border-primary)]">
+                  <p className="text-[10px] text-[var(--color-text-muted)] mb-1">
+                    Skipped Regimes:
+                  </p>
+                  <div className="flex gap-1 flex-wrap">
+                    {v.skip_regimes.map((r) => (
+                      <span
+                        key={r}
+                        className="text-[9px] px-1.5 py-0.5 rounded bg-red-500/15 text-red-400"
+                      >
+                        {r}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

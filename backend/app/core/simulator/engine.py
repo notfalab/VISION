@@ -131,19 +131,24 @@ async def _process_signals_for_symbol(symbol: str) -> int:
         opened = 0
         for sig in signals:
             try:
-                # Check if we already have this signal tracked
-                sig_id = sig.get("id")
-                if sig_id:
-                    existing = await db.execute(
-                        select(SimulatedPosition).where(
-                            SimulatedPosition.symbol == symbol,
-                            SimulatedPosition.entry_price == sig.get("entry_price", 0),
-                            SimulatedPosition.timeframe == sig.get("timeframe", ""),
-                            SimulatedPosition.status == PositionStatus.OPEN,
-                        )
-                    )
-                    if existing.scalar_one_or_none():
-                        continue
+                # Dedup: always check if this signal is already tracked
+                entry = sig.get("entry_price", 0)
+                tf = sig.get("timeframe", "")
+                direction_str = sig.get("direction", "long").lower()
+                existing = await db.execute(
+                    select(SimulatedPosition.id).where(
+                        SimulatedPosition.symbol == symbol,
+                        SimulatedPosition.entry_price == entry,
+                        SimulatedPosition.timeframe == tf,
+                        SimulatedPosition.direction == (
+                            PositionDirection.LONG if direction_str == "long"
+                            else PositionDirection.SHORT
+                        ),
+                        SimulatedPosition.status == PositionStatus.OPEN,
+                    ).limit(1)
+                )
+                if existing.scalar_one_or_none() is not None:
+                    continue
 
                 # Apply learning filters
                 confidence = sig.get("confidence", 0)
@@ -165,11 +170,11 @@ async def _process_signals_for_symbol(symbol: str) -> int:
                     continue
 
                 # Determine expiry
-                tf = sig.get("timeframe", "1d")
+                if not tf:
+                    tf = "1d"
                 expiry_h = EXPIRY_HOURS.get(tf, 24)
                 now = datetime.now(timezone.utc)
 
-                direction_str = sig.get("direction", "long").lower()
                 direction = (
                     PositionDirection.LONG
                     if direction_str == "long"
@@ -229,17 +234,9 @@ async def _monitor_open_positions() -> int:
         if not open_positions:
             return 0
 
-        # Group by symbol to fetch prices efficiently
+        # Batch-fetch latest prices for all open symbols in one query
         symbols = set(p.symbol for p in open_positions)
-        latest_prices: dict[str, dict] = {}
-
-        for symbol in symbols:
-            try:
-                price_data = await _get_latest_price(symbol)
-                if price_data:
-                    latest_prices[symbol] = price_data
-            except Exception as e:
-                logger.warning("price_fetch_error", symbol=symbol, error=str(e))
+        latest_prices = await _batch_get_latest_prices(db, symbols)
 
         now = datetime.now(timezone.utc)
         closed_count = 0
@@ -329,38 +326,48 @@ async def _monitor_open_positions() -> int:
     return closed_count
 
 
-async def _get_latest_price(symbol: str) -> dict | None:
+async def _batch_get_latest_prices(
+    db: AsyncSession, symbols: set[str]
+) -> dict[str, dict]:
     """
-    Get latest price data for a symbol from the DB (most recent OHLCV candle).
-    Returns dict with close, high, low, or None.
+    Batch-fetch the latest OHLCV candle for each symbol using a single session.
+    Tries 5m first, then 15m, then 1h.
     """
     from backend.app.models.asset import Asset
     from backend.app.models.ohlcv import OHLCVData, Timeframe
 
-    async with async_session() as db:
-        result = await db.execute(select(Asset).where(Asset.symbol == symbol.upper()))
-        asset = result.scalar_one_or_none()
-        if not asset:
-            return None
+    if not symbols:
+        return {}
 
-        # Use 5m for precision, fall back to 15m, 1h
+    # Load all assets in one query
+    result = await db.execute(
+        select(Asset).where(Asset.symbol.in_([s.upper() for s in symbols]))
+    )
+    assets = {a.symbol: a for a in result.scalars().all()}
+
+    prices: dict[str, dict] = {}
+    for symbol in symbols:
+        asset = assets.get(symbol.upper())
+        if not asset:
+            continue
         for tf in (Timeframe.M5, Timeframe.M15, Timeframe.H1):
-            result = await db.execute(
+            row_result = await db.execute(
                 select(OHLCVData)
                 .where(OHLCVData.asset_id == asset.id, OHLCVData.timeframe == tf)
                 .order_by(OHLCVData.timestamp.desc())
                 .limit(1)
             )
-            row = result.scalar_one_or_none()
+            row = row_result.scalar_one_or_none()
             if row:
-                return {
+                prices[symbol] = {
                     "close": float(row.close),
                     "high": float(row.high),
                     "low": float(row.low),
                     "timestamp": row.timestamp,
                 }
+                break
 
-    return None
+    return prices
 
 
 def _position_to_signal_dict(pos: SimulatedPosition) -> dict:

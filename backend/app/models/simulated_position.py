@@ -43,6 +43,7 @@ class SimulatedPosition(Base):
         Index("ix_simpos_symbol", "symbol"),
         Index("ix_simpos_status", "status"),
         Index("ix_simpos_opened", "opened_at"),
+        Index("ix_simpos_status_closed", "status", "closed_at"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

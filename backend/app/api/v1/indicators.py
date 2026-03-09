@@ -51,34 +51,28 @@ async def get_indicator_summary(
     if not asset:
         raise HTTPException(status_code=404, detail=f"Asset {symbol} not found")
 
-    # Get the most recent value per indicator type
-    from sqlalchemy import func, distinct
-    types_q = await db.execute(
-        select(distinct(IndicatorValue.indicator_type))
-        .where(IndicatorValue.asset_id == asset.id, IndicatorValue.timeframe == timeframe)
+    # Get the most recent value per indicator type in a single query
+    # using PostgreSQL DISTINCT ON
+    from sqlalchemy import text
+    latest_q = await db.execute(
+        select(IndicatorValue)
+        .where(
+            IndicatorValue.asset_id == asset.id,
+            IndicatorValue.timeframe == timeframe,
+        )
+        .distinct(IndicatorValue.indicator_type)
+        .order_by(IndicatorValue.indicator_type, IndicatorValue.timestamp.desc())
     )
-    indicator_types = types_q.scalars().all()
+    rows = latest_q.scalars().all()
 
     summary = {}
-    for ind_type in indicator_types:
-        latest = await db.execute(
-            select(IndicatorValue)
-            .where(
-                IndicatorValue.asset_id == asset.id,
-                IndicatorValue.indicator_type == ind_type,
-                IndicatorValue.timeframe == timeframe,
-            )
-            .order_by(IndicatorValue.timestamp.desc())
-            .limit(1)
-        )
-        val = latest.scalar_one_or_none()
-        if val:
-            summary[ind_type] = {
-                "value": val.value,
-                "secondary_value": val.secondary_value,
-                "timestamp": val.timestamp.isoformat(),
-                "metadata": val.metadata_json,
-            }
+    for val in rows:
+        summary[val.indicator_type] = {
+            "value": val.value,
+            "secondary_value": val.secondary_value,
+            "timestamp": val.timestamp.isoformat(),
+            "metadata": val.metadata_json,
+        }
 
     return {"symbol": symbol.upper(), "timeframe": timeframe, "indicators": summary}
 
