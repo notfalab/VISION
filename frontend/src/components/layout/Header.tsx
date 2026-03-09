@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useTransition } from "react";
-import { ChevronDown, LogOut, User, Palette, GraduationCap, Shield, Map as MapIcon, Building2, Grid3X3, LayoutGrid, Bell } from "lucide-react";
+import { ChevronDown, LogOut, User, Palette, GraduationCap, Shield, Map as MapIcon, Building2, Grid3X3, LayoutGrid, Bell, Activity } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -329,14 +329,24 @@ export default function Header() {
                       </span>
                     </div>
                     {user.role === "admin" && (
-                      <Link
-                        href="/admin"
-                        onClick={() => setUserMenuOpen(false)}
-                        className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-mono text-[var(--color-neon-purple)] transition-colors hover:bg-[var(--color-bg-hover)]"
-                      >
-                        <Shield className="w-4 h-4" />
-                        Admin Panel
-                      </Link>
+                      <>
+                        <Link
+                          href="/admin"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-mono text-[var(--color-neon-purple)] transition-colors hover:bg-[var(--color-bg-hover)]"
+                        >
+                          <Shield className="w-4 h-4" />
+                          Admin Panel
+                        </Link>
+                        <Link
+                          href="/admin/signals"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="w-full flex items-center gap-2.5 px-4 py-3 text-sm font-mono text-[var(--color-neon-blue)] transition-colors hover:bg-[var(--color-bg-hover)]"
+                        >
+                          <Activity className="w-4 h-4" />
+                          Signals Lab
+                        </Link>
+                      </>
                     )}
                     <button
                       onClick={handleLogout}
@@ -709,14 +719,24 @@ export default function Header() {
                       <p className="text-[9px] text-[var(--color-text-muted)]">{user.email}</p>
                     </div>
                     {user.role === "admin" && (
-                      <Link
-                        href="/admin"
-                        onClick={() => setUserMenuOpen(false)}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-mono text-[var(--color-neon-purple)] transition-colors hover:bg-[var(--color-bg-hover)]"
-                      >
-                        <Shield className="w-3.5 h-3.5" />
-                        Admin Panel
-                      </Link>
+                      <>
+                        <Link
+                          href="/admin"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-mono text-[var(--color-neon-purple)] transition-colors hover:bg-[var(--color-bg-hover)]"
+                        >
+                          <Shield className="w-3.5 h-3.5" />
+                          Admin Panel
+                        </Link>
+                        <Link
+                          href="/admin/signals"
+                          onClick={() => setUserMenuOpen(false)}
+                          className="w-full flex items-center gap-2 px-3 py-2 text-[11px] font-mono text-[var(--color-neon-blue)] transition-colors hover:bg-[var(--color-bg-hover)]"
+                        >
+                          <Activity className="w-3.5 h-3.5" />
+                          Signals Lab
+                        </Link>
+                      </>
                     )}
                     <button
                       onClick={handleLogout}

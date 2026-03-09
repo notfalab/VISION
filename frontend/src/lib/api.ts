@@ -504,4 +504,77 @@ export const api = {
       TTL.indicators,
       { symbols: [], count: 0 },
     ),
+
+  // ── Admin Signals (authenticated) ──
+  adminSignalsDashboard: (token: string) =>
+    fetchCached<any>(
+      `/api/v1/admin/signals/dashboard`,
+      "adm:sig:dash",
+      TTL.indicators,
+      null,
+      { headers: { Authorization: `Bearer ${token}` } },
+    ),
+
+  adminSignalsPositions: (token: string, params?: { status?: string; symbol?: string; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.status) q.set("status", params.status);
+    if (params?.symbol) q.set("symbol", params.symbol);
+    if (params?.limit) q.set("limit", String(params.limit));
+    const qs = q.toString();
+    return fetchCached<any[]>(
+      `/api/v1/admin/signals/positions${qs ? `?${qs}` : ""}`,
+      `adm:sig:pos:${qs}`,
+      TTL.indicators,
+      [],
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+  },
+
+  adminSignalsHistory: (token: string, params?: { symbol?: string; outcome?: string; from?: string; to?: string; page?: number; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.symbol) q.set("symbol", params.symbol);
+    if (params?.outcome) q.set("outcome", params.outcome);
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
+    if (params?.page) q.set("page", String(params.page));
+    if (params?.limit) q.set("limit", String(params.limit));
+    const qs = q.toString();
+    return fetchCached<any>(
+      `/api/v1/admin/signals/history${qs ? `?${qs}` : ""}`,
+      `adm:sig:hist:${qs}`,
+      TTL.indicators,
+      { page: 1, limit: 50, results: [] },
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+  },
+
+  adminSignalsJournal: (token: string, params?: { from?: string; to?: string; limit?: number }) => {
+    const q = new URLSearchParams();
+    if (params?.from) q.set("from", params.from);
+    if (params?.to) q.set("to", params.to);
+    if (params?.limit) q.set("limit", String(params.limit));
+    const qs = q.toString();
+    return fetchCached<any[]>(
+      `/api/v1/admin/signals/journal${qs ? `?${qs}` : ""}`,
+      `adm:sig:journal:${qs}`,
+      TTL.indicators,
+      [],
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+  },
+
+  adminSignalsLearning: (token: string) =>
+    fetchCached<any[]>(
+      `/api/v1/admin/signals/learning`,
+      "adm:sig:learn",
+      TTL.indicators,
+      [],
+      { headers: { Authorization: `Bearer ${token}` } },
+    ),
+
+  adminSignalsResetLearning: (token: string) =>
+    fetchAPI<any>(`/api/v1/admin/signals/learning/reset`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    }),
 };

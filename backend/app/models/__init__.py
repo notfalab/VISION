@@ -10,6 +10,9 @@ from backend.app.models.trade import Trade
 from backend.app.models.onchain_event import OnchainEvent
 from backend.app.models.signal import ScalperSignal
 from backend.app.models.payment import Payment
+from backend.app.models.simulated_position import SimulatedPosition
+from backend.app.models.daily_journal import DailyJournal
+from backend.app.models.learning_state import LearningState
 
 __all__ = [
     "Asset",
@@ -23,4 +26,7 @@ __all__ = [
     "OnchainEvent",
     "ScalperSignal",
     "Payment",
+    "SimulatedPosition",
+    "DailyJournal",
+    "LearningState",
 ]

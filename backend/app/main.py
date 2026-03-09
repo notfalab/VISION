@@ -358,6 +358,29 @@ async def _background_scanner(logger):
         await asyncio.sleep(SCAN_INTERVAL)
 
 
+async def _simulator_loop(logger):
+    """
+    Background loop for the signal simulator.
+    Runs every 5 minutes: opens positions from signals, monitors TP/SL/expiry,
+    updates learning state, and generates daily journal.
+    """
+    # Wait 60s after startup to let scanner populate initial signals
+    await asyncio.sleep(60)
+    logger.info("simulator_loop_starting")
+
+    while True:
+        try:
+            from backend.app.core.simulator.engine import run_simulation_cycle
+            await run_simulation_cycle()
+        except asyncio.CancelledError:
+            logger.info("simulator_loop_cancelled")
+            return
+        except Exception as e:
+            logger.error("simulator_loop_error", error=str(e))
+
+        await asyncio.sleep(300)  # 5 minutes
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
@@ -502,6 +525,8 @@ async def lifespan(app: FastAPI):
     bg_tasks: list[asyncio.Task] = []
     # Payment verification runs in all environments
     bg_tasks.append(asyncio.create_task(_payment_verification_loop(logger)))
+    # Simulator runs in all environments (for local testing too)
+    bg_tasks.append(asyncio.create_task(_simulator_loop(logger)))
     if settings.app_env != "development":
         bg_tasks.append(asyncio.create_task(_background_scanner(logger)))
         bg_tasks.append(asyncio.create_task(_forex_price_refresh(logger)))
