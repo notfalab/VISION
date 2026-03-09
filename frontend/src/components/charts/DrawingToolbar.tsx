@@ -1,6 +1,6 @@
 "use client";
 
-import { MousePointer, Minus, TrendingUp, Trash2 } from "lucide-react";
+import { MousePointer, Minus, TrendingUp, Trash2, X } from "lucide-react";
 
 export type DrawingMode = "none" | "hline" | "trendline";
 
@@ -8,7 +8,9 @@ interface DrawingToolbarProps {
   mode: DrawingMode;
   onModeChange: (mode: DrawingMode) => void;
   onClearAll: () => void;
+  onDeleteSelected: () => void;
   drawingCount: number;
+  hasSelection: boolean;
 }
 
 const TOOLS = [
@@ -23,7 +25,14 @@ const ACTIVE_COLORS: Record<DrawingMode, string> = {
   trendline: "#3b82f6",
 };
 
-export default function DrawingToolbar({ mode, onModeChange, onClearAll, drawingCount }: DrawingToolbarProps) {
+export default function DrawingToolbar({
+  mode,
+  onModeChange,
+  onClearAll,
+  onDeleteSelected,
+  drawingCount,
+  hasSelection,
+}: DrawingToolbarProps) {
   return (
     <div className="flex items-center gap-px">
       {TOOLS.map((tool) => {
@@ -46,17 +55,29 @@ export default function DrawingToolbar({ mode, onModeChange, onClearAll, drawing
           </button>
         );
       })}
-      {drawingCount > 0 && (
+      {(drawingCount > 0 || hasSelection) && (
         <>
           <div className="w-px h-4 bg-[var(--color-border-primary)] mx-1" />
-          <button
-            onClick={onClearAll}
-            className="px-1.5 py-1 text-[10px] font-mono rounded text-[var(--color-bear)] hover:bg-[var(--color-bear)]/10 flex items-center gap-1"
-            title="Clear all drawings"
-          >
-            <Trash2 className="w-3 h-3" />
-            <span className="hidden sm:inline">{drawingCount}</span>
-          </button>
+          {hasSelection && (
+            <button
+              onClick={onDeleteSelected}
+              className="px-1.5 py-1 text-[10px] font-mono rounded text-orange-400 hover:bg-orange-400/10 flex items-center gap-1"
+              title="Delete selected (Del)"
+            >
+              <X className="w-3 h-3" />
+              <span className="hidden sm:inline">Del</span>
+            </button>
+          )}
+          {drawingCount > 0 && (
+            <button
+              onClick={onClearAll}
+              className="px-1.5 py-1 text-[10px] font-mono rounded text-[var(--color-bear)] hover:bg-[var(--color-bear)]/10 flex items-center gap-1"
+              title="Clear all drawings"
+            >
+              <Trash2 className="w-3 h-3" />
+              <span className="hidden sm:inline">{drawingCount}</span>
+            </button>
+          )}
         </>
       )}
     </div>

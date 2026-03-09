@@ -45,7 +45,7 @@ import { getMarketType } from "@/stores/market";
 import { toast } from "sonner";
 import { Camera } from "lucide-react";
 import DrawingToolbar, { type DrawingMode } from "./DrawingToolbar";
-import { TrendLinePrimitive, type TrendLineData } from "./primitives/TrendLinePrimitive";
+import { TrendLinePrimitive, type TrendLineData, type HitResult } from "./primitives/TrendLinePrimitive";
 
 const TIMEFRAMES: { label: string; value: Timeframe }[] = [
   { label: "1m", value: "1m" },
@@ -224,8 +224,19 @@ export default function PriceChart() {
   const [drawingMode, setDrawingMode] = useState<DrawingMode>("none");
   const [drawings, setDrawings] = useState<{ type: string; id: string; price?: number; line?: TrendLineData }[]>([]);
   const [pendingPoint, setPendingPoint] = useState<{ time: number; price: number } | null>(null);
+  const [selectedDrawingId, setSelectedDrawingId] = useState<string | null>(null);
   const trendLinePrimRef = useRef<TrendLinePrimitive | null>(null);
-  const hLinesRef = useRef<any[]>([]);
+  const hLinesRef = useRef<{ id: string; priceLine: any }[]>([]);
+  const dragRef = useRef<{
+    id: string;
+    type: "hline" | "trendline";
+    part: "body" | "p1" | "p2";
+    startMouseY: number;
+    startMouseX: number;
+    origPrice?: number;
+    origP1?: { time: number; price: number };
+    origP2?: { time: number; price: number };
+  } | null>(null);
 
   // Zone state
   const [zones, setZones] = useState<AccZone[]>([]);
@@ -432,16 +443,62 @@ export default function PriceChart() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Drawing click handler
+  // ── Helper: create h-line on chart ──
+  const createHLine = useCallback((price: number, selected = false) => {
+    const series = candleSeriesRef.current;
+    if (!series) return null;
+    return series.createPriceLine({
+      price,
+      color: selected ? "#60a5fa" : "#f59e0b",
+      lineWidth: selected ? 2 : 1,
+      lineStyle: 2,
+      axisLabelVisible: true,
+      title: "",
+    });
+  }, []);
+
+  // ── Helper: hit-test h-lines ──
+  const hitTestHLine = useCallback((cssY: number): { id: string } | null => {
+    const series = candleSeriesRef.current;
+    if (!series) return null;
+    const THRESHOLD = 8;
+    for (const entry of hLinesRef.current) {
+      const drawing = drawings.find((d) => d.id === entry.id);
+      if (!drawing?.price) continue;
+      const coord = series.priceToCoordinate(drawing.price);
+      if (coord !== null && Math.abs(cssY - coord) < THRESHOLD) return { id: entry.id };
+    }
+    return null;
+  }, [drawings]);
+
+  // ── Update h-line appearance on selection change ──
+  useEffect(() => {
+    for (const entry of hLinesRef.current) {
+      const isSelected = entry.id === selectedDrawingId;
+      try {
+        entry.priceLine.applyOptions({
+          color: isSelected ? "#60a5fa" : "#f59e0b",
+          lineWidth: isSelected ? 2 : 1,
+        });
+      } catch {}
+    }
+    trendLinePrimRef.current?.setSelected(selectedDrawingId);
+  }, [selectedDrawingId]);
+
+  // ── Drawing: placement click handler (hline/trendline creation) ──
   useEffect(() => {
     const chart = chartRef.current;
     const series = candleSeriesRef.current;
-    if (!chart || !series || drawingMode === "none") return;
+    if (!chart || !series) return;
 
     const container = chartContainerRef.current;
-    if (container) container.style.cursor = "crosshair";
 
-    const handler = (param: any) => {
+    // Update cursor
+    if (drawingMode !== "none") {
+      if (container) container.style.cursor = "crosshair";
+    }
+
+    const clickHandler = (param: any) => {
       if (!param.point || !param.time) return;
       const price = series.coordinateToPrice(param.point.y);
       if (price === null) return;
@@ -449,15 +506,8 @@ export default function PriceChart() {
 
       if (drawingMode === "hline") {
         const id = crypto.randomUUID();
-        const priceLine = series.createPriceLine({
-          price,
-          color: "#f59e0b",
-          lineWidth: 1,
-          lineStyle: 2,
-          axisLabelVisible: true,
-          title: "",
-        });
-        hLinesRef.current.push({ id, priceLine });
+        const priceLine = createHLine(price);
+        if (priceLine) hLinesRef.current.push({ id, priceLine });
         setDrawings((prev) => [...prev, { type: "hline", id, price }]);
         setDrawingMode("none");
       } else if (drawingMode === "trendline") {
@@ -477,17 +527,208 @@ export default function PriceChart() {
           setPendingPoint(null);
           setDrawingMode("none");
         }
+      } else {
+        // Select mode — hit-test for selecting drawings
+        const trendHit = trendLinePrimRef.current?.customHitTest(param.point.x, param.point.y);
+        const hlineHit = hitTestHLine(param.point.y);
+        const hitId = trendHit?.id || hlineHit?.id || null;
+        setSelectedDrawingId(hitId);
       }
     };
 
-    chart.subscribeClick(handler);
+    chart.subscribeClick(clickHandler);
     return () => {
-      chart.unsubscribeClick(handler);
+      chart.unsubscribeClick(clickHandler);
       if (container) container.style.cursor = "";
     };
-  }, [drawingMode, pendingPoint]);
+  }, [drawingMode, pendingPoint, createHLine, hitTestHLine]);
 
-  // Persist drawings per symbol
+  // ── Drawing: mouse interaction (hover, drag) ──
+  useEffect(() => {
+    const container = chartContainerRef.current;
+    const chart = chartRef.current;
+    const series = candleSeriesRef.current;
+    if (!container || !chart || !series) return;
+
+    // Get chart pane element offset (area below the toolbar)
+    const getOffset = () => {
+      const rect = container.getBoundingClientRect();
+      return { left: rect.left, top: rect.top };
+    };
+
+    const onMouseDown = (e: MouseEvent) => {
+      if (drawingMode !== "none") return;
+      const offset = getOffset();
+      const x = e.clientX - offset.left;
+      const y = e.clientY - offset.top;
+
+      // Hit test trendlines
+      const trendHit = trendLinePrimRef.current?.customHitTest(x, y);
+      if (trendHit) {
+        const line = trendLinePrimRef.current?.getLine(trendHit.id);
+        if (line) {
+          dragRef.current = {
+            id: trendHit.id,
+            type: "trendline",
+            part: trendHit.part,
+            startMouseX: e.clientX,
+            startMouseY: e.clientY,
+            origP1: { ...line.p1 },
+            origP2: { ...line.p2 },
+          };
+          setSelectedDrawingId(trendHit.id);
+          e.preventDefault();
+          return;
+        }
+      }
+
+      // Hit test h-lines
+      const hlineHit = hitTestHLine(y);
+      if (hlineHit) {
+        const drawing = drawings.find((d) => d.id === hlineHit.id);
+        if (drawing?.price) {
+          dragRef.current = {
+            id: hlineHit.id,
+            type: "hline",
+            part: "body",
+            startMouseX: e.clientX,
+            startMouseY: e.clientY,
+            origPrice: drawing.price,
+          };
+          setSelectedDrawingId(hlineHit.id);
+          e.preventDefault();
+        }
+      }
+    };
+
+    const onMouseMove = (e: MouseEvent) => {
+      const drag = dragRef.current;
+      if (drag) {
+        // ── Dragging ──
+        container.style.cursor = drag.part === "body" ? "grabbing" : "crosshair";
+
+        if (drag.type === "hline" && drag.origPrice != null) {
+          const origCoord = series.priceToCoordinate(drag.origPrice);
+          if (origCoord === null) return;
+          const newCoord = origCoord + (e.clientY - drag.startMouseY);
+          const newPrice = series.coordinateToPrice(newCoord);
+          if (newPrice === null) return;
+
+          // Update the h-line
+          const entry = hLinesRef.current.find((h) => h.id === drag.id);
+          if (entry) {
+            try { entry.priceLine.applyOptions({ price: newPrice }); } catch {}
+          }
+          // Update state (will persist on mouseup)
+          setDrawings((prev) =>
+            prev.map((d) => (d.id === drag.id ? { ...d, price: newPrice } : d)),
+          );
+        } else if (drag.type === "trendline" && drag.origP1 && drag.origP2) {
+          const ts = chart.timeScale();
+          const deltaY = e.clientY - drag.startMouseY;
+          const deltaX = e.clientX - drag.startMouseX;
+
+          if (drag.part === "body") {
+            // Move both endpoints
+            const origY1 = series.priceToCoordinate(drag.origP1.price);
+            const origY2 = series.priceToCoordinate(drag.origP2.price);
+            const origX1 = ts.timeToCoordinate(drag.origP1.time as any);
+            const origX2 = ts.timeToCoordinate(drag.origP2.time as any);
+            if (origY1 === null || origY2 === null || origX1 === null || origX2 === null) return;
+
+            const newPrice1 = series.coordinateToPrice(origY1 + deltaY);
+            const newPrice2 = series.coordinateToPrice(origY2 + deltaY);
+            const newTime1 = ts.coordinateToTime(origX1 + deltaX);
+            const newTime2 = ts.coordinateToTime(origX2 + deltaX);
+            if (newPrice1 === null || newPrice2 === null || newTime1 === null || newTime2 === null) return;
+
+            const newP1 = { time: newTime1 as number, price: newPrice1 as number };
+            const newP2 = { time: newTime2 as number, price: newPrice2 as number };
+            trendLinePrimRef.current?.updateLine(drag.id, newP1, newP2);
+            setDrawings((prev) =>
+              prev.map((d) =>
+                d.id === drag.id && d.line ? { ...d, line: { ...d.line, p1: newP1, p2: newP2 } } : d,
+              ),
+            );
+          } else {
+            // Move single endpoint (p1 or p2)
+            const origP = drag.part === "p1" ? drag.origP1 : drag.origP2;
+            const otherP = drag.part === "p1" ? drag.origP2 : drag.origP1;
+            const origY = series.priceToCoordinate(origP.price);
+            const origX = ts.timeToCoordinate(origP.time as any);
+            if (origY === null || origX === null) return;
+
+            const newPrice = series.coordinateToPrice(origY + deltaY);
+            const newTime = ts.coordinateToTime(origX + deltaX);
+            if (newPrice === null || newTime === null) return;
+
+            const movedP = { time: newTime as number, price: newPrice as number };
+            const newP1 = drag.part === "p1" ? movedP : otherP;
+            const newP2 = drag.part === "p2" ? movedP : otherP;
+            trendLinePrimRef.current?.updateLine(drag.id, newP1, newP2);
+            setDrawings((prev) =>
+              prev.map((d) =>
+                d.id === drag.id && d.line ? { ...d, line: { ...d.line, p1: newP1, p2: newP2 } } : d,
+              ),
+            );
+          }
+        }
+        return;
+      }
+
+      // ── Hover (no drag) — only in select mode ──
+      if (drawingMode !== "none") return;
+      const offset = getOffset();
+      const x = e.clientX - offset.left;
+      const y = e.clientY - offset.top;
+
+      const trendHit = trendLinePrimRef.current?.customHitTest(x, y);
+      trendLinePrimRef.current?.setHovered(trendHit?.id ?? null);
+
+      const hlineHit = hitTestHLine(y);
+      if (trendHit || hlineHit) {
+        const part = trendHit?.part;
+        container.style.cursor =
+          part === "p1" || part === "p2" ? "crosshair" : "grab";
+      } else if (!dragRef.current) {
+        container.style.cursor = "";
+      }
+    };
+
+    const onMouseUp = () => {
+      if (dragRef.current) {
+        dragRef.current = null;
+        container.style.cursor = "";
+      }
+    };
+
+    container.addEventListener("mousedown", onMouseDown);
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+
+    return () => {
+      container.removeEventListener("mousedown", onMouseDown);
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+  }, [drawingMode, drawings, hitTestHLine]);
+
+  // ── Keyboard: delete selected drawing ──
+  useEffect(() => {
+    if (!selectedDrawingId) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Delete" || e.key === "Backspace") {
+        // Don't intercept if user is typing in an input
+        if ((e.target as HTMLElement)?.tagName === "INPUT" || (e.target as HTMLElement)?.tagName === "TEXTAREA") return;
+        deleteSelectedDrawing();
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selectedDrawingId]);
+
+  // ── Persist drawings per symbol ──
   useEffect(() => {
     if (drawings.length > 0) {
       localStorage.setItem(`vision_drawings_${activeSymbol}`, JSON.stringify(drawings));
@@ -496,9 +737,8 @@ export default function PriceChart() {
     }
   }, [drawings, activeSymbol]);
 
-  // Restore drawings when symbol changes
+  // ── Restore drawings when symbol changes ──
   useEffect(() => {
-    // Clear existing drawings from chart
     const series = candleSeriesRef.current;
     if (series) {
       for (const entry of hLinesRef.current) {
@@ -507,8 +747,8 @@ export default function PriceChart() {
     }
     hLinesRef.current = [];
     trendLinePrimRef.current?.setLines([]);
+    setSelectedDrawingId(null);
 
-    // Load from localStorage
     const stored = localStorage.getItem(`vision_drawings_${activeSymbol}`);
     if (!stored || !series) { setDrawings([]); return; }
     try {
@@ -516,15 +756,8 @@ export default function PriceChart() {
       const restoredDrawings: typeof drawings = [];
       for (const d of parsed) {
         if (d.type === "hline" && d.price) {
-          const priceLine = series.createPriceLine({
-            price: d.price,
-            color: "#f59e0b",
-            lineWidth: 1,
-            lineStyle: 2,
-            axisLabelVisible: true,
-            title: "",
-          });
-          hLinesRef.current.push({ id: d.id, priceLine });
+          const priceLine = createHLine(d.price);
+          if (priceLine) hLinesRef.current.push({ id: d.id, priceLine });
           restoredDrawings.push(d);
         } else if (d.type === "trendline" && d.line) {
           trendLinePrimRef.current?.addLine(d.line);
@@ -538,6 +771,27 @@ export default function PriceChart() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSymbol]);
 
+  // ── Delete selected drawing ──
+  const deleteSelectedDrawing = useCallback(() => {
+    if (!selectedDrawingId) return;
+    const series = candleSeriesRef.current;
+    const drawing = drawings.find((d) => d.id === selectedDrawingId);
+
+    if (drawing?.type === "hline" && series) {
+      const entry = hLinesRef.current.find((h) => h.id === selectedDrawingId);
+      if (entry) {
+        try { series.removePriceLine(entry.priceLine); } catch {}
+        hLinesRef.current = hLinesRef.current.filter((h) => h.id !== selectedDrawingId);
+      }
+    } else if (drawing?.type === "trendline") {
+      trendLinePrimRef.current?.removeLine(selectedDrawingId);
+    }
+
+    setDrawings((prev) => prev.filter((d) => d.id !== selectedDrawingId));
+    setSelectedDrawingId(null);
+  }, [selectedDrawingId, drawings]);
+
+  // ── Clear all drawings ──
   const clearAllDrawings = useCallback(() => {
     const series = candleSeriesRef.current;
     if (series) {
@@ -550,6 +804,7 @@ export default function PriceChart() {
     setDrawings([]);
     setPendingPoint(null);
     setDrawingMode("none");
+    setSelectedDrawingId(null);
   }, []);
 
   /* ──────────────────────────────────────────────────
@@ -610,9 +865,9 @@ export default function PriceChart() {
      Only call when you INTENTIONALLY want to reset scroll.
      ────────────────────────────────────────────────── */
   const pushDataToChart = useCallback(
-    (newData: OHLCV[]) => {
+    (rawData: OHLCV[]) => {
       const chart = chartRef.current;
-      if (newData.length === 0) {
+      if (rawData.length === 0) {
         candleSeriesRef.current?.setData([]);
         volumeSeriesRef.current?.setData([]);
         sma20Ref.current?.setData([]);
@@ -620,6 +875,8 @@ export default function PriceChart() {
         ema200Ref.current?.setData([]);
         return;
       }
+      // Safety dedupe — lightweight-charts requires strictly increasing times
+      const newData = deduplicateAndSort(rawData);
       const tc = THEME_CANVAS[theme];
       candleSeriesRef.current?.setData(newData.map(toChartData));
       volumeSeriesRef.current?.setData(
@@ -1454,7 +1711,9 @@ export default function PriceChart() {
             mode={drawingMode}
             onModeChange={setDrawingMode}
             onClearAll={clearAllDrawings}
+            onDeleteSelected={deleteSelectedDrawing}
             drawingCount={drawings.length}
+            hasSelection={!!selectedDrawingId}
           />
           {/* Separator */}
           <div className="w-px h-5 bg-[var(--color-border-primary)] shrink-0 mx-0.5" />
