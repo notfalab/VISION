@@ -29,10 +29,37 @@ interface AuthState {
 }
 
 const TOKEN_KEY = "vision_token";
+const REVALIDATE_INTERVAL_MS = 5 * 60 * 1000; // re-check token every 5 min
+let _revalidateTimer: ReturnType<typeof setInterval> | null = null;
+
+/** Decode JWT payload without library (browser-safe). Returns null on failure. */
+function decodeJwtPayload(token: string): { exp?: number } | null {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(atob(parts[1].replace(/-/g, "+").replace(/_/g, "/")));
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+/** Check if a JWT token is expired (with 60s grace buffer). */
+function isTokenExpired(token: string): boolean {
+  const payload = decodeJwtPayload(token);
+  if (!payload?.exp) return false; // can't determine — assume valid
+  return Date.now() >= (payload.exp - 60) * 1000; // expire 60s early
+}
 
 function getStoredToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem(TOKEN_KEY);
+  const token = localStorage.getItem(TOKEN_KEY);
+  // Proactively remove expired tokens
+  if (token && isTokenExpired(token)) {
+    localStorage.removeItem(TOKEN_KEY);
+    return null;
+  }
+  return token;
 }
 
 function storeToken(token: string) {
@@ -98,13 +125,18 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: () => {
     removeToken();
+    if (_revalidateTimer) {
+      clearInterval(_revalidateTimer);
+      _revalidateTimer = null;
+    }
     set({ user: null, token: null, isAuthenticated: false, loading: false, error: null });
   },
 
   checkAuth: async () => {
     const token = get().token ?? getStoredToken();
-    if (!token) {
-      set({ user: null, isAuthenticated: false, loading: false });
+    if (!token || isTokenExpired(token)) {
+      removeToken();
+      set({ user: null, token: null, isAuthenticated: false, loading: false });
       return;
     }
     try {
@@ -115,6 +147,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         },
       });
       set({ user, token, isAuthenticated: true, loading: false });
+
+      // Start periodic revalidation timer (only once)
+      if (!_revalidateTimer && typeof window !== "undefined") {
+        _revalidateTimer = setInterval(() => {
+          const currentToken = get().token;
+          if (!currentToken || isTokenExpired(currentToken)) {
+            removeToken();
+            set({ user: null, token: null, isAuthenticated: false, loading: false });
+            if (_revalidateTimer) {
+              clearInterval(_revalidateTimer);
+              _revalidateTimer = null;
+            }
+          }
+        }, REVALIDATE_INTERVAL_MS);
+      }
     } catch {
       removeToken();
       set({ user: null, token: null, isAuthenticated: false, loading: false });

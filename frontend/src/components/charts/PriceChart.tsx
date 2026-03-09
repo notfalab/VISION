@@ -1313,8 +1313,7 @@ export default function PriceChart() {
      Accumulation zones (order book — crypto only)
      ────────────────────────────────────────────────── */
   useEffect(() => {
-    const CRYPTO_SYMBOLS = new Set(["BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "ETHBTC"]);
-    const crypto = CRYPTO_SYMBOLS.has(activeSymbol);
+    const crypto = getMarketType(activeSymbol) === "crypto";
     if (!crypto) {
       setZones([]);
       accZonePrimRef.current?.updateZones([], []);

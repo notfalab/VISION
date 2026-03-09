@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { toast } from "sonner";
+import { AlertTriangle } from "lucide-react";
 import { useMarketStore } from "@/stores/market";
 import { formatPrice, formatVolume } from "@/lib/format";
 
@@ -10,14 +12,28 @@ interface Level {
   total: number;
 }
 
+const STALE_THRESHOLD_MS = 45_000; // 3× the 15s poll interval
+
 export default function OrderBookWidget() {
   const { activeSymbol } = useMarketStore();
   const [bids, setBids] = useState<Level[]>([]);
   const [asks, setAsks] = useState<Level[]>([]);
   const [spread, setSpread] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<number>(Date.now());
+  const [isStale, setIsStale] = useState(false);
+  const errorShownRef = useRef(false);
+
+  // Track stale data
+  useEffect(() => {
+    const check = setInterval(() => {
+      setIsStale(Date.now() - lastUpdated > STALE_THRESHOLD_MS);
+    }, 5000);
+    return () => clearInterval(check);
+  }, [lastUpdated]);
 
   useEffect(() => {
+    errorShownRef.current = false;
     const load = async () => {
       setLoading(true);
       try {
@@ -42,14 +58,19 @@ export default function OrderBookWidget() {
 
         setBids(bidLevels);
         setAsks(askLevels);
+        setLastUpdated(Date.now());
+        setIsStale(false);
+        errorShownRef.current = false;
 
         if (bidLevels.length > 0 && askLevels.length > 0) {
           setSpread(askLevels[0].price - bidLevels[0].price);
         }
       } catch {
-        setBids([]);
-        setAsks([]);
-        setSpread(0);
+        // Show error toast once per error streak (avoid spam)
+        if (!errorShownRef.current) {
+          toast.error(`Order Book: failed to load data for ${activeSymbol}`);
+          errorShownRef.current = true;
+        }
       } finally {
         setLoading(false);
       }
@@ -71,9 +92,17 @@ export default function OrderBookWidget() {
         <h3 className="text-sm font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
           Order Book
         </h3>
-        <span className="text-sm font-mono text-[var(--color-neon-amber)]">
-          Spread: {formatPrice(spread, activeSymbol)}
-        </span>
+        <div className="flex items-center gap-2">
+          {isStale && (
+            <span className="flex items-center gap-1 text-[9px] text-[var(--color-neon-amber)]" title="Data may be stale">
+              <AlertTriangle className="w-3 h-3" />
+              Stale
+            </span>
+          )}
+          <span className="text-sm font-mono text-[var(--color-neon-amber)]">
+            Spread: {formatPrice(spread, activeSymbol)}
+          </span>
+        </div>
       </div>
 
       {loading ? (

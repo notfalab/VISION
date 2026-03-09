@@ -1,9 +1,10 @@
 """Subscription endpoints — status, wallet info, payment submission, billing."""
 
+import re
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,10 +19,22 @@ router = APIRouter(prefix="/subscription", tags=["subscription"])
 
 # ── Request / Response schemas ─────────────────────────────────────────
 
+_EVM_TX_RE = re.compile(r"^0x[0-9a-fA-F]{64}$")
+_SOLANA_TX_RE = re.compile(r"^[1-9A-HJ-NP-Za-km-z]{86,88}$")  # base58, 86-88 chars
+
+
 class SubmitPaymentRequest(BaseModel):
     tx_hash: str
     network: str  # ethereum / polygon / bsc / solana
     token: str  # USDT / USDC
+
+    @field_validator("tx_hash")
+    @classmethod
+    def validate_tx_hash(cls, v: str) -> str:
+        v = v.strip()
+        if not v:
+            raise ValueError("tx_hash is required")
+        return v
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────
@@ -76,6 +89,22 @@ async def submit_payment(
     token = body.token.upper()
     if token not in ("USDT", "USDC"):
         raise HTTPException(status_code=400, detail="Token must be USDT or USDC")
+
+    # Validate tx hash format per network
+    tx = body.tx_hash.strip()
+    if network_enum == PaymentNetwork.SOLANA:
+        if not _SOLANA_TX_RE.match(tx):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid Solana transaction signature (expected base58, 86-88 chars)",
+            )
+    else:
+        # EVM networks (ethereum, polygon, bsc)
+        if not _EVM_TX_RE.match(tx):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid EVM transaction hash (expected 0x + 64 hex chars)",
+            )
 
     # Check duplicate tx_hash
     existing = await db.execute(select(Payment).where(Payment.tx_hash == body.tx_hash))

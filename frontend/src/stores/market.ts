@@ -5,7 +5,7 @@ import type { LivePrice } from "@/lib/binance-ws";
 
 export type MarketType = "commodity" | "crypto" | "forex" | "index";
 
-const CRYPTO_SYMBOLS = [
+export const CRYPTO_SYMBOLS = [
   "BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "DOGEUSD", "BNBUSD", "ADAUSD",
   "PEPEUSD", "TRXUSD", "SUIUSD", "NEARUSD", "AVAXUSD", "LINKUSD", "LTCUSD",
   "AAVEUSD", "TAOUSD", "BCHUSD", "UNIUSD", "DOTUSD", "ICPUSD", "APTUSD",
@@ -13,8 +13,8 @@ const CRYPTO_SYMBOLS = [
   "ONDOUSD", "BONKUSD", "ENAUSD", "WLDUSD", "TIAUSD", "RENDERUSD", "FTMUSD",
   "INJUSD", "OPUSD", "MATICUSD", "ATOMUSD", "WIFUSD",
 ];
-const INDEX_SYMBOLS = ["NAS100", "SPX500"];
-const FOREX_SYMBOLS = [
+export const INDEX_SYMBOLS = ["NAS100", "SPX500"];
+export const FOREX_SYMBOLS = [
   // Majors
   "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDCHF",
   // Minors (crosses)

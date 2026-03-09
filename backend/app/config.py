@@ -118,10 +118,10 @@ class Settings(BaseSettings):
     glassnode_api_key: str = ""
     solana_rpc_url: str = "https://api.mainnet-beta.solana.com"
 
-    # Payment wallet addresses (Ethereum & Polygon share the same EVM address)
-    wallet_address_ethereum: str = "0x75103d50ebd133e8281569b7ef65dde6a82269d6"
-    wallet_address_polygon: str = "0x75103d50ebd133e8281569b7ef65dde6a82269d6"
-    wallet_address_solana: str = "G3DobzBRtbUKxdWZaUwoYuDYiWVqjwkgAcS3ATwzyzVf"
+    # Payment wallet addresses — MUST be set via env vars, no defaults for security
+    wallet_address_ethereum: str = ""
+    wallet_address_polygon: str = ""
+    wallet_address_solana: str = ""
 
     # Subscription
     subscription_price_usd: float = 99.0
@@ -140,4 +140,18 @@ def get_settings() -> Settings:
             raise RuntimeError("FATAL: JWT_SECRET_KEY must be set in production. Do not use default.")
         if s.secret_key in ("change-me-to-a-random-string-in-production", ""):
             raise RuntimeError("FATAL: SECRET_KEY must be set in production. Do not use default.")
+
+        # Validate critical API keys are present
+        missing: list[str] = []
+        if not s.oanda_api_key:
+            missing.append("OANDA_API_KEY")
+        if not s.binance_api_key:
+            missing.append("BINANCE_API_KEY")
+        if not s.wallet_address_ethereum and not s.wallet_address_polygon and not s.wallet_address_solana:
+            missing.append("WALLET_ADDRESS_* (at least one payment wallet)")
+        if missing:
+            import logging
+            logging.getLogger("vision.config").warning(
+                "Missing recommended API keys in production: %s", ", ".join(missing)
+            )
     return s

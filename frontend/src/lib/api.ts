@@ -247,22 +247,6 @@ export const api = {
     fetchCached<any>(`/api/v1/macro/correlations/gold`, "goldCorr", TTL.macro, null),
 
   // ── Institutional / On-chain ──
-  btcWhales: (minBtc = 100, limit = 20) =>
-    fetchCached<any>(
-      `/api/v1/institutional/btc-whales?min_value_btc=${minBtc}&limit=${limit}`,
-      `btcWhales:${minBtc}:${limit}`,
-      TTL.ml,
-      null,
-    ),
-
-  ethWhales: (minEth = 100, limit = 20) =>
-    fetchCached<any>(
-      `/api/v1/institutional/whale-transfers?min_value_eth=${minEth}&limit=${limit}`,
-      `ethWhales:${minEth}:${limit}`,
-      TTL.ml,
-      null,
-    ),
-
   cryptoWhales: (symbol: string, limit = 20) =>
     fetchCached<any>(
       `/api/v1/institutional/crypto-whales/${symbol}?limit=${limit}`,
@@ -358,10 +342,6 @@ export const api = {
       TTL.indicators,
       null,
     ),
-
-  // AI Market Brief
-  aiBrief: () =>
-    fetchCached<any>(`/api/v1/scalper/ai-brief`, "aiBrief", TTL.news, null),
 
   // ── TP/SL Heatmap, Liquidation, Deep Order Book ──
   tpslHeatmap: (symbol: string, depth = 500) =>

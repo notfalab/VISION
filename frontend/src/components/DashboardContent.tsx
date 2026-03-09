@@ -73,31 +73,31 @@ export default function DashboardContent({ initialSymbol, initialTimeframe }: { 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialSymbol]);
 
-  // Widget registry — maps ID to component
-  const WIDGET_COMPONENTS: Record<string, React.ReactNode> = useMemo(() => ({
-    "narrator": <ErrorBoundary><MarketNarrator /></ErrorBoundary>,
-    "trade-score": <ErrorBoundary><TradeScore /></ErrorBoundary>,
-    "zones": <ErrorBoundary><ZonesOverlay /></ErrorBoundary>,
-    "zone-retest": <ErrorBoundary><ZoneRetestProbability /></ErrorBoundary>,
-    "volume-profile": <ErrorBoundary><VolumeProfileWidget /></ErrorBoundary>,
-    "divergence": <ErrorBoundary><DivergenceWidget /></ErrorBoundary>,
-    "liquidity-forecast": <ErrorBoundary><LiquidityForecast /></ErrorBoundary>,
-    "calendar": <ErrorBoundary><EconomicCalendar /></ErrorBoundary>,
-    "sentiment": <ErrorBoundary><NewsSentiment /></ErrorBoundary>,
-    "volatility": <ErrorBoundary><VolatilityForecast /></ErrorBoundary>,
-    "heatmap": <ErrorBoundary><CurrencyHeatmap /></ErrorBoundary>,
-    "ml-prediction": <ErrorBoundary><MLPrediction /></ErrorBoundary>,
-    "order-flow": <ErrorBoundary><OrderFlow /></ErrorBoundary>,
-    "tpsl": <ErrorBoundary><TPSLWidget /></ErrorBoundary>,
-    "deep-orderbook": <ErrorBoundary><DeepOrderBookWidget /></ErrorBoundary>,
-    "liquidation": <ErrorBoundary><LiquidationWidget /></ErrorBoundary>,
-    "mtf": <ErrorBoundary><MTFConfluence /></ErrorBoundary>,
-    "smart-money": <ErrorBoundary><SmartMoney /></ErrorBoundary>,
-    "whale-tracker": <ErrorBoundary><WhaleTracker /></ErrorBoundary>,
-    "correlations": <ErrorBoundary><Correlations /></ErrorBoundary>,
-    "gold-macro": <ErrorBoundary><GoldMacro /></ErrorBoundary>,
-    "cot": <ErrorBoundary><COTReport /></ErrorBoundary>,
-  }), []);
+  // Widget registry — maps ID to a component factory (avoids recreating JSX in useMemo)
+  const WIDGET_COMPONENTS: Record<string, () => React.ReactNode> = {
+    "narrator": () => <ErrorBoundary><MarketNarrator /></ErrorBoundary>,
+    "trade-score": () => <ErrorBoundary><TradeScore /></ErrorBoundary>,
+    "zones": () => <ErrorBoundary><ZonesOverlay /></ErrorBoundary>,
+    "zone-retest": () => <ErrorBoundary><ZoneRetestProbability /></ErrorBoundary>,
+    "volume-profile": () => <ErrorBoundary><VolumeProfileWidget /></ErrorBoundary>,
+    "divergence": () => <ErrorBoundary><DivergenceWidget /></ErrorBoundary>,
+    "liquidity-forecast": () => <ErrorBoundary><LiquidityForecast /></ErrorBoundary>,
+    "calendar": () => <ErrorBoundary><EconomicCalendar /></ErrorBoundary>,
+    "sentiment": () => <ErrorBoundary><NewsSentiment /></ErrorBoundary>,
+    "volatility": () => <ErrorBoundary><VolatilityForecast /></ErrorBoundary>,
+    "heatmap": () => <ErrorBoundary><CurrencyHeatmap /></ErrorBoundary>,
+    "ml-prediction": () => <ErrorBoundary><MLPrediction /></ErrorBoundary>,
+    "order-flow": () => <ErrorBoundary><OrderFlow /></ErrorBoundary>,
+    "tpsl": () => <ErrorBoundary><TPSLWidget /></ErrorBoundary>,
+    "deep-orderbook": () => <ErrorBoundary><DeepOrderBookWidget /></ErrorBoundary>,
+    "liquidation": () => <ErrorBoundary><LiquidationWidget /></ErrorBoundary>,
+    "mtf": () => <ErrorBoundary><MTFConfluence /></ErrorBoundary>,
+    "smart-money": () => <ErrorBoundary><SmartMoney /></ErrorBoundary>,
+    "whale-tracker": () => <ErrorBoundary><WhaleTracker /></ErrorBoundary>,
+    "correlations": () => <ErrorBoundary><Correlations /></ErrorBoundary>,
+    "gold-macro": () => <ErrorBoundary><GoldMacro /></ErrorBoundary>,
+    "cot": () => <ErrorBoundary><COTReport /></ErrorBoundary>,
+  };
 
   // Widget definitions with loading delays, labels, and conditional visibility
   const WIDGET_DEFS: WidgetDef[] = useMemo(() => [
@@ -134,13 +134,13 @@ export default function DashboardContent({ initialSymbol, initialTimeframe }: { 
         id: def.id,
         node: def.delay > 0 ? (
           <LazyWidget delay={def.delay}>
-            {WIDGET_COMPONENTS[def.id]}
+            {WIDGET_COMPONENTS[def.id]()}
           </LazyWidget>
         ) : (
-          WIDGET_COMPONENTS[def.id]
+          WIDGET_COMPONENTS[def.id]()
         ),
       }));
-  }, [WIDGET_DEFS, WIDGET_COMPONENTS, hiddenWidgets]);
+  }, [WIDGET_DEFS, hiddenWidgets]);
 
   // Widgets available for settings panel (only those passing condition)
   const availableWidgets = useMemo(

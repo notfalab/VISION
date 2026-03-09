@@ -107,31 +107,40 @@ export default function SubscriptionPage() {
       .catch(() => {});
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Poll payment status after submission
+  // Poll payment status after submission (with abort guard to prevent race conditions)
   useEffect(() => {
     if (!submitResult || submitResult.status === "confirmed" || submitResult.status === "failed" || submitResult.status === "expired") {
       return;
     }
+    let cancelled = false;
+    const paymentId = submitResult.payment_id;
     setPolling(true);
+
     const id = setInterval(async () => {
+      if (cancelled) return;
       try {
-        const data = await fetchApi<any>(`/api/v1/subscription/payment/${submitResult.payment_id}`);
-        setSubmitResult((prev) => prev ? { ...prev, status: data.status, confirmations: data.confirmations } : prev);
+        const data = await fetchApi<any>(`/api/v1/subscription/payment/${paymentId}`);
+        if (cancelled) return;
+        setSubmitResult((prev) => prev && prev.payment_id === paymentId
+          ? { ...prev, status: data.status, confirmations: data.confirmations }
+          : prev
+        );
         if (data.status === "confirmed") {
           clearInterval(id);
           setPolling(false);
           // Refresh auth to get new subscription status
           await checkAuth();
+          if (cancelled) return;
           // Refresh billing
           const b = await fetchApi<{ payments: PaymentRecord[] }>("/api/v1/subscription/billing");
-          setBilling(b.payments);
+          if (!cancelled) setBilling(b.payments);
         }
       } catch {
         // ignore polling errors
       }
     }, 10_000);
-    return () => { clearInterval(id); setPolling(false); };
-  }, [submitResult?.payment_id, submitResult?.status, checkAuth]); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => { cancelled = true; clearInterval(id); setPolling(false); };
+  }, [submitResult?.payment_id, submitResult?.status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCopy = useCallback((text: string) => {
     navigator.clipboard.writeText(text);
