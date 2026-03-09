@@ -18,6 +18,7 @@ from backend.app.database import Base
 from backend.app.models import (  # noqa: F401
     Asset, OHLCVData, IndicatorValue, COTReport,
     Alert, AlertHistory, User, Trade, OnchainEvent, ScalperSignal,
+    Payment, SimulatedPosition, DailyJournal, LearningState,
 )
 
 config = context.config

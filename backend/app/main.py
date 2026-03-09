@@ -394,7 +394,7 @@ async def lifespan(app: FastAPI):
         from backend.app.models import (  # noqa: F401
             Asset, OHLCVData, IndicatorValue, COTReport,
             Alert, AlertHistory, User, Trade, OnchainEvent, ScalperSignal,
-            Payment,
+            Payment, SimulatedPosition, DailyJournal, LearningState,
         )
         async with asyncio.timeout(30):
             async with engine.begin() as conn:
