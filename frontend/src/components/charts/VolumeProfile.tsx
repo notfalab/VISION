@@ -14,7 +14,9 @@ interface VolumeLevel {
 const HOT_THRESHOLD = 0.7; // 70% of max volume = hot zone
 
 export default function VolumeProfile() {
-  const { activeSymbol, candles, activeTimeframe } = useMarketStore();
+  const activeSymbol = useMarketStore((s) => s.activeSymbol);
+  const candles = useMarketStore((s) => s.candles);
+  const activeTimeframe = useMarketStore((s) => s.activeTimeframe);
   const [levels, setLevels] = useState<VolumeLevel[]>([]);
 
   const cacheKey = `${activeSymbol}_${activeTimeframe}`;

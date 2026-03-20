@@ -31,7 +31,8 @@ const REGIME_LABELS: Record<string, string> = {
 };
 
 function VolatilityForecast() {
-  const { activeSymbol, activeTimeframe } = useMarketStore();
+  const activeSymbol = useMarketStore((s) => s.activeSymbol);
+  const activeTimeframe = useMarketStore((s) => s.activeTimeframe);
   const { data, loading } = useApiData<VolData>(
     () => api.volatilityForecast(activeSymbol, activeTimeframe),
     [activeSymbol, activeTimeframe],

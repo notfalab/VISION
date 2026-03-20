@@ -23,16 +23,6 @@ const STEPS: TourStep[] = [
     description: "Scrollable panel with 22+ widgets: AI Narrator, Trade Score, ML Predictions, Order Flow, Smart Money, and more. Drag to reorder, or click the gear icon to show/hide widgets.",
   },
   {
-    target: "[data-tour='nav-heatmap']",
-    title: "Global Heat Map",
-    description: "See all 70+ instruments at a glance — color-coded by price change with regime badges and composite scores. Click any tile to open its dashboard.",
-  },
-  {
-    target: "[data-tour='nav-charts']",
-    title: "Multi-Chart",
-    description: "Compare up to 9 charts side by side with independent symbols and timeframes. Each mini-chart supports overlay tools (LIQ, Stops, TP/SL, MBO, Walls).",
-  },
-  {
     target: "[data-tour='nav-academy']",
     title: "Trading Academy",
     description: "8 interactive chapters from basics to smart money concepts, with quizzes, badges, XP tracking, and a paper trading simulator.",
@@ -40,7 +30,7 @@ const STEPS: TourStep[] = [
   {
     target: "[data-tour='symbol-selector']",
     title: "Symbol Selector",
-    description: "Switch between 70+ instruments — Forex, Crypto, Commodities, and Indices. Live prices update in real-time from WebSocket feeds.",
+    description: "Gold (XAU/USD) analytics dashboard with live prices from WebSocket feeds.",
   },
 ];
 

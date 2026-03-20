@@ -349,11 +349,11 @@ function SummaryBar({ indicators }: { indicators: IndicatorData[] }) {
 }
 
 export default function IndicatorPanel() {
-  const { activeSymbol, activeTimeframe } = useMarketStore();
+  const activeSymbol = useMarketStore((s) => s.activeSymbol);
+  const activeTimeframe = useMarketStore((s) => s.activeTimeframe);
 
   const { data: rawIndicators, loading } = useApiData<IndicatorData[]>(
     async () => {
-      await api.fetchPrices(activeSymbol, activeTimeframe, 200);
       const result = await api.indicators(activeSymbol, activeTimeframe, 200);
       return result?.indicators || [];
     },

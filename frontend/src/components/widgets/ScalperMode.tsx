@@ -110,7 +110,7 @@ const LOSS_CATEGORY_ICONS: Record<string, string> = {
 };
 
 export default function ScalperMode() {
-  const { activeSymbol } = useMarketStore();
+  const activeSymbol = useMarketStore((s) => s.activeSymbol);
   const [tab, setTab] = useState<Tab>("signals");
   const [selectedTf, setSelectedTf] = useState("15m");
   const [scanning, setScanning] = useState(false);

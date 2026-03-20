@@ -12,11 +12,13 @@ interface LazyWidgetProps {
 
 /**
  * Defers rendering of a widget until it's near the viewport AND the delay has elapsed.
- * This prevents 40+ API calls from firing simultaneously on dashboard load.
+ * Unmounts children when scrolled far off-screen (600px margin) to save resources.
+ * Re-mounts when scrolled back into view.
  */
 export default function LazyWidget({ children, delay = 0, minHeight = 80 }: LazyWidgetProps) {
   const ref = useRef<HTMLDivElement>(null);
-  const [visible, setVisible] = useState(false);
+  const [hasBeenVisible, setHasBeenVisible] = useState(false);
+  const [inViewport, setInViewport] = useState(false);
   const [delayPassed, setDelayPassed] = useState(delay === 0);
 
   // Stagger timer
@@ -26,34 +28,35 @@ export default function LazyWidget({ children, delay = 0, minHeight = 80 }: Lazy
     return () => clearTimeout(t);
   }, [delay]);
 
-  // IntersectionObserver — trigger when element is within 400px of viewport
+  // IntersectionObserver — stays active to track in/out of viewport
   useEffect(() => {
     const el = ref.current;
-    if (!el || visible) return;
+    if (!el) return;
 
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
-          setVisible(true);
-          observer.disconnect();
-        }
+        setInViewport(entry.isIntersecting);
+        if (entry.isIntersecting) setHasBeenVisible(true);
       },
-      { rootMargin: "400px" },
+      { rootMargin: "600px" },
     );
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [visible, delayPassed]);
+  }, []);
 
-  if (visible && delayPassed) {
-    return <>{children}</>;
-  }
+  const shouldRender = hasBeenVisible && delayPassed && inViewport;
 
   return (
-    <div
-      ref={ref}
-      style={{ minHeight }}
-      className="rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-bg-secondary)] animate-pulse"
-    />
+    <div ref={ref} style={shouldRender ? undefined : { minHeight }}>
+      {shouldRender ? (
+        children
+      ) : (
+        <div
+          style={{ minHeight }}
+          className="rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-bg-secondary)] animate-pulse"
+        />
+      )}
+    </div>
   );
 }

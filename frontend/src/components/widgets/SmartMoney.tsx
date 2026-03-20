@@ -48,13 +48,12 @@ interface KeyLevelsData {
 }
 
 function SmartMoney() {
-  const { activeSymbol, activeTimeframe } = useMarketStore();
+  const activeSymbol = useMarketStore((s) => s.activeSymbol);
+  const activeTimeframe = useMarketStore((s) => s.activeTimeframe);
   const [localTf, setLocalTf] = useState<string>(activeTimeframe);
 
   const { data: smData, loading } = useApiData<{ smc: SMCData | null; levels: KeyLevelsData | null; heat: HeatData | null }>(
     async () => {
-      // Ensure price data exists for this timeframe
-      await api.fetchPrices(activeSymbol, localTf, 200);
       const [indData, heatData] = await Promise.allSettled([
         api.indicators(activeSymbol, localTf, 200),
         api.institutionalHeat(activeSymbol, localTf),

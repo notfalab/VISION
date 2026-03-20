@@ -579,7 +579,7 @@ export default function LandingPage() {
   const count22 = useCountUp(22);
   const count28 = useCountUp(28);
   const count40 = useCountUp(40);
-  const count99 = useCountUp(99);
+  const count99 = useCountUp(4999);
 
   useEffect(() => {
     const onScroll = () => setNavSolid(window.scrollY > 40);
@@ -1344,10 +1344,10 @@ export default function LandingPage() {
                 <div className="relative">
                   <div className="flex items-baseline gap-1 mb-1">
                     <span className="text-5xl font-bold gradient-text">$<span ref={count99}>0</span></span>
-                    <span className="text-sm text-[var(--color-text-muted)]">/month</span>
+                    <span className="text-sm text-[var(--color-text-muted)]">/year</span>
                   </div>
                   <p className="text-[10px] text-[var(--color-text-muted)] mb-7" style={{ fontFamily: "Inter, sans-serif" }}>
-                    Paid in USDT or USDC on Ethereum, Polygon, or Solana.
+                    Paid in SOL, USDC (SPL) or USDT (SPL) on Solana.
                   </p>
 
                   <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[var(--color-neon-green)]/10 border border-[var(--color-neon-green)]/20 mb-7">

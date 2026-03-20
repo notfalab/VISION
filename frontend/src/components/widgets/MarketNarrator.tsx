@@ -62,7 +62,8 @@ const DIR_CONFIG: Record<string, { label: string; color: string; bg: string }> =
 const TF_ORDER = ["15m", "1h", "4h", "1d"];
 
 function MarketNarrator() {
-  const { activeSymbol, activeTimeframe } = useMarketStore();
+  const activeSymbol = useMarketStore((s) => s.activeSymbol);
+  const activeTimeframe = useMarketStore((s) => s.activeTimeframe);
   const [localTf, setLocalTf] = useState<string>(activeTimeframe);
   const { data, loading } = useApiData<NarrativeData>(
     () => api.narrator(activeSymbol, localTf),

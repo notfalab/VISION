@@ -15,7 +15,7 @@ interface Level {
 const STALE_THRESHOLD_MS = 45_000; // 3× the 15s poll interval
 
 export default function OrderBookWidget() {
-  const { activeSymbol } = useMarketStore();
+  const activeSymbol = useMarketStore((s) => s.activeSymbol);
   const [bids, setBids] = useState<Level[]>([]);
   const [asks, setAsks] = useState<Level[]>([]);
   const [spread, setSpread] = useState(0);

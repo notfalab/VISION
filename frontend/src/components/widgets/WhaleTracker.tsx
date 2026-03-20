@@ -41,7 +41,7 @@ interface WhaleData {
 }
 
 function WhaleTracker() {
-  const { activeSymbol } = useMarketStore();
+  const activeSymbol = useMarketStore((s) => s.activeSymbol);
 
   const marketType = getMarketType(activeSymbol);
   const isCrypto = marketType === "crypto";

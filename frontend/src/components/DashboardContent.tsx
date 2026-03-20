@@ -6,7 +6,7 @@ import { Settings, RotateCcw } from "lucide-react";
 import Header from "@/components/layout/Header";
 import BackendStatusBanner from "@/components/BackendStatusBanner";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import PriceChart from "@/components/charts/PriceChart";
+const PriceChart = dynamic(() => import("@/components/charts/PriceChart"), { ssr: false });
 import VolumeProfile from "@/components/charts/VolumeProfile";
 import IndicatorPanel from "@/components/widgets/IndicatorPanel";
 import LazyWidget from "@/components/LazyWidget";
@@ -48,6 +48,32 @@ interface WidgetDef {
   condition?: boolean;
 }
 
+// Widget registry — module-level constant (stable references, never recreated on render)
+const WIDGET_COMPONENTS: Record<string, () => React.ReactNode> = {
+  "narrator": () => <ErrorBoundary><MarketNarrator /></ErrorBoundary>,
+  "trade-score": () => <ErrorBoundary><TradeScore /></ErrorBoundary>,
+  "zones": () => <ErrorBoundary><ZonesOverlay /></ErrorBoundary>,
+  "zone-retest": () => <ErrorBoundary><ZoneRetestProbability /></ErrorBoundary>,
+  "volume-profile": () => <ErrorBoundary><VolumeProfileWidget /></ErrorBoundary>,
+  "divergence": () => <ErrorBoundary><DivergenceWidget /></ErrorBoundary>,
+  "liquidity-forecast": () => <ErrorBoundary><LiquidityForecast /></ErrorBoundary>,
+  "calendar": () => <ErrorBoundary><EconomicCalendar /></ErrorBoundary>,
+  "sentiment": () => <ErrorBoundary><NewsSentiment /></ErrorBoundary>,
+  "volatility": () => <ErrorBoundary><VolatilityForecast /></ErrorBoundary>,
+  "heatmap": () => <ErrorBoundary><CurrencyHeatmap /></ErrorBoundary>,
+  "ml-prediction": () => <ErrorBoundary><MLPrediction /></ErrorBoundary>,
+  "order-flow": () => <ErrorBoundary><OrderFlow /></ErrorBoundary>,
+  "tpsl": () => <ErrorBoundary><TPSLWidget /></ErrorBoundary>,
+  "deep-orderbook": () => <ErrorBoundary><DeepOrderBookWidget /></ErrorBoundary>,
+  "liquidation": () => <ErrorBoundary><LiquidationWidget /></ErrorBoundary>,
+  "mtf": () => <ErrorBoundary><MTFConfluence /></ErrorBoundary>,
+  "smart-money": () => <ErrorBoundary><SmartMoney /></ErrorBoundary>,
+  "whale-tracker": () => <ErrorBoundary><WhaleTracker /></ErrorBoundary>,
+  "correlations": () => <ErrorBoundary><Correlations /></ErrorBoundary>,
+  "gold-macro": () => <ErrorBoundary><GoldMacro /></ErrorBoundary>,
+  "cot": () => <ErrorBoundary><COTReport /></ErrorBoundary>,
+};
+
 export default function DashboardContent({ initialSymbol, initialTimeframe }: { initialSymbol?: string; initialTimeframe?: import("@/types/market").Timeframe | null }) {
   const activeSymbol = useMarketStore((s) => s.activeSymbol);
   const setActiveSymbol = useMarketStore((s) => s.setActiveSymbol);
@@ -72,32 +98,6 @@ export default function DashboardContent({ initialSymbol, initialTimeframe }: { 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialSymbol]);
-
-  // Widget registry — maps ID to a component factory (avoids recreating JSX in useMemo)
-  const WIDGET_COMPONENTS: Record<string, () => React.ReactNode> = {
-    "narrator": () => <ErrorBoundary><MarketNarrator /></ErrorBoundary>,
-    "trade-score": () => <ErrorBoundary><TradeScore /></ErrorBoundary>,
-    "zones": () => <ErrorBoundary><ZonesOverlay /></ErrorBoundary>,
-    "zone-retest": () => <ErrorBoundary><ZoneRetestProbability /></ErrorBoundary>,
-    "volume-profile": () => <ErrorBoundary><VolumeProfileWidget /></ErrorBoundary>,
-    "divergence": () => <ErrorBoundary><DivergenceWidget /></ErrorBoundary>,
-    "liquidity-forecast": () => <ErrorBoundary><LiquidityForecast /></ErrorBoundary>,
-    "calendar": () => <ErrorBoundary><EconomicCalendar /></ErrorBoundary>,
-    "sentiment": () => <ErrorBoundary><NewsSentiment /></ErrorBoundary>,
-    "volatility": () => <ErrorBoundary><VolatilityForecast /></ErrorBoundary>,
-    "heatmap": () => <ErrorBoundary><CurrencyHeatmap /></ErrorBoundary>,
-    "ml-prediction": () => <ErrorBoundary><MLPrediction /></ErrorBoundary>,
-    "order-flow": () => <ErrorBoundary><OrderFlow /></ErrorBoundary>,
-    "tpsl": () => <ErrorBoundary><TPSLWidget /></ErrorBoundary>,
-    "deep-orderbook": () => <ErrorBoundary><DeepOrderBookWidget /></ErrorBoundary>,
-    "liquidation": () => <ErrorBoundary><LiquidationWidget /></ErrorBoundary>,
-    "mtf": () => <ErrorBoundary><MTFConfluence /></ErrorBoundary>,
-    "smart-money": () => <ErrorBoundary><SmartMoney /></ErrorBoundary>,
-    "whale-tracker": () => <ErrorBoundary><WhaleTracker /></ErrorBoundary>,
-    "correlations": () => <ErrorBoundary><Correlations /></ErrorBoundary>,
-    "gold-macro": () => <ErrorBoundary><GoldMacro /></ErrorBoundary>,
-    "cot": () => <ErrorBoundary><COTReport /></ErrorBoundary>,
-  };
 
   // Widget definitions with loading delays, labels, and conditional visibility
   const WIDGET_DEFS: WidgetDef[] = useMemo(() => [

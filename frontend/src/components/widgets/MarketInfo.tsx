@@ -19,7 +19,9 @@ interface MarketData {
 }
 
 export default function MarketInfo() {
-  const { activeSymbol, activeTimeframe, candles } = useMarketStore();
+  const activeSymbol = useMarketStore((s) => s.activeSymbol);
+  const activeTimeframe = useMarketStore((s) => s.activeTimeframe);
+  const candles = useMarketStore((s) => s.candles);
   const [data, setData] = useState<MarketData | null>(null);
   const marketType = getMarketType(activeSymbol);
 

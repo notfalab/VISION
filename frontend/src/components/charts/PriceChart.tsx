@@ -47,7 +47,7 @@ import { TradeCounterPrimitive, type CandleForTrades } from "./primitives/TradeC
 import { getMarketType } from "@/stores/market";
 import { toast } from "sonner";
 import { Camera } from "lucide-react";
-import DrawingToolbar, { type DrawingMode } from "./DrawingToolbar";
+import { type DrawingMode } from "./DrawingToolbar";
 import { TrendLinePrimitive, type TrendLineData, type HitResult } from "./primitives/TrendLinePrimitive";
 
 const TIMEFRAMES: { label: string; value: Timeframe }[] = [
@@ -181,7 +181,14 @@ export default function PriceChart() {
   const barStatsPrimRef = useRef<BarStatsPrimitive | null>(null);
   const tradeCounterPrimRef = useRef<TradeCounterPrimitive | null>(null);
 
-  const { activeSymbol, activeTimeframe, setActiveTimeframe, setCandles, candles, livePrices, chartExpanded, toggleChartExpanded } = useMarketStore();
+  const activeSymbol = useMarketStore((s) => s.activeSymbol);
+  const activeTimeframe = useMarketStore((s) => s.activeTimeframe);
+  const setActiveTimeframe = useMarketStore((s) => s.setActiveTimeframe);
+  const setCandles = useMarketStore((s) => s.setCandles);
+  const candles = useMarketStore((s) => s.candles);
+  const livePrices = useMarketStore((s) => s.livePrices);
+  const chartExpanded = useMarketStore((s) => s.chartExpanded);
+  const toggleChartExpanded = useMarketStore((s) => s.toggleChartExpanded);
   const theme = useThemeStore((s) => s.theme);
   const [data, setData] = useState<OHLCV[]>([]);
   const hasData = data.length > 0;
@@ -628,7 +635,15 @@ export default function PriceChart() {
       }
     };
 
+    let rafId: number | null = null;
     const onMouseMove = (e: MouseEvent) => {
+      if (rafId !== null) return; // RAF throttle — max ~60fps
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        _onMouseMoveInner(e);
+      });
+    };
+    const _onMouseMoveInner = (e: MouseEvent) => {
       const drag = dragRef.current;
       if (drag) {
         // ── Dragging ──
@@ -737,6 +752,7 @@ export default function PriceChart() {
       container.removeEventListener("mousedown", onMouseDown);
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
+      if (rafId !== null) cancelAnimationFrame(rafId);
     };
   }, [drawingMode, drawings, hitTestHLine]);
 
@@ -1144,6 +1160,7 @@ export default function PriceChart() {
 
     // Periodic background candle refresh (uses update() to preserve viewport)
     const bgRefresh = setInterval(async () => {
+      if (document.hidden) return; // Skip when tab hidden
       try {
         const prices = await api.prices(activeSymbol, activeTimeframe, 10);
         const sorted = deduplicateAndSort(prices);
@@ -1199,7 +1216,7 @@ export default function PriceChart() {
 
     // Fast poll: update last candle close price
     const quickPoll = async () => {
-      if (cancelled) return;
+      if (cancelled || document.hidden) return;
       try {
         const d = await api.latestPrice(sym);
         if (cancelled || !d?.price) return;
@@ -1228,7 +1245,7 @@ export default function PriceChart() {
 
     // Slow poll: fetch recent candles (use GET only, trigger ingestion in background)
     const candleRefresh = async () => {
-      if (cancelled) return;
+      if (cancelled || document.hidden) return;
       try {
         const prices = await api.prices(sym, tf, 10);
         if (cancelled) return; // check again after await
@@ -1352,6 +1369,7 @@ export default function PriceChart() {
 
     let cancelled = false;
     const fetchZones = async () => {
+      if (document.hidden) return;
       try {
         const ob = await api.orderBook(activeSymbol, 500);
         if (cancelled || !ob) return;
@@ -1412,6 +1430,7 @@ export default function PriceChart() {
 
     let cancelled = false;
     const fetchTPSL = async () => {
+      if (document.hidden) return;
       try {
         const result = await api.tpslHeatmap(activeSymbol, 500);
         if (cancelled) return;
@@ -1439,6 +1458,7 @@ export default function PriceChart() {
 
     let cancelled = false;
     const fetchLiq = async () => {
+      if (document.hidden) return;
       try {
         const result = await api.liquidationHeatmap(activeSymbol, activeTimeframe, 2000);
         if (cancelled) return;
@@ -1449,7 +1469,9 @@ export default function PriceChart() {
     };
 
     fetchLiq();
-    const interval = setInterval(fetchLiq, 120_000);
+    // Crypto with real data: 60s; others: 120s
+    const pollMs = getMarketType(activeSymbol) === "crypto" ? 60_000 : 120_000;
+    const interval = setInterval(fetchLiq, pollMs);
     return () => { cancelled = true; clearInterval(interval); };
   }, [showLiq, activeSymbol, activeTimeframe]);
 
@@ -1462,6 +1484,7 @@ export default function PriceChart() {
 
     let cancelled = false;
     const fetchStops = async () => {
+      if (document.hidden) return;
       try {
         const result = await api.stopHeatmap(activeSymbol, activeTimeframe, 2000);
         if (cancelled) return;
@@ -1472,7 +1495,8 @@ export default function PriceChart() {
     };
 
     fetchStops();
-    const interval = setInterval(fetchStops, 120_000);
+    const pollMs = getMarketType(activeSymbol) === "crypto" ? 60_000 : 120_000;
+    const interval = setInterval(fetchStops, pollMs);
     return () => { cancelled = true; clearInterval(interval); };
   }, [showStops, activeSymbol, activeTimeframe]);
 
@@ -1485,6 +1509,7 @@ export default function PriceChart() {
 
     let cancelled = false;
     const fetchMBO = async () => {
+      if (document.hidden) return;
       try {
         const result = await api.mboProfile(activeSymbol, 500);
         if (cancelled) return;
@@ -1516,6 +1541,7 @@ export default function PriceChart() {
 
     let cancelled = false;
     const fetchWalls = async () => {
+      if (document.hidden) return;
       try {
         const result = await api.orderFlow(activeSymbol);
         if (cancelled || !result || !series) return;
@@ -1801,16 +1827,6 @@ export default function PriceChart() {
           >
             Trades
           </button>
-          {/* Separator — Drawing Tools */}
-          <div className="w-px h-5 bg-[var(--color-border-primary)] shrink-0 mx-0.5" />
-          <DrawingToolbar
-            mode={drawingMode}
-            onModeChange={setDrawingMode}
-            onClearAll={clearAllDrawings}
-            onDeleteSelected={deleteSelectedDrawing}
-            drawingCount={drawings.length}
-            hasSelection={!!selectedDrawingId}
-          />
           {/* Separator */}
           <div className="w-px h-5 bg-[var(--color-border-primary)] shrink-0 mx-0.5" />
           {/* Timeframe selector */}

@@ -128,7 +128,7 @@ function transformInstitutionalCOT(result: any): COTData | null {
 }
 
 function COTReport() {
-  const { activeSymbol } = useMarketStore();
+  const activeSymbol = useMarketStore((s) => s.activeSymbol);
 
   const assetLabel = activeSymbol === "XAUUSD" ? "Gold" : activeSymbol.replace("USD", "");
 

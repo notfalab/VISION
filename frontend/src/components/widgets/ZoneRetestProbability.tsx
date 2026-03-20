@@ -191,12 +191,12 @@ function ZoneCard({ zone, expanded, onToggle }: { zone: ZoneResult; expanded: bo
 }
 
 function ZoneRetestProbability() {
-  const { activeSymbol, activeTimeframe } = useMarketStore();
+  const activeSymbol = useMarketStore((s) => s.activeSymbol);
+  const activeTimeframe = useMarketStore((s) => s.activeTimeframe);
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
 
   const { data, loading, error } = useApiData<RetestData>(
     async () => {
-      await api.fetchPrices(activeSymbol, activeTimeframe, 500);
       return api.zoneRetestProbability(activeSymbol, activeTimeframe);
     },
     [activeSymbol, activeTimeframe],

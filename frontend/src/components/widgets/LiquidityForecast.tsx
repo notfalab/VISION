@@ -30,7 +30,8 @@ interface LiqData {
 }
 
 function LiquidityForecast() {
-  const { activeSymbol, activeTimeframe } = useMarketStore();
+  const activeSymbol = useMarketStore((s) => s.activeSymbol);
+  const activeTimeframe = useMarketStore((s) => s.activeTimeframe);
   const { data, loading } = useApiData<LiqData>(
     () => api.liquidityForecast(activeSymbol, activeTimeframe, 200),
     [activeSymbol, activeTimeframe],

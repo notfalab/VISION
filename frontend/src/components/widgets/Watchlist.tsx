@@ -17,7 +17,11 @@ interface WatchlistItem {
 }
 
 export default function Watchlist() {
-  const { watchlist, activeSymbol, setActiveSymbol, addToWatchlist, removeFromWatchlist } = useMarketStore();
+  const watchlist = useMarketStore((s) => s.watchlist);
+  const activeSymbol = useMarketStore((s) => s.activeSymbol);
+  const setActiveSymbol = useMarketStore((s) => s.setActiveSymbol);
+  const addToWatchlist = useMarketStore((s) => s.addToWatchlist);
+  const removeFromWatchlist = useMarketStore((s) => s.removeFromWatchlist);
   const [items, setItems] = useState<WatchlistItem[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [search, setSearch] = useState("");
@@ -28,25 +32,29 @@ export default function Watchlist() {
 
   useEffect(() => {
     const loadPrices = async () => {
-      const results: WatchlistItem[] = [];
-      for (const symbol of watchlist) {
-        try {
-          const data = await api.prices(symbol, "1d", 2);
-          if (data.length >= 2) {
-            const latest = data[0];
-            const prev = data[1];
-            const change = ((latest.close - prev.close) / prev.close) * 100;
-            results.push({ symbol, price: latest.close, change, loading: false });
-          } else if (data.length === 1) {
-            results.push({ symbol, price: data[0].close, change: 0, loading: false });
-          } else {
-            results.push({ symbol, price: 0, change: 0, loading: false });
+      const settled = await Promise.allSettled(
+        watchlist.map(async (symbol): Promise<WatchlistItem> => {
+          try {
+            const data = await api.prices(symbol, "1d", 2);
+            if (data.length >= 2) {
+              const latest = data[0];
+              const prev = data[1];
+              const change = ((latest.close - prev.close) / prev.close) * 100;
+              return { symbol, price: latest.close, change, loading: false };
+            } else if (data.length === 1) {
+              return { symbol, price: data[0].close, change: 0, loading: false };
+            }
+            return { symbol, price: 0, change: 0, loading: false };
+          } catch {
+            return { symbol, price: 0, change: 0, loading: false };
           }
-        } catch {
-          results.push({ symbol, price: 0, change: 0, loading: false });
-        }
-      }
-      setItems(results);
+        })
+      );
+      setItems(
+        settled
+          .filter((r): r is PromiseFulfilledResult<WatchlistItem> => r.status === "fulfilled")
+          .map((r) => r.value)
+      );
     };
     loadPrices();
     const interval = setInterval(loadPrices, 30000);

@@ -35,7 +35,7 @@ interface DeepOBData {
 }
 
 function DeepOrderBookWidget() {
-  const { activeSymbol } = useMarketStore();
+  const activeSymbol = useMarketStore((s) => s.activeSymbol);
   const [viewMode, setViewMode] = useState<"standard" | "deep">("standard");
 
   const { data, loading, error } = useApiData<DeepOBData>(

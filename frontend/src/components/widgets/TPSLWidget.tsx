@@ -72,7 +72,7 @@ function ClusterRow({ c, symbol }: { c: Cluster; symbol: string }) {
 }
 
 function TPSLWidget() {
-  const { activeSymbol } = useMarketStore();
+  const activeSymbol = useMarketStore((s) => s.activeSymbol);
   const [expanded, setExpanded] = useState<"tp" | "sl" | null>("tp");
 
   const { data, loading, error } = useApiData<TPSLData>(

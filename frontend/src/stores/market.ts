@@ -5,24 +5,9 @@ import type { LivePrice } from "@/lib/binance-ws";
 
 export type MarketType = "commodity" | "crypto" | "forex" | "index";
 
-export const CRYPTO_SYMBOLS = [
-  "BTCUSD", "ETHUSD", "SOLUSD", "XRPUSD", "DOGEUSD", "BNBUSD", "ADAUSD",
-  "PEPEUSD", "TRXUSD", "SUIUSD", "NEARUSD", "AVAXUSD", "LINKUSD", "LTCUSD",
-  "AAVEUSD", "TAOUSD", "BCHUSD", "UNIUSD", "DOTUSD", "ICPUSD", "APTUSD",
-  "SHIBUSD", "HBARUSD", "FILUSD", "XLMUSD", "ARBUSD", "SEIUSD", "TONUSD",
-  "ONDOUSD", "BONKUSD", "ENAUSD", "WLDUSD", "TIAUSD", "RENDERUSD", "FTMUSD",
-  "INJUSD", "OPUSD", "MATICUSD", "ATOMUSD", "WIFUSD",
-];
-export const INDEX_SYMBOLS = ["NAS100", "SPX500"];
-export const FOREX_SYMBOLS = [
-  // Majors
-  "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDCHF",
-  // Minors (crosses)
-  "EURGBP", "EURJPY", "GBPJPY", "EURCHF", "GBPAUD", "EURAUD",
-  "GBPCAD", "AUDNZD", "AUDCAD", "AUDJPY", "NZDJPY", "CADJPY",
-  "CADCHF", "NZDCAD", "EURNZD", "GBPCHF", "GBPNZD", "EURCAD",
-  "AUDCHF", "NZDCHF", "CHFJPY",
-];
+export const CRYPTO_SYMBOLS: string[] = [];
+export const INDEX_SYMBOLS: string[] = [];
+export const FOREX_SYMBOLS: string[] = [];
 
 /** Determine market type from symbol */
 export function getMarketType(symbol: string): MarketType {
@@ -67,7 +52,7 @@ interface MarketState {
   setError: (e: string | null) => void;
 }
 
-const DEFAULT_WATCHLIST = ["XAUUSD", "BTCUSD", "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "USDCHF"];
+const DEFAULT_WATCHLIST = ["XAUUSD"];
 
 export const useMarketStore = create<MarketState>()(
   persist(

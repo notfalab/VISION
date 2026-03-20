@@ -35,7 +35,8 @@ interface ZonesData {
 }
 
 function ZonesOverlay() {
-  const { activeSymbol, activeTimeframe } = useMarketStore();
+  const activeSymbol = useMarketStore((s) => s.activeSymbol);
+  const activeTimeframe = useMarketStore((s) => s.activeTimeframe);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     sd: true,
     sr: true,

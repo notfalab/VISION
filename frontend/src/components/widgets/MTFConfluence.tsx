@@ -37,7 +37,7 @@ const IND_LABELS: Record<string, string> = {
 };
 
 function MTFConfluence() {
-  const { activeSymbol } = useMarketStore();
+  const activeSymbol = useMarketStore((s) => s.activeSymbol);
 
   const { data, loading } = useApiData<MTFData>(
     async () => {

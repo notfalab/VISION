@@ -18,13 +18,15 @@ import {
 import { QRCodeSVG } from "qrcode.react";
 import { useAuthStore } from "@/stores/auth";
 
-/* ── Types ─────────────────────────────────────────────────────────────── */
-interface WalletInfo {
-  price_usd: number;
-  tokens: string[];
-  networks: Record<string, string>;
-}
+/* ── Constants ────────────────────────────────────────────────────────── */
+const PRICE_USD = 4_999;
+const PERIOD = "year";
+const WALLET_ADDRESS = "21rBk7tmX2E3wV5AXX8bDoEg8k35kmwfj2aHkCxPFbqW";
+const NETWORK = "solana";
+const EXPLORER = "https://solscan.io/tx/";
+const TOKENS = ["SOL", "USDC", "USDT"] as const;
 
+/* ── Types ─────────────────────────────────────────────────────────────── */
 interface PaymentRecord {
   id: number;
   status: string;
@@ -66,25 +68,16 @@ async function fetchApi<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
-/* ── Network display config ────────────────────────────────────────────── */
-const NETWORK_META: Record<string, { label: string; color: string; explorer: string }> = {
-  ethereum: { label: "Ethereum", color: "#627EEA", explorer: "https://etherscan.io/tx/" },
-  polygon: { label: "Polygon", color: "#8247E5", explorer: "https://polygonscan.com/tx/" },
-  solana: { label: "Solana", color: "#9945FF", explorer: "https://solscan.io/tx/" },
-};
-
 /* ── Main page ─────────────────────────────────────────────────────────── */
 export default function SubscriptionPage() {
   const router = useRouter();
   const { user, checkAuth } = useAuthStore();
 
   // Data
-  const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null);
   const [billing, setBilling] = useState<PaymentRecord[]>([]);
 
   // Payment flow state
-  const [selectedNetwork, setSelectedNetwork] = useState<string>("");
-  const [selectedToken, setSelectedToken] = useState<string>("USDT");
+  const [selectedToken, setSelectedToken] = useState<string>("USDC");
   const [txHash, setTxHash] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
@@ -92,22 +85,14 @@ export default function SubscriptionPage() {
   const [copied, setCopied] = useState(false);
   const [polling, setPolling] = useState(false);
 
-  // Load wallet info + billing
+  // Load billing
   useEffect(() => {
-    fetchApi<WalletInfo>("/api/v1/subscription/wallet-info")
-      .then((d) => {
-        setWalletInfo(d);
-        const nets = Object.keys(d.networks);
-        if (nets.length > 0 && !selectedNetwork) setSelectedNetwork(nets[0]);
-      })
-      .catch(() => {});
-
     fetchApi<{ payments: PaymentRecord[] }>("/api/v1/subscription/billing")
       .then((d) => setBilling(d.payments))
       .catch(() => {});
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Poll payment status after submission (with abort guard to prevent race conditions)
+  // Poll payment status after submission
   useEffect(() => {
     if (!submitResult || submitResult.status === "confirmed" || submitResult.status === "failed" || submitResult.status === "expired") {
       return;
@@ -128,10 +113,8 @@ export default function SubscriptionPage() {
         if (data.status === "confirmed") {
           clearInterval(id);
           setPolling(false);
-          // Refresh auth to get new subscription status
           await checkAuth();
           if (cancelled) return;
-          // Refresh billing
           const b = await fetchApi<{ payments: PaymentRecord[] }>("/api/v1/subscription/billing");
           if (!cancelled) setBilling(b.payments);
         }
@@ -160,7 +143,7 @@ export default function SubscriptionPage() {
         method: "POST",
         body: JSON.stringify({
           tx_hash: txHash.trim(),
-          network: selectedNetwork,
+          network: NETWORK,
           token: selectedToken,
         }),
       });
@@ -177,7 +160,6 @@ export default function SubscriptionPage() {
     }
   };
 
-  const walletAddress = walletInfo?.networks[selectedNetwork] || "";
   const statusColor =
     user?.subscription_status === "active" ? "var(--color-neon-green)" :
     user?.subscription_status === "trial" ? "var(--color-neon-blue)" :
@@ -218,14 +200,14 @@ export default function SubscriptionPage() {
                   style={{ backgroundColor: statusColor }}
                 />
                 <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: statusColor }}>
-                  {user?.subscription_status || "—"}
+                  {user?.subscription_status || "\u2014"}
                 </span>
               </div>
               <p className="text-[10px] text-[var(--color-text-muted)]">
                 {user?.subscription_status === "trial" && `Trial ends in ${user.days_remaining} day${user.days_remaining !== 1 ? "s" : ""}`}
                 {user?.subscription_status === "active" && `Subscription renews in ${user.days_remaining} day${user.days_remaining !== 1 ? "s" : ""}`}
                 {user?.subscription_status === "expired" && "Your subscription has expired. Pay to continue using VISION."}
-                {user?.subscription_status === "admin" && "Admin access — unlimited"}
+                {user?.subscription_status === "admin" && "Admin access \u2014 unlimited"}
               </p>
             </div>
             <CreditCard className="w-5 h-5 text-[var(--color-text-muted)]" />
@@ -235,109 +217,92 @@ export default function SubscriptionPage() {
         {/* ── Payment Flow ───────────────────────────────────── */}
         <div className="card-glass rounded-lg p-5 space-y-5">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-[var(--color-text-primary)] uppercase tracking-wider">
-              Pay with Crypto
-            </h2>
-            <span className="text-lg font-bold text-[var(--color-neon-blue)] font-mono">
-              ${walletInfo?.price_usd || 99}/mo
-            </span>
-          </div>
-
-          {/* Step 1: Network */}
-          <div>
-            <label className="block text-[9px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-2">
-              1. Select Network
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {walletInfo && Object.keys(walletInfo.networks).map((net) => {
-                const meta = NETWORK_META[net];
-                const active = selectedNetwork === net;
-                return (
-                  <button
-                    key={net}
-                    onClick={() => { setSelectedNetwork(net); setSubmitResult(null); setError(""); setTxHash(""); }}
-                    className="px-3 py-1.5 rounded-md text-[10px] font-semibold uppercase tracking-wider border transition-all"
-                    style={{
-                      borderColor: active ? meta?.color : "var(--color-border-primary)",
-                      backgroundColor: active ? `${meta?.color}15` : "transparent",
-                      color: active ? meta?.color : "var(--color-text-muted)",
-                    }}
-                  >
-                    {meta?.label || net}
-                  </button>
-                );
-              })}
+            <div>
+              <h2 className="text-sm font-semibold text-[var(--color-text-primary)] uppercase tracking-wider">
+                Pay with Solana
+              </h2>
+              <p className="text-[9px] text-[var(--color-text-muted)] mt-0.5">
+                SOL, USDC (SPL) or USDT (SPL) on Solana network
+              </p>
+            </div>
+            <div className="text-right">
+              <span className="text-xl font-bold text-[var(--color-neon-amber)] font-mono">
+                $4,999
+              </span>
+              <span className="text-[10px] text-[var(--color-text-muted)] ml-1">/year</span>
             </div>
           </div>
 
-          {/* Step 2: Token */}
+          {/* Step 1: Token */}
           <div>
             <label className="block text-[9px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-2">
-              2. Select Token
+              1. Select Token
             </label>
             <div className="flex gap-2">
-              {["USDT", "USDC"].map((t) => (
+              {TOKENS.map((t) => (
                 <button
                   key={t}
                   onClick={() => { setSelectedToken(t); setSubmitResult(null); setError(""); }}
-                  className={`px-4 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wider border transition-all ${
+                  className={`px-4 py-2 rounded-md text-[10px] font-bold uppercase tracking-wider border transition-all ${
                     selectedToken === t
                       ? "border-[var(--color-neon-green)] bg-[var(--color-neon-green)]/10 text-[var(--color-neon-green)]"
-                      : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
+                      : "border-[var(--color-border-primary)] text-[var(--color-text-muted)] hover:border-[var(--color-text-muted)]"
                   }`}
                 >
-                  {t}
+                  {t === "SOL" ? "SOL" : `${t} (SPL)`}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Step 3: Wallet + QR */}
-          {walletAddress && (
-            <div>
-              <label className="block text-[9px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-2">
-                3. Send {selectedToken} to this address
-              </label>
-              <div className="flex items-start gap-4">
-                <div className="bg-white p-2 rounded-lg shrink-0">
-                  <QRCodeSVG value={walletAddress} size={100} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-2">
-                    <code className="flex-1 text-[10px] font-mono text-[var(--color-text-primary)] bg-[var(--color-bg-primary)] border border-[var(--color-border-primary)] rounded px-2.5 py-2 truncate">
-                      {walletAddress}
-                    </code>
-                    <button
-                      onClick={() => handleCopy(walletAddress)}
-                      className="p-1.5 rounded border border-[var(--color-border-primary)] hover:border-[var(--color-neon-blue)] transition-colors"
-                    >
-                      {copied ? (
-                        <Check className="w-3 h-3 text-[var(--color-neon-green)]" />
-                      ) : (
-                        <Copy className="w-3 h-3 text-[var(--color-text-muted)]" />
-                      )}
-                    </button>
-                  </div>
-                  <p className="text-[9px] text-[var(--color-text-muted)]">
-                    Send exactly <span className="font-bold text-[var(--color-text-secondary)]">${walletInfo?.price_usd || 99}</span> in {selectedToken} on{" "}
-                    <span className="font-bold text-[var(--color-text-secondary)]">{NETWORK_META[selectedNetwork]?.label}</span>
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Step 4: Tx hash */}
+          {/* Step 2: Wallet + QR */}
           <div>
             <label className="block text-[9px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-2">
-              4. Paste Transaction Hash
+              2. Send {selectedToken} to this Solana address
+            </label>
+            <div className="flex items-start gap-4">
+              <div className="bg-white p-2 rounded-lg shrink-0">
+                <QRCodeSVG value={WALLET_ADDRESS} size={100} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-2">
+                  <code className="flex-1 text-[10px] font-mono text-[var(--color-text-primary)] bg-[var(--color-bg-primary)] border border-[var(--color-border-primary)] rounded px-2.5 py-2 truncate">
+                    {WALLET_ADDRESS}
+                  </code>
+                  <button
+                    onClick={() => handleCopy(WALLET_ADDRESS)}
+                    className="p-1.5 rounded border border-[var(--color-border-primary)] hover:border-[var(--color-neon-blue)] transition-colors"
+                  >
+                    {copied ? (
+                      <Check className="w-3 h-3 text-[var(--color-neon-green)]" />
+                    ) : (
+                      <Copy className="w-3 h-3 text-[var(--color-text-muted)]" />
+                    )}
+                  </button>
+                </div>
+                <p className="text-[9px] text-[var(--color-text-muted)]">
+                  Send <span className="font-bold text-[var(--color-neon-amber)]">${PRICE_USD.toLocaleString()}</span> equivalent in{" "}
+                  <span className="font-bold text-[var(--color-text-secondary)]">{selectedToken}</span> on the{" "}
+                  <span className="font-bold" style={{ color: "#9945FF" }}>Solana</span> network
+                </p>
+                <p className="text-[8px] text-[var(--color-text-muted)] mt-1 opacity-60">
+                  Annual subscription \u2014 12 months of full VISION access
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Step 3: Tx hash */}
+          <div>
+            <label className="block text-[9px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-2">
+              3. Paste Transaction Signature
             </label>
             <div className="flex gap-2">
               <input
                 type="text"
                 value={txHash}
                 onChange={(e) => setTxHash(e.target.value)}
-                placeholder="0x... or Solana signature"
+                placeholder="Solana transaction signature..."
                 disabled={!!submitResult}
                 className="flex-1 px-3 py-2 text-[10px] font-mono bg-[var(--color-bg-primary)] border border-[var(--color-border-primary)] rounded-md text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] outline-none focus:border-[var(--color-neon-blue)] transition-colors disabled:opacity-40"
               />
@@ -424,7 +389,6 @@ export default function SubscriptionPage() {
           ) : (
             <div className="space-y-2">
               {billing.map((p) => {
-                const meta = NETWORK_META[p.network];
                 const isConfirmed = p.status === "confirmed";
                 return (
                   <div
@@ -450,25 +414,23 @@ export default function SubscriptionPage() {
                           </span>
                           <span
                             className="text-[8px] font-semibold px-1.5 py-0.5 rounded uppercase"
-                            style={{ color: meta?.color, backgroundColor: `${meta?.color}15` }}
+                            style={{ color: "#9945FF", backgroundColor: "rgba(153,69,255,0.08)" }}
                           >
-                            {meta?.label || p.network}
+                            Solana
                           </span>
                         </div>
                         <div className="flex items-center gap-2 mt-0.5">
                           <span className="text-[8px] text-[var(--color-text-muted)] font-mono truncate max-w-[200px]">
                             {p.tx_hash}
                           </span>
-                          {meta?.explorer && (
-                            <a
-                              href={`${meta.explorer}${p.tx_hash}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-[var(--color-neon-blue)] hover:text-[var(--color-neon-cyan)] transition-colors"
-                            >
-                              <ExternalLink className="w-2.5 h-2.5" />
-                            </a>
-                          )}
+                          <a
+                            href={`${EXPLORER}${p.tx_hash}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[var(--color-neon-blue)] hover:text-[var(--color-neon-cyan)] transition-colors"
+                          >
+                            <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
                         </div>
                       </div>
                     </div>

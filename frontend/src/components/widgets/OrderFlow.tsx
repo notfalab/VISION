@@ -61,7 +61,8 @@ const SIGNAL_CONFIG: Record<
 };
 
 function OrderFlow() {
-  const { activeSymbol, activeTimeframe } = useMarketStore();
+  const activeSymbol = useMarketStore((s) => s.activeSymbol);
+  const activeTimeframe = useMarketStore((s) => s.activeTimeframe);
   const [localTf, setLocalTf] = useState<string>(activeTimeframe);
   const { data, loading, error } = useApiData<FlowData>(
     () => api.orderFlow(activeSymbol),

@@ -29,7 +29,7 @@ const SIGNAL_CONFIG: Record<string, { label: string; color: string }> = {
 };
 
 function DivergenceWidget() {
-  const { activeSymbol } = useMarketStore();
+  const activeSymbol = useMarketStore((s) => s.activeSymbol);
   const { data, loading } = useApiData<DivData>(
     () => api.divergence(activeSymbol),
     [activeSymbol],

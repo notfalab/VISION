@@ -84,10 +84,11 @@ function CurrencyHeatmap() {
       await Promise.allSettled(
         Object.keys(FOREX_PAIRS).map(async (pair) => {
           try {
-            // Fetch 1d candles for daily change
-            const candles1d = await api.prices(pair, "1d", 2);
-            // Fetch 1h candles for hourly changes
-            const candles1h = await api.prices(pair, "1h", 24);
+            // Fetch 1d + 1h candles in parallel
+            const [candles1d, candles1h] = await Promise.all([
+              api.prices(pair, "1d", 2),
+              api.prices(pair, "1h", 24),
+            ]);
 
             const arr1d = Array.isArray(candles1d) ? candles1d : [];
             const arr1h = Array.isArray(candles1h) ? candles1h : [];

@@ -26,7 +26,8 @@ interface VPData {
 }
 
 function VolumeProfileWidget() {
-  const { activeSymbol, activeTimeframe } = useMarketStore();
+  const activeSymbol = useMarketStore((s) => s.activeSymbol);
+  const activeTimeframe = useMarketStore((s) => s.activeTimeframe);
   const [tf, setTf] = useState<string>(activeTimeframe);
 
   const { data, loading } = useApiData<VPData>(

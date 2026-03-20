@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useTransition } from "react";
-import { ChevronDown, LogOut, User, Palette, GraduationCap, Shield, Map as MapIcon, Building2, Grid3X3, LayoutGrid, Bell, Activity } from "lucide-react";
+import { ChevronDown, LogOut, User, Palette, GraduationCap, Shield, Bell, Activity } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -13,85 +13,8 @@ import { formatPrice, formatChange, priceColor } from "@/lib/format";
 import { updateDashboardURL } from "@/lib/url";
 import { isBinanceSymbol as isCrypto } from "@/lib/binance-ws";
 
-const CRYPTO_OPTIONS = [
-  { symbol: "BTCUSD", label: "BTC/USD" },
-  { symbol: "ETHUSD", label: "ETH/USD" },
-  { symbol: "SOLUSD", label: "SOL/USD" },
-  { symbol: "XRPUSD", label: "XRP/USD" },
-  { symbol: "DOGEUSD", label: "DOGE/USD" },
-  { symbol: "BNBUSD", label: "BNB/USD" },
-  { symbol: "ADAUSD", label: "ADA/USD" },
-  { symbol: "PEPEUSD", label: "PEPE/USD" },
-  { symbol: "TRXUSD", label: "TRX/USD" },
-  { symbol: "SUIUSD", label: "SUI/USD" },
-  { symbol: "NEARUSD", label: "NEAR/USD" },
-  { symbol: "AVAXUSD", label: "AVAX/USD" },
-  { symbol: "LINKUSD", label: "LINK/USD" },
-  { symbol: "LTCUSD", label: "LTC/USD" },
-  { symbol: "AAVEUSD", label: "AAVE/USD" },
-  { symbol: "TAOUSD", label: "TAO/USD" },
-  { symbol: "BCHUSD", label: "BCH/USD" },
-  { symbol: "UNIUSD", label: "UNI/USD" },
-  { symbol: "DOTUSD", label: "DOT/USD" },
-  { symbol: "ICPUSD", label: "ICP/USD" },
-  { symbol: "APTUSD", label: "APT/USD" },
-  { symbol: "SHIBUSD", label: "SHIB/USD" },
-  { symbol: "HBARUSD", label: "HBAR/USD" },
-  { symbol: "FILUSD", label: "FIL/USD" },
-  { symbol: "XLMUSD", label: "XLM/USD" },
-  { symbol: "ARBUSD", label: "ARB/USD" },
-  { symbol: "SEIUSD", label: "SEI/USD" },
-  { symbol: "TONUSD", label: "TON/USD" },
-  { symbol: "ONDOUSD", label: "ONDO/USD" },
-  { symbol: "BONKUSD", label: "BONK/USD" },
-  { symbol: "ENAUSD", label: "ENA/USD" },
-  { symbol: "WLDUSD", label: "WLD/USD" },
-  { symbol: "TIAUSD", label: "TIA/USD" },
-  { symbol: "RENDERUSD", label: "RENDER/USD" },
-  { symbol: "FTMUSD", label: "FTM/USD" },
-  { symbol: "INJUSD", label: "INJ/USD" },
-  { symbol: "OPUSD", label: "OP/USD" },
-  { symbol: "MATICUSD", label: "MATIC/USD" },
-  { symbol: "ATOMUSD", label: "ATOM/USD" },
-  { symbol: "WIFUSD", label: "WIF/USD" },
-];
-
 const ASSET_OPTIONS = [
-  // Commodities
-  { symbol: "XAUUSD", label: "XAU/USD", color: "", group: "Commodities" },
-  // Forex Majors
-  { symbol: "EURUSD", label: "EUR/USD", color: "#3B82F6", group: "Forex Majors" },
-  { symbol: "GBPUSD", label: "GBP/USD", color: "#EC4899", group: "Forex Majors" },
-  { symbol: "USDJPY", label: "USD/JPY", color: "#EF4444", group: "Forex Majors" },
-  { symbol: "AUDUSD", label: "AUD/USD", color: "#10B981", group: "Forex Majors" },
-  { symbol: "USDCAD", label: "USD/CAD", color: "#8B5CF6", group: "Forex Majors" },
-  { symbol: "NZDUSD", label: "NZD/USD", color: "#06B6D4", group: "Forex Majors" },
-  { symbol: "USDCHF", label: "USD/CHF", color: "#F43F5E", group: "Forex Majors" },
-  // Forex Minors (crosses)
-  { symbol: "EURGBP", label: "EUR/GBP", color: "#818CF8", group: "Forex Minors" },
-  { symbol: "EURJPY", label: "EUR/JPY", color: "#F472B6", group: "Forex Minors" },
-  { symbol: "GBPJPY", label: "GBP/JPY", color: "#FB923C", group: "Forex Minors" },
-  { symbol: "EURCHF", label: "EUR/CHF", color: "#34D399", group: "Forex Minors" },
-  { symbol: "GBPAUD", label: "GBP/AUD", color: "#A78BFA", group: "Forex Minors" },
-  { symbol: "EURAUD", label: "EUR/AUD", color: "#38BDF8", group: "Forex Minors" },
-  { symbol: "GBPCAD", label: "GBP/CAD", color: "#E879F9", group: "Forex Minors" },
-  { symbol: "AUDNZD", label: "AUD/NZD", color: "#2DD4BF", group: "Forex Minors" },
-  { symbol: "AUDCAD", label: "AUD/CAD", color: "#FBBF24", group: "Forex Minors" },
-  { symbol: "AUDJPY", label: "AUD/JPY", color: "#4ADE80", group: "Forex Minors" },
-  { symbol: "NZDJPY", label: "NZD/JPY", color: "#67E8F9", group: "Forex Minors" },
-  { symbol: "CADJPY", label: "CAD/JPY", color: "#C084FC", group: "Forex Minors" },
-  { symbol: "CADCHF", label: "CAD/CHF", color: "#FDA4AF", group: "Forex Minors" },
-  { symbol: "NZDCAD", label: "NZD/CAD", color: "#86EFAC", group: "Forex Minors" },
-  { symbol: "EURNZD", label: "EUR/NZD", color: "#93C5FD", group: "Forex Minors" },
-  { symbol: "GBPCHF", label: "GBP/CHF", color: "#FCA5A5", group: "Forex Minors" },
-  { symbol: "GBPNZD", label: "GBP/NZD", color: "#D8B4FE", group: "Forex Minors" },
-  { symbol: "EURCAD", label: "EUR/CAD", color: "#FDBA74", group: "Forex Minors" },
-  { symbol: "AUDCHF", label: "AUD/CHF", color: "#A7F3D0", group: "Forex Minors" },
-  { symbol: "NZDCHF", label: "NZD/CHF", color: "#BAE6FD", group: "Forex Minors" },
-  { symbol: "CHFJPY", label: "CHF/JPY", color: "#FDE68A", group: "Forex Minors" },
-  // Indices
-  { symbol: "NAS100", label: "NAS100", color: "#7C3AED", group: "Indices" },
-  { symbol: "SPX500", label: "SPX500", color: "#0891B2", group: "Indices" },
+  { symbol: "XAUUSD", label: "XAU/USD", color: "#F59E0B", group: "Gold" },
 ];
 
 /**
@@ -123,20 +46,24 @@ function isMarketOpen(symbol: string): boolean {
 }
 
 export default function Header() {
-  const { activeSymbol, activeTimeframe, setActiveSymbol, watchlist, livePrices, updateLivePrice } =
-    useMarketStore();
+  const activeSymbol = useMarketStore((s) => s.activeSymbol);
+  const activeTimeframe = useMarketStore((s) => s.activeTimeframe);
+  const setActiveSymbol = useMarketStore((s) => s.setActiveSymbol);
+  const watchlist = useMarketStore((s) => s.watchlist);
+  const livePrices = useMarketStore((s) => s.livePrices);
+  const updateLivePrice = useMarketStore((s) => s.updateLivePrice);
   const [, startTransition] = useTransition();
   const { user, logout } = useAuthStore();
   const { theme, toggleTheme } = useThemeStore();
   const router = useRouter();
   const [clock, setClock] = useState<Date | null>(null);
   const [selectorOpen, setSelectorOpen] = useState(false);
-  const [cryptoOpen, setCryptoOpen] = useState(false);
+  const cryptoOpen = false;
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const selectorRef = useRef<HTMLDivElement>(null);
   const selectorMobileRef = useRef<HTMLDivElement>(null);
-  const cryptoRef = useRef<HTMLDivElement>(null);
-  const cryptoMobileRef = useRef<HTMLDivElement>(null);
+  const _cryptoRef = null; // removed
+  const _cryptoMobileRef = null; // removed
   const userMenuRef = useRef<HTMLDivElement>(null);
   const wsConnected = useRef(false);
 
@@ -148,16 +75,17 @@ export default function Header() {
   const alertWsRef = useRef<WebSocket | null>(null);
   const isPro = user?.has_access === true;
 
-  // Connect Binance WebSocket for real-time prices (gold, crypto)
+  // Connect Binance WebSocket for real-time gold price (PAXG proxy)
   useEffect(() => {
     if (wsConnected.current) return;
     wsConnected.current = true;
 
-    const allCrypto = CRYPTO_OPTIONS.map((c) => c.symbol);
-    const wsSymbols = [...new Set([...watchlist.filter(isBinanceSymbol), ...allCrypto])];
-    binanceWS.connect(wsSymbols, (symbol, data) => {
-      updateLivePrice(symbol, data);
-    });
+    const wsSymbols = watchlist.filter(isBinanceSymbol);
+    if (wsSymbols.length > 0) {
+      binanceWS.connect(wsSymbols, (symbol, data) => {
+        updateLivePrice(symbol, data);
+      });
+    }
 
     return () => {
       binanceWS.disconnect();
@@ -250,17 +178,12 @@ export default function Header() {
 
   // Close dropdowns on click outside
   useEffect(() => {
-    if (!selectorOpen && !cryptoOpen && !userMenuOpen && !bellOpen) return;
+    if (!selectorOpen && !userMenuOpen && !bellOpen) return;
     const handler = (e: MouseEvent) => {
       if (selectorOpen) {
         const inDesktop = selectorRef.current?.contains(e.target as Node);
         const inMobile = selectorMobileRef.current?.contains(e.target as Node);
         if (!inDesktop && !inMobile) setSelectorOpen(false);
-      }
-      if (cryptoOpen) {
-        const inDesktop = cryptoRef.current?.contains(e.target as Node);
-        const inMobile = cryptoMobileRef.current?.contains(e.target as Node);
-        if (!inDesktop && !inMobile) setCryptoOpen(false);
       }
       if (userMenuOpen && userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
         setUserMenuOpen(false);
@@ -271,12 +194,9 @@ export default function Header() {
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, [selectorOpen, cryptoOpen, userMenuOpen, bellOpen]);
+  }, [selectorOpen, userMenuOpen, bellOpen]);
 
-  const cryptoMatch = CRYPTO_OPTIONS.find((c) => c.symbol === activeSymbol);
-  const activeOption = ASSET_OPTIONS.find((a) => a.symbol === activeSymbol)
-    ?? (cryptoMatch ? { ...cryptoMatch, color: "", group: "Crypto" } : null)
-    ?? ASSET_OPTIONS[0];
+  const activeOption = ASSET_OPTIONS[0]; // Gold only
   const live = livePrices[activeSymbol];
 
   const handleLogout = () => {
@@ -415,44 +335,6 @@ export default function Header() {
               )}
             </div>
 
-            {/* Crypto dropdown */}
-            <div className="relative" ref={cryptoMobileRef}>
-              <button
-                onClick={() => setCryptoOpen(!cryptoOpen)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-mono font-bold transition-colors hover:brightness-110 min-h-[36px] text-white"
-                style={{ background: "linear-gradient(135deg, #8B5CF6, #EC4899)" }}
-              >
-                Crypto
-                <ChevronDown className="w-4 h-4 opacity-60" />
-              </button>
-
-              {cryptoOpen && (
-                <div className="absolute top-full left-0 mt-1 z-50 min-w-[200px] max-h-[70vh] overflow-y-auto rounded-lg border border-[var(--color-border-primary)] bg-[var(--color-bg-secondary)] shadow-lg">
-                  {CRYPTO_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.symbol}
-                      onClick={() => {
-                        startTransition(() => setActiveSymbol(opt.symbol));
-                        updateDashboardURL(opt.symbol, activeTimeframe);
-                        setCryptoOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-mono transition-colors hover:bg-[var(--color-bg-hover)] ${
-                        opt.symbol === activeSymbol ? "bg-[var(--color-bg-hover)]" : ""
-                      }`}
-                    >
-                      <span className="w-2 h-2 rounded-full shrink-0 bg-[var(--color-neon-green)]" />
-                      <span className="font-bold text-[var(--color-text-primary)]">{opt.label}</span>
-                      {livePrices[opt.symbol] && (
-                        <span className="text-[var(--color-text-secondary)] tabular-nums ml-auto text-xs">
-                          {formatPrice(livePrices[opt.symbol].price, opt.symbol)}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
           </div>
 
           {/* LIVE badge */}
@@ -524,82 +406,10 @@ export default function Header() {
             )}
           </div>
 
-          {/* Crypto dropdown */}
-          <div className="relative" ref={cryptoRef}>
-            <button
-              onClick={() => setCryptoOpen(!cryptoOpen)}
-              className="flex items-center gap-1 px-2 py-1 rounded text-[12px] font-mono font-semibold transition-colors hover:brightness-110 text-white"
-              style={{ background: "linear-gradient(135deg, #8B5CF6, #EC4899)" }}
-            >
-              Crypto
-              <ChevronDown className="w-3.5 h-3.5 opacity-60" />
-            </button>
-
-            {cryptoOpen && (
-              <div className="absolute top-full left-0 mt-1 z-50 min-w-[180px] max-h-[70vh] overflow-y-auto rounded-md border border-[var(--color-border-primary)] bg-[var(--color-bg-secondary)] shadow-lg">
-                {CRYPTO_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.symbol}
-                    onClick={() => {
-                      startTransition(() => setActiveSymbol(opt.symbol));
-                      updateDashboardURL(opt.symbol, activeTimeframe);
-                      setCryptoOpen(false);
-                    }}
-                    className={`w-full flex items-center gap-2 px-3 py-1.5 text-[12px] font-mono transition-colors hover:bg-[var(--color-bg-hover)] ${
-                      opt.symbol === activeSymbol ? "bg-[var(--color-bg-hover)]" : ""
-                    }`}
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full shrink-0 bg-[var(--color-neon-green)]" />
-                    <span className="font-semibold text-[var(--color-text-primary)]">{opt.label}</span>
-                    {livePrices[opt.symbol] && (
-                      <span className="text-[var(--color-text-secondary)] tabular-nums ml-auto">
-                        {formatPrice(livePrices[opt.symbol].price, opt.symbol)}
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
         </div>
 
         {/* Right — nav links + status + user */}
         <div className="flex items-center gap-3 shrink-0 ml-auto">
-          <Link
-            href="/heatmap"
-            data-tour="nav-heatmap"
-            className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-semibold uppercase tracking-wider transition-colors hover:bg-[var(--color-bg-hover)] text-[var(--color-neon-amber)]"
-            title="Market Heat Map"
-          >
-            <MapIcon className="w-4 h-4" />
-            <span>Heat Map</span>
-          </Link>
-          <Link
-            href="/institutional"
-            className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-semibold uppercase tracking-wider transition-colors hover:bg-[var(--color-bg-hover)] text-[var(--color-neon-purple)]"
-            title="Institutional Flow"
-          >
-            <Building2 className="w-4 h-4" />
-            <span>Flow</span>
-          </Link>
-          <Link
-            href="/correlations"
-            className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-semibold uppercase tracking-wider transition-colors hover:bg-[var(--color-bg-hover)] text-[var(--color-neon-cyan)]"
-            title="Correlation Matrix"
-          >
-            <Grid3X3 className="w-4 h-4" />
-            <span>Matrix</span>
-          </Link>
-          <Link
-            href="/charts"
-            data-tour="nav-charts"
-            className="flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-semibold uppercase tracking-wider transition-colors hover:bg-[var(--color-bg-hover)] text-[var(--color-neon-green)]"
-            title="Multi-Chart"
-          >
-            <LayoutGrid className="w-4 h-4" />
-            <span>Charts</span>
-          </Link>
           <Link
             href="/learn"
             data-tour="nav-academy"

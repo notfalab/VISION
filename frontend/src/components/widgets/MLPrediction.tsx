@@ -71,7 +71,8 @@ const FEATURE_LABELS: Record<string, string> = {
 };
 
 function MLPrediction() {
-  const { activeSymbol, activeTimeframe } = useMarketStore();
+  const activeSymbol = useMarketStore((s) => s.activeSymbol);
+  const activeTimeframe = useMarketStore((s) => s.activeTimeframe);
   const [localTf, setLocalTf] = useState<string>(activeTimeframe);
   const { data: mlData, loading, error } = useApiData<{
     prediction: PredictionData | null;

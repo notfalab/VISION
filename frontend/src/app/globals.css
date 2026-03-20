@@ -42,7 +42,7 @@
 body {
   background-color: var(--color-bg-primary);
   color: var(--color-text-primary);
-  font-family: "JetBrains Mono", "SF Mono", "Fira Code", monospace;
+  font-family: var(--font-mono), "JetBrains Mono", "SF Mono", "Fira Code", monospace;
 }
 
 /* Scrollbar styling */

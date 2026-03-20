@@ -24,7 +24,7 @@ interface LiqData {
 }
 
 function LiquidationWidget() {
-  const { activeSymbol } = useMarketStore();
+  const activeSymbol = useMarketStore((s) => s.activeSymbol);
   const isCrypto = getMarketType(activeSymbol) === "crypto";
 
   const { data, loading, error } = useApiData<LiqData>(

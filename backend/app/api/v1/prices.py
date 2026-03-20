@@ -472,21 +472,80 @@ def _nearest_round_number(price: float, direction: str) -> float:
         return math.ceil(price / mag) * mag
 
 
+def _detect_fractals(candles: list[dict], lookback: int) -> tuple[list[float], list[float]]:
+    """Detect Williams Fractal swing highs/lows with given lookback."""
+    half = lookback // 2
+    swing_lows: list[float] = []
+    swing_highs: list[float] = []
+    for i in range(half, len(candles) - half):
+        low_i = candles[i]["low"]
+        high_i = candles[i]["high"]
+        is_low = all(low_i <= candles[j]["low"] for j in range(i - half, i + half + 1) if j != i)
+        is_high = all(high_i >= candles[j]["high"] for j in range(i - half, i + half + 1) if j != i)
+        if is_low:
+            swing_lows.append(low_i)
+        if is_high:
+            swing_highs.append(high_i)
+    return swing_lows, swing_highs
+
+
+def _compute_vwap_bands(candles: list[dict]) -> tuple[float, float, float, float, float]:
+    """Compute session VWAP and ±1σ / ±2σ bands from candle data."""
+    cum_pv = 0.0
+    cum_vol = 0.0
+    cum_pv2 = 0.0
+    for c in candles:
+        tp = (c["high"] + c["low"] + c["close"]) / 3
+        v = c["volume"]
+        cum_pv += tp * v
+        cum_pv2 += tp * tp * v
+        cum_vol += v
+    if cum_vol <= 0:
+        mid = candles[-1]["close"] if candles else 0
+        return mid, mid, mid, mid, mid
+    vwap = cum_pv / cum_vol
+    var = max(0, cum_pv2 / cum_vol - vwap * vwap)
+    sd = math.sqrt(var)
+    return vwap, vwap - sd, vwap + sd, vwap - 2 * sd, vwap + 2 * sd
+
+
+def _detect_prev_day_hl(candles: list[dict]) -> tuple[float | None, float | None]:
+    """Detect previous trading day high/low from intraday candles."""
+    if not candles:
+        return None, None
+    # Group by day, find previous day
+    from collections import defaultdict
+    days: dict[int, list[dict]] = defaultdict(list)
+    for c in candles:
+        day_key = c["time"] // 86400
+        days[day_key].append(c)
+    sorted_days = sorted(days.keys())
+    if len(sorted_days) < 2:
+        return None, None
+    prev_day = days[sorted_days[-2]]
+    prev_high = max(c["high"] for c in prev_day)
+    prev_low = min(c["low"] for c in prev_day)
+    return prev_high, prev_low
+
+
 def _compute_stop_heatmap_grid(candles: list[dict]) -> dict:
     """Compute a 2D stop-loss density grid from OHLCV candle data.
 
-    For each candle estimates positions opened (proportional to volume)
-    and calculates common stop-loss placement prices using ATR multiples,
-    swing levels, and round numbers.  Intensities accumulate with time-decay
-    and are cleared when price sweeps through a level (stops get hit).
+    Uses 8 stop-placement strategies:
+    1. ATR multiples (1x, 1.5x, 2x) — volatility-based
+    2. Multi-scale Williams fractals (5, 8, 13 bar) — structural
+    3. Fibonacci retracements (38.2%, 50%, 61.8%) — institutional
+    4. Round numbers — psychological
+    5. VWAP ±1σ/±2σ bands — institutional reference
+    6. Previous day high/low — major intraday levels
 
-    Returns a compact grid: price axis + one intensity column per candle.
+    Intensities accumulate with time-decay and clear on price sweeps.
     """
     if len(candles) < 5:
         return {"columns": [], "price_min": 0, "price_max": 0,
                 "price_step": 0, "n_levels": 0}
 
-    # ── Price axis ──────────────────────────────────────────
+    # ── Price axis (±20 %) ───────────────────────────────────
     lows = [c["low"] for c in candles]
     highs = [c["high"] for c in candles]
     p_min, p_max = min(lows), max(highs)
@@ -495,7 +554,8 @@ def _compute_stop_heatmap_grid(candles: list[dict]) -> dict:
     p_max += rng * 0.20
     rng = p_max - p_min
 
-    step = rng / 160
+    # 200 levels for higher resolution
+    step = rng / 200
     mag = 10 ** math.floor(math.log10(max(step, 1e-10)))
     step = max(round(step / mag) * mag, mag)
 
@@ -512,22 +572,52 @@ def _compute_stop_heatmap_grid(candles: list[dict]) -> dict:
     # ── Pre-compute ATR ──────────────────────────────────────
     atrs = _compute_rolling_atr(candles, 14)
 
-    # ── Pre-detect swing highs / lows (5-bar lookback) ───────
-    swing_lows: list[float] = []
-    swing_highs: list[float] = []
+    # ── Multi-scale Williams Fractals (5, 8, 13 bar) ─────────
+    # Weight by scale: larger fractals = stronger support/resistance
+    fractal_scales = [(5, 0.5), (8, 0.7), (13, 1.0)]
+    all_swing_lows: list[tuple[float, float]] = []   # (price, weight)
+    all_swing_highs: list[tuple[float, float]] = []
+    for lookback, frac_w in fractal_scales:
+        sl, sh = _detect_fractals(candles, lookback)
+        for p in sl[-20:]:
+            all_swing_lows.append((p, frac_w))
+        for p in sh[-20:]:
+            all_swing_highs.append((p, frac_w))
+
+    # ── Fibonacci retracement levels from major swings ───────
+    fib_levels: list[float] = []
+    _, sh_13 = _detect_fractals(candles, 13)
+    sl_13, _ = _detect_fractals(candles, 13)
+    if sh_13 and sl_13:
+        # Use the most recent major swing high and low
+        swing_h = max(sh_13[-5:]) if sh_13 else p_max
+        swing_l = min(sl_13[-5:]) if sl_13 else p_min
+        fib_range = swing_h - swing_l
+        if fib_range > 0:
+            for fib in [0.236, 0.382, 0.500, 0.618, 0.786]:
+                fib_levels.append(swing_l + fib_range * fib)
+                fib_levels.append(swing_h - fib_range * fib)
+
+    # ── VWAP bands ───────────────────────────────────────────
+    vwap, vwap_m1, vwap_p1, vwap_m2, vwap_p2 = _compute_vwap_bands(candles)
+    vwap_levels = [vwap_m1, vwap_p1, vwap_m2, vwap_p2]
+
+    # ── Previous day high/low ────────────────────────────────
+    prev_high, prev_low = _detect_prev_day_hl(candles)
 
     # ── Normalize volumes ────────────────────────────────────
     max_vol = max((c["volume"] for c in candles), default=1) or 1
 
-    # Stop level weights: ATR 1x(0.30), ATR 1.5x(0.25), ATR 2x(0.15),
-    #                     swing(0.20), round number(0.10)
-    atr_tiers = [(1.0, 0.30), (1.5, 0.25), (2.0, 0.15)]
-    swing_weight = 0.20
-    round_weight = 0.10
+    # Rebalanced weights (sum = 1.0)
+    atr_tiers = [(1.0, 0.22), (1.5, 0.18), (2.0, 0.10)]
+    swing_weight = 0.18
+    fib_weight = 0.12
+    round_weight = 0.08
+    vwap_weight = 0.06
+    prev_hl_weight = 0.06
 
-    sigma_pct = 0.003   # 0.3 % of close — narrower than liquidation
-    decay = 0.97        # 3 % decay per candle
-    sweep_keep = 0.08   # 8 % kept when price hits SL level (aggressive clear)
+    decay = 0.975       # slower decay — stops persist
+    sweep_keep = 0.03   # aggressive clear when stops are hit
 
     cumulative = [0.0] * n
     columns: list[dict] = []
@@ -537,26 +627,13 @@ def _compute_stop_heatmap_grid(candles: list[dict]) -> dict:
         close = c["close"]
         vol = c["volume"] / max_vol
         low, high = c["low"], c["high"]
+        o = c["open"]
         ts = c["time"]
         atr = atrs[idx]
 
         if close <= 0 or atr <= 0:
             columns.append({"time": ts, "v": list(cumulative)})
             continue
-
-        # Update swing points (5-bar lookback)
-        if idx >= 4:
-            mid = idx - 2
-            segment_lows = [candles[j]["low"] for j in range(mid - 2, mid + 3)]
-            segment_highs = [candles[j]["high"] for j in range(mid - 2, mid + 3)]
-            if candles[mid]["low"] == min(segment_lows):
-                swing_lows.append(candles[mid]["low"])
-                if len(swing_lows) > 10:
-                    swing_lows.pop(0)
-            if candles[mid]["high"] == max(segment_highs):
-                swing_highs.append(candles[mid]["high"])
-                if len(swing_highs) > 10:
-                    swing_highs.pop(0)
 
         # Decay
         cumulative = [v * decay for v in cumulative]
@@ -567,44 +644,65 @@ def _compute_stop_heatmap_grid(candles: list[dict]) -> dict:
         for i in range(i_lo, i_hi):
             cumulative[i] *= sweep_keep
 
-        # Bullish candle → more longs opened → more long SLs below
-        if close >= c["open"]:
-            long_bias, short_bias = 0.60, 0.40
-        else:
-            long_bias, short_bias = 0.40, 0.60
+        # Volume-delta directional bias (tanh for smooth clamping)
+        body_ratio = (close - o) / max(high - low, atr * 0.01)
+        long_bias = 0.5 + 0.3 * math.tanh(body_ratio * 2)
+        short_bias = 1.0 - long_bias
 
-        sigma = close * sigma_pct
+        # Adaptive sigma from ATR
+        sigma = atr * 0.35
         sigma_sq_2 = 2 * sigma * sigma
         cutoff = 4 * sigma
 
-        def _add_gaussian(center_price: float, intensity: float):
-            """Add Gaussian-distributed intensity around a price level."""
-            il_start = max(0, int((center_price - cutoff - p0) / step))
-            il_end = min(n, int((center_price + cutoff - p0) / step) + 1)
-            for i in range(il_start, il_end):
-                d = prices[i] - center_price
+        # Volume scaling with body conviction
+        vol_scaled = vol * (0.5 + 0.5 * min(abs(body_ratio), 1.0))
+
+        def _add_gauss(center: float, intensity: float):
+            il_s = max(0, int((center - cutoff - p0) / step))
+            il_e = min(n, int((center + cutoff - p0) / step) + 1)
+            for i in range(il_s, il_e):
+                d = prices[i] - center
                 cumulative[i] += intensity * math.exp(-(d * d) / sigma_sq_2)
 
-        # ATR-based stops
+        # 1. ATR-based stops
         for mult, weight in atr_tiers:
-            # Long SL below entry
-            _add_gaussian(close - mult * atr, vol * weight * long_bias)
-            # Short SL above entry
-            _add_gaussian(close + mult * atr, vol * weight * short_bias)
+            _add_gauss(close - mult * atr, vol_scaled * weight * long_bias)
+            _add_gauss(close + mult * atr, vol_scaled * weight * short_bias)
 
-        # Swing-based stops
-        if swing_lows:
-            nearest_low = min(swing_lows, key=lambda sl: abs(sl - close))
-            _add_gaussian(nearest_low * 0.997, vol * swing_weight * long_bias)
-        if swing_highs:
-            nearest_high = min(swing_highs, key=lambda sh: abs(sh - close))
-            _add_gaussian(nearest_high * 1.003, vol * swing_weight * short_bias)
+        # 2. Multi-scale swing-based stops
+        if all_swing_lows:
+            # Use closest swing lows, weighted by fractal scale
+            for sw_price, sw_w in sorted(all_swing_lows, key=lambda x: abs(x[0] - close))[:3]:
+                _add_gauss(sw_price * 0.997, vol_scaled * swing_weight * sw_w * long_bias * 0.4)
+        if all_swing_highs:
+            for sw_price, sw_w in sorted(all_swing_highs, key=lambda x: abs(x[0] - close))[:3]:
+                _add_gauss(sw_price * 1.003, vol_scaled * swing_weight * sw_w * short_bias * 0.4)
 
-        # Round number stops
+        # 3. Fibonacci retracement stops
+        for fib_price in fib_levels:
+            if fib_price < close:
+                _add_gauss(fib_price * 0.998, vol_scaled * fib_weight * long_bias * 0.25)
+            else:
+                _add_gauss(fib_price * 1.002, vol_scaled * fib_weight * short_bias * 0.25)
+
+        # 4. Round number stops
         round_below = _nearest_round_number(close, "below")
         round_above = _nearest_round_number(close, "above")
-        _add_gaussian(round_below * 0.999, vol * round_weight * long_bias)
-        _add_gaussian(round_above * 1.001, vol * round_weight * short_bias)
+        _add_gauss(round_below * 0.999, vol_scaled * round_weight * long_bias)
+        _add_gauss(round_above * 1.001, vol_scaled * round_weight * short_bias)
+
+        # 5. VWAP band stops
+        for vl in vwap_levels:
+            if vl < close:
+                _add_gauss(vl, vol_scaled * vwap_weight * long_bias * 0.35)
+            else:
+                _add_gauss(vl, vol_scaled * vwap_weight * short_bias * 0.35)
+
+        # 6. Previous day high/low stops
+        if prev_high is not None:
+            _add_gauss(prev_high * 1.002, vol_scaled * prev_hl_weight * short_bias)
+        if prev_low is not None:
+            _add_gauss(prev_low * 0.998, vol_scaled * prev_hl_weight * long_bias)
 
         columns.append({"time": ts, "v": list(cumulative)})
 
@@ -702,6 +800,7 @@ async def get_stop_heatmap(
     grid = _compute_stop_heatmap_grid(candles)
     grid["symbol"] = symbol.upper()
     grid["timeframe"] = timeframe
+    grid["data_source"] = "enhanced"
     return grid
 
 
@@ -805,13 +904,18 @@ def _ts_to_utc(dt) -> int:
     return 0
 
 
-def _compute_liq_heatmap_grid(candles: list[dict]) -> dict:
+def _compute_liq_heatmap_grid(
+    candles: list[dict],
+    real_levels: list | None = None,
+    funding_rate: float | None = None,
+    oi_usd: float | None = None,
+) -> dict:
     """Compute a 2D liquidation-intensity grid from OHLCV candle data.
 
-    For each candle estimates positions opened (proportional to volume)
-    and calculates liquidation prices at common leverage tiers.
-    Intensities accumulate with time-decay and are cleared when price
-    sweeps through a level (simulating actual liquidation).
+    When *real_levels* (from CoinGlass / Binance Futures) are provided,
+    they anchor 70 % of the intensity; the synthetic leverage-tier model
+    fills the remaining 30 %.  Without real data the improved synthetic
+    model (adaptive ATR sigma, volume-weighted sizing) is used at 100 %.
 
     Returns a compact grid: price axis + one intensity column per candle.
     """
@@ -819,18 +923,20 @@ def _compute_liq_heatmap_grid(candles: list[dict]) -> dict:
         return {"columns": [], "price_min": 0, "price_max": 0,
                 "price_step": 0, "n_levels": 0}
 
-    # ── Price axis ──────────────────────────────────────────
+    # ── Pre-compute ATR for adaptive sigma ───────────────────
+    atrs = _compute_rolling_atr(candles, 14)
+
+    # ── Price axis (±30 %) ───────────────────────────────────
     lows = [c["low"] for c in candles]
     highs = [c["high"] for c in candles]
     p_min, p_max = min(lows), max(highs)
     rng = p_max - p_min
-    # Extend ±30 % for liquidation levels beyond visible prices
     p_min -= rng * 0.30
     p_max += rng * 0.30
     rng = p_max - p_min
 
-    # Aim for ~160 price levels
-    step = rng / 160
+    # 220 levels for higher resolution
+    step = rng / 220
     mag = 10 ** math.floor(math.log10(max(step, 1e-10)))
     step = max(round(step / mag) * mag, mag)
 
@@ -844,65 +950,103 @@ def _compute_liq_heatmap_grid(candles: list[dict]) -> dict:
         return {"columns": [], "price_min": 0, "price_max": 0,
                 "price_step": 0, "n_levels": 0}
 
-    # ── Leverage tiers ──────────────────────────────────────
+    # ── Leverage tiers (synthetic fallback layer) ────────────
     leverage_tiers = [
         (3, 0.04), (5, 0.12), (10, 0.28),
         (25, 0.28), (50, 0.18), (100, 0.10),
     ]
 
+    # ── Prepare real-data lookup ─────────────────────────────
+    has_real = real_levels is not None and len(real_levels) > 0
+    real_weight = 0.70 if has_real else 0.0
+    synth_weight = 1.0 - real_weight
+
+    # Pre-index real levels into a fast price→(long_usd, short_usd) map
+    real_max_usd = 1.0
+    if has_real:
+        real_max_usd = max(
+            max(lv.long_liq_usd, lv.short_liq_usd)
+            for lv in real_levels
+        ) or 1.0
+
+    # Long/short bias: prefer funding rate when available
+    if funding_rate is not None:
+        # funding > 0 → more longs (longs pay shorts)
+        global_long_bias = 0.5 + min(max(funding_rate * 100, -0.3), 0.3)
+    else:
+        global_long_bias = None  # will use per-candle direction
+
     # ── Normalize volumes ───────────────────────────────────
     max_vol = max((c["volume"] for c in candles), default=1) or 1
 
-    sigma_pct = 0.004   # 0.4 % of close — controls band width
-    decay = 0.97        # 3 % decay per candle
-    sweep_keep = 0.12   # keep 12 % when price sweeps a level
+    decay = 0.985       # slower decay — positions persist longer
+    sweep_keep = 0.05   # aggressive clear on cascade liquidations
 
     cumulative = [0.0] * n
     columns: list[dict] = []
     p0 = prices[0]
 
-    for c in candles:
+    for idx, c in enumerate(candles):
         close = c["close"]
         vol = c["volume"] / max_vol
         low, high = c["low"], c["high"]
         ts = c["time"]
+        atr = atrs[idx]
 
-        if close <= 0:
+        if close <= 0 or atr <= 0:
             columns.append({"time": ts, "v": list(cumulative)})
             continue
 
         # Decay
         cumulative = [v * decay for v in cumulative]
 
-        # Clear levels that price swept through (positions liquidated)
+        # Clear levels that price swept through (liquidation cascade)
         i_lo = max(0, int((low - p0) / step))
         i_hi = min(n, int((high - p0) / step) + 1)
         for i in range(i_lo, i_hi):
             cumulative[i] *= sweep_keep
 
-        # Add new liquidation intensity
-        sigma = close * sigma_pct
+        # Adaptive sigma from ATR
+        sigma = atr * 0.5
         sigma_sq_2 = 2 * sigma * sigma
         cutoff = 4 * sigma
 
+        # Volume-weighted with body ratio consideration
+        body_ratio = abs(close - c["open"]) / max(high - low, atr * 0.01)
+        vol_scaled = vol * (0.5 + 0.5 * body_ratio)
+
+        # Per-candle long/short bias
+        if global_long_bias is not None:
+            l_bias = global_long_bias
+        else:
+            l_bias = 0.55 if close >= c["open"] else 0.45
+        s_bias = 1.0 - l_bias
+
+        def _add_gauss(center: float, intensity: float):
+            il_s = max(0, int((center - cutoff - p0) / step))
+            il_e = min(n, int((center + cutoff - p0) / step) + 1)
+            for i in range(il_s, il_e):
+                d = prices[i] - center
+                cumulative[i] += intensity * math.exp(-(d * d) / sigma_sq_2)
+
+        # ── Layer 1: Real data anchors (70 %) ────────────────
+        if has_real:
+            for lv in real_levels:
+                norm_long = (lv.long_liq_usd / real_max_usd) * real_weight * vol_scaled
+                norm_short = (lv.short_liq_usd / real_max_usd) * real_weight * vol_scaled
+                if norm_long > 0.001:
+                    _add_gauss(lv.price, norm_long * l_bias)
+                if norm_short > 0.001:
+                    _add_gauss(lv.price, norm_short * s_bias)
+
+        # ── Layer 2: Synthetic leverage tiers (30 % or 100 %) ─
         for lev, weight in leverage_tiers:
             long_liq = close * (1 - 1 / lev)
             short_liq = close * (1 + 1 / lev)
-            intensity = vol * weight
+            intensity = vol_scaled * weight * synth_weight
 
-            # Long liquidation
-            il_start = max(0, int((long_liq - cutoff - p0) / step))
-            il_end = min(n, int((long_liq + cutoff - p0) / step) + 1)
-            for i in range(il_start, il_end):
-                d = prices[i] - long_liq
-                cumulative[i] += intensity * math.exp(-(d * d) / sigma_sq_2)
-
-            # Short liquidation
-            is_start = max(0, int((short_liq - cutoff - p0) / step))
-            is_end = min(n, int((short_liq + cutoff - p0) / step) + 1)
-            for i in range(is_start, is_end):
-                d = prices[i] - short_liq
-                cumulative[i] += intensity * math.exp(-(d * d) / sigma_sq_2)
+            _add_gauss(long_liq, intensity * l_bias)
+            _add_gauss(short_liq, intensity * s_bias)
 
         columns.append({"time": ts, "v": list(cumulative)})
 
@@ -1001,9 +1145,50 @@ async def get_liquidation_heatmap(
             detail=f"Not enough OHLCV data for {symbol} {timeframe}. Fetch data first.",
         )
 
-    grid = _compute_liq_heatmap_grid(candles)
+    # ── 3. For crypto: fetch real liquidation data ────────────
+    real_levels = None
+    funding_rate = None
+    oi_usd = None
+    data_source = "synthetic"
+
+    from backend.app.data.coinglass_adapter import CoinglassAdapter, SYMBOL_MAP as CG_SYMBOLS
+    if symbol.upper() in CG_SYMBOLS:
+        try:
+            cg = CoinglassAdapter()
+            await cg.connect()
+            try:
+                import asyncio
+                liq_map, oi_data, fr_data = await asyncio.gather(
+                    cg.fetch_liquidation_map(symbol),
+                    cg.fetch_open_interest(symbol),
+                    cg.fetch_funding_rate(symbol),
+                )
+                if liq_map and liq_map.levels:
+                    real_levels = liq_map.levels
+                    data_source = "real"
+                if oi_data:
+                    mark_price = candles[-1]["close"] if candles else 0
+                    oi_usd = float(oi_data.get("openInterest", 0)) * mark_price
+                if fr_data:
+                    funding_rate = float(fr_data.get("lastFundingRate", 0))
+                if real_levels is None and (oi_usd or funding_rate):
+                    data_source = "hybrid"
+            finally:
+                await cg.disconnect()
+        except Exception:
+            pass  # Fall through to synthetic
+
+    grid = _compute_liq_heatmap_grid(
+        candles,
+        real_levels=real_levels,
+        funding_rate=funding_rate,
+        oi_usd=oi_usd,
+    )
     grid["symbol"] = symbol.upper()
     grid["timeframe"] = timeframe
+    grid["data_source"] = data_source
+    grid["oi_usd"] = round(oi_usd, 2) if oi_usd else None
+    grid["funding_rate"] = round(funding_rate, 6) if funding_rate is not None else None
     return grid
 
 

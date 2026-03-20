@@ -3,18 +3,18 @@ import { create } from "zustand";
 const STORAGE_KEY = "vision_widget_order";
 const HIDDEN_KEY = "vision_hidden_widgets";
 
-/** Default widget order — matches the DashboardContent section layout */
+/** Default widget order — Gold-focused layout */
 export const DEFAULT_WIDGET_ORDER = [
   // Core
   "narrator", "trade-score",
   // Zones & Volume
   "zones", "zone-retest", "volume-profile", "divergence", "liquidity-forecast",
   // Market Data
-  "calendar", "sentiment", "volatility", "heatmap",
+  "calendar", "sentiment", "volatility",
   // ML & Order Flow
-  "ml-prediction", "order-flow", "tpsl", "deep-orderbook", "liquidation",
+  "ml-prediction", "order-flow", "tpsl", "deep-orderbook",
   // Institutional
-  "mtf", "smart-money", "whale-tracker", "correlations", "gold-macro", "cot",
+  "mtf", "smart-money", "whale-tracker", "gold-macro", "cot",
 ];
 
 interface WidgetLayoutState {

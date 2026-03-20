@@ -1,13 +1,14 @@
 /**
- * Stop Heatmap 2D — warm color overlay on the candlestick chart.
+ * Stop Heatmap 2D — Plasma-colormap overlay on the candlestick chart.
  *
- * Renders a time × price grid of estimated stop-loss density using a
- * warm colormap (dark → purple → red → orange → yellow).
+ * Professional rendering with:
+ * - Perceptually uniform Plasma colormap (blue → purple → pink → orange → yellow)
+ * - Age-based opacity (recent columns brighter, old fade)
+ * - Glow effect on hot zones (top 20% intensity)
+ * - Subtle grid lines when zoomed
+ * - Intensity legend bar in bottom-right corner
  *
- * Shows numbers inside cells when zoomed in (cell width > 30px).
- *
- * Data arrives from `/api/v1/prices/{symbol}/stop-heatmap` as a
- * compact grid: { price_min, price_max, price_step, n_levels, columns }.
+ * Data from `/api/v1/prices/{symbol}/stop-heatmap`.
  */
 
 import type {
@@ -22,7 +23,7 @@ import type {
 import type { CanvasRenderingTarget2D } from "fancy-canvas";
 import type { ThemeName } from "@/stores/theme";
 
-/* ── Types (same grid format as LiquidationHeatmap) ── */
+/* ── Types ── */
 export interface HeatmapColumn {
   time: number;
   v: number[];
@@ -36,51 +37,53 @@ export interface HeatmapGrid {
   price_step: number;
   n_levels: number;
   columns: HeatmapColumn[];
+  data_source?: string;
 }
 
-/* ── Warm color palette: dark → purple → red → orange → yellow ── */
+/* ── Plasma colormap — perceptually uniform ── */
 
-const STOP_COLOR_LUT: string[] = (() => {
-  const lut: string[] = new Array(256);
-  for (let i = 0; i < 256; i++) {
-    const t = i / 255;
-    let r: number, g: number, b: number;
-    const a = Math.min(t * 0.88, 0.82);
+interface RGB { r: number; g: number; b: number }
 
-    if (t < 0.12) {
-      // Transparent → dark
-      r = Math.floor((t / 0.12) * 30);
-      g = 0;
-      b = Math.floor((t / 0.12) * 20);
-    } else if (t < 0.30) {
-      // Dark → purple
-      const s = (t - 0.12) / 0.18;
-      r = Math.floor(30 + s * 100);
-      g = 0;
-      b = Math.floor(20 + s * 120);
-    } else if (t < 0.50) {
-      // Purple → red
-      const s = (t - 0.30) / 0.20;
-      r = Math.floor(130 + s * 125);
-      g = 0;
-      b = Math.floor(140 * (1 - s));
-    } else if (t < 0.70) {
-      // Red → orange
-      const s = (t - 0.50) / 0.20;
-      r = 255;
-      g = Math.floor(s * 165);
-      b = 0;
-    } else {
-      // Orange → yellow
-      const s = (t - 0.70) / 0.30;
-      r = 255;
-      g = Math.floor(165 + s * 90);
-      b = Math.floor(s * 50);
+const PLASMA_STOPS: [number, RGB][] = [
+  [0.00, { r: 13, g: 8, b: 135 }],
+  [0.14, { r: 75, g: 3, b: 161 }],
+  [0.28, { r: 126, g: 3, b: 168 }],
+  [0.42, { r: 168, g: 34, b: 150 }],
+  [0.56, { r: 204, g: 71, b: 120 }],
+  [0.70, { r: 231, g: 116, b: 83 }],
+  [0.84, { r: 248, g: 149, b: 64 }],
+  [0.92, { r: 246, g: 200, b: 40 }],
+  [1.00, { r: 240, g: 249, b: 33 }],
+];
+
+function interpolatePlasma(t: number): RGB {
+  if (t <= 0) return PLASMA_STOPS[0][1];
+  if (t >= 1) return PLASMA_STOPS[PLASMA_STOPS.length - 1][1];
+  for (let i = 1; i < PLASMA_STOPS.length; i++) {
+    if (t <= PLASMA_STOPS[i][0]) {
+      const [t0, c0] = PLASMA_STOPS[i - 1];
+      const [t1, c1] = PLASMA_STOPS[i];
+      const s = (t - t0) / (t1 - t0);
+      return {
+        r: Math.round(c0.r + s * (c1.r - c0.r)),
+        g: Math.round(c0.g + s * (c1.g - c0.g)),
+        b: Math.round(c0.b + s * (c1.b - c0.b)),
+      };
     }
-
-    lut[i] = `rgba(${r},${g},${b},${a.toFixed(3)})`;
   }
-  return lut;
+  return PLASMA_STOPS[PLASMA_STOPS.length - 1][1];
+}
+
+const LUT_R = new Uint8Array(256);
+const LUT_G = new Uint8Array(256);
+const LUT_B = new Uint8Array(256);
+(() => {
+  for (let i = 0; i < 256; i++) {
+    const c = interpolatePlasma(i / 255);
+    LUT_R[i] = c.r;
+    LUT_G[i] = c.g;
+    LUT_B[i] = c.b;
+  }
 })();
 
 /* ── Cell ── */
@@ -90,6 +93,7 @@ interface Cell {
   w: number;
   h: number;
   colorIdx: number;
+  age: number;
 }
 
 /* ── Renderer ── */
@@ -103,14 +107,45 @@ class StopHeatmapRenderer implements IPrimitivePaneRenderer {
   drawBackground(target: CanvasRenderingTarget2D): void {
     if (this._cells.length === 0) return;
 
-    target.useMediaCoordinateSpace(({ context: ctx }) => {
-      // Pass 1: fill cells
+    target.useMediaCoordinateSpace(({ context: ctx, mediaSize }) => {
+      const w = mediaSize.width;
+      const h = mediaSize.height;
+
+      // Pass 1: fill cells with age-modulated opacity
       for (const cell of this._cells) {
-        ctx.fillStyle = STOP_COLOR_LUT[cell.colorIdx];
-        ctx.fillRect(cell.x, cell.y, cell.w + 0.5, cell.h + 0.5);
+        const t = cell.colorIdx / 255;
+        const baseAlpha = Math.min(t * 0.90, 0.85);
+        const ageFactor = 0.4 + 0.6 * cell.age;
+        const alpha = baseAlpha * ageFactor;
+
+        ctx.fillStyle = `rgba(${LUT_R[cell.colorIdx]},${LUT_G[cell.colorIdx]},${LUT_B[cell.colorIdx]},${alpha.toFixed(3)})`;
+        ctx.fillRect(cell.x, cell.y, cell.w + 1.0, cell.h + 1.0);
       }
 
-      // Pass 2: numbers when zoomed in
+      // Pass 1.5: glow on hot zones
+      for (const cell of this._cells) {
+        if (cell.colorIdx < 200) continue;
+        const glowR = Math.max(cell.w, cell.h) * 1.5;
+        const cx = cell.x + cell.w / 2;
+        const cy = cell.y + cell.h / 2;
+        const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowR);
+        grad.addColorStop(0, `rgba(${LUT_R[cell.colorIdx]},${LUT_G[cell.colorIdx]},${LUT_B[cell.colorIdx]},0.18)`);
+        grad.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = grad;
+        ctx.fillRect(cx - glowR, cy - glowR, glowR * 2, glowR * 2);
+      }
+
+      // Pass 2: subtle grid lines when zoomed
+      if (this._cells.length > 0 && this._cells[0].w > 8) {
+        ctx.strokeStyle = "rgba(255,255,255,0.04)";
+        ctx.lineWidth = 0.5;
+        for (const cell of this._cells) {
+          if (cell.colorIdx < 15) continue;
+          ctx.strokeRect(cell.x, cell.y, cell.w, cell.h);
+        }
+      }
+
+      // Pass 3: numbers when zoomed in
       if (this._cells.length > 0 && this._cells[0].w > 30) {
         ctx.font = "bold 9px JetBrains Mono, monospace";
         ctx.textAlign = "center";
@@ -118,19 +153,51 @@ class StopHeatmapRenderer implements IPrimitivePaneRenderer {
         for (const cell of this._cells) {
           if (cell.colorIdx < 20) continue;
           const val = Math.round((cell.colorIdx / 255) * 100);
-          ctx.fillStyle =
-            cell.colorIdx > 180
-              ? "rgba(0,0,0,0.7)"
-              : "rgba(255,255,255,0.6)";
+          ctx.fillStyle = cell.colorIdx > 180 ? "rgba(0,0,0,0.8)" : "rgba(255,255,255,0.7)";
           ctx.fillText(`${val}`, cell.x + cell.w / 2, cell.y + cell.h / 2);
         }
       }
+
+      // Pass 4: intensity legend (bottom-right, offset left to not overlap liq legend)
+      const legendW = 12;
+      const legendH = 80;
+      const legendX = w - 52;
+      const legendY = h - legendH - 20;
+
+      ctx.fillStyle = "rgba(0,0,0,0.6)";
+      ctx.beginPath();
+      ctx.roundRect(legendX - 4, legendY - 16, legendW + 8, legendH + 32, 4);
+      ctx.fill();
+
+      for (let iy = 0; iy < legendH; iy++) {
+        const t = 1 - iy / legendH;
+        const idx = Math.round(t * 255);
+        ctx.fillStyle = `rgb(${LUT_R[idx]},${LUT_G[idx]},${LUT_B[idx]})`;
+        ctx.fillRect(legendX, legendY + iy, legendW, 1);
+      }
+
+      ctx.font = "7px JetBrains Mono, monospace";
+      ctx.fillStyle = "rgba(255,255,255,0.6)";
+      ctx.textAlign = "center";
+      ctx.fillText("High", legendX + legendW / 2, legendY - 5);
+      ctx.fillText("Low", legendX + legendW / 2, legendY + legendH + 10);
+
+      // Pass 5: "STOPS" label
+      ctx.font = "bold 8px JetBrains Mono, monospace";
+      const badge = "STOPS";
+      const tm = ctx.measureText(badge);
+      const bx = w - tm.width - 50;
+      const by = 10;
+      ctx.fillStyle = "rgba(0,0,0,0.5)";
+      ctx.beginPath();
+      ctx.roundRect(bx - 4, by - 2, tm.width + 8, 14, 3);
+      ctx.fill();
+      ctx.fillStyle = "rgba(204,71,120,0.9)";
+      ctx.fillText(badge, bx, by + 9);
     });
   }
 
-  draw(_target: CanvasRenderingTarget2D): void {
-    // No foreground drawing
-  }
+  draw(_target: CanvasRenderingTarget2D): void {}
 }
 
 /* ── View ── */
@@ -155,10 +222,10 @@ class StopHeatmapView implements IPrimitivePaneView {
 
     const timeScale = _chart.timeScale();
     const cells: Cell[] = [];
-
-    // Cell width from adjacent columns
-    let cellWidth = 6;
     const cols = _grid.columns;
+    const totalCols = cols.length;
+
+    let cellWidth = 6;
     if (cols.length >= 2) {
       const x1 = timeScale.timeToCoordinate(cols[0].time as unknown as Time);
       const x2 = timeScale.timeToCoordinate(cols[1].time as unknown as Time);
@@ -167,7 +234,6 @@ class StopHeatmapView implements IPrimitivePaneView {
       }
     }
 
-    // Cell height from price step
     let cellHeight = 2;
     const y1 = _series.priceToCoordinate(_grid.price_min);
     const y2 = _series.priceToCoordinate(_grid.price_min + _grid.price_step);
@@ -179,13 +245,15 @@ class StopHeatmapView implements IPrimitivePaneView {
     const halfH = cellHeight / 2;
     const minIntensity = 0.03;
 
-    for (const col of cols) {
+    for (let colIdx = 0; colIdx < cols.length; colIdx++) {
+      const col = cols[colIdx];
       const x = timeScale.timeToCoordinate(col.time as unknown as Time);
       if (x === null) continue;
 
       const xPos = x - halfW;
       const values = col.v;
       if (!values) continue;
+      const age = totalCols > 1 ? colIdx / (totalCols - 1) : 1;
 
       for (let i = 0; i < values.length; i++) {
         const intensity = values[i];
@@ -201,6 +269,7 @@ class StopHeatmapView implements IPrimitivePaneView {
           w: cellWidth,
           h: cellHeight,
           colorIdx: Math.min(255, Math.max(0, Math.round(intensity * 255))),
+          age,
         });
       }
     }

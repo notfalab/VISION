@@ -83,14 +83,13 @@ const DIRECTION_CONFIG: Record<string, { label: string; color: string; icon: typ
 };
 
 function TradeScore() {
-  const { activeSymbol, activeTimeframe } = useMarketStore();
+  const activeSymbol = useMarketStore((s) => s.activeSymbol);
+  const activeTimeframe = useMarketStore((s) => s.activeTimeframe);
   const [localTf, setLocalTf] = useState<string>(activeTimeframe);
 
   const { data: scoreData, loading, error } = useApiData<{ result: CompositeResult; regime: RegimeData | null }>(
     async () => {
       try {
-        // Ensure price data exists for this timeframe
-        await api.fetchPrices(activeSymbol, localTf, 200);
         const [compositeData, regimeData] = await Promise.allSettled([
           api.compositeScore(activeSymbol, localTf),
           api.mlRegime(activeSymbol, localTf),
