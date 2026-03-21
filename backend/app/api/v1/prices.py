@@ -118,20 +118,24 @@ async def deduplicate_candles(
         return {"symbol": symbol.upper(), "timeframe": timeframe, "deleted": 0, "msg": "No dedup needed for intraday"}
 
     # Delete duplicates: keep the row with the max id per truncated period
-    delete_sql = text(f"""
-        DELETE FROM ohlcv_data
-        WHERE id NOT IN (
-            SELECT MAX(id)
-            FROM ohlcv_data
-            WHERE asset_id = :asset_id AND timeframe = :tf
-            GROUP BY date_trunc('{trunc}', timestamp)
-        )
-        AND asset_id = :asset_id AND timeframe = :tf
-    """)
+    try:
+        delete_sql = text(f"""
+            DELETE FROM ohlcv_data
+            WHERE id NOT IN (
+                SELECT MAX(id)
+                FROM ohlcv_data
+                WHERE asset_id = :asset_id AND timeframe = :tf
+                GROUP BY date_trunc('{trunc}', timestamp)
+            )
+            AND asset_id = :asset_id AND timeframe = :tf
+        """)
 
-    result = await db.execute(delete_sql, {"asset_id": asset.id, "tf": timeframe})
-    deleted = result.rowcount
-    await db.commit()
+        result = await db.execute(delete_sql, {"asset_id": asset.id, "tf": timeframe})
+        deleted = result.rowcount
+        await db.commit()
+    except Exception as e:
+        await db.rollback()
+        raise HTTPException(status_code=500, detail=f"Dedup failed: {str(e)}")
 
     return {"symbol": symbol.upper(), "timeframe": timeframe, "deleted": deleted}
 
