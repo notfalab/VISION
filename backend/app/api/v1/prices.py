@@ -117,27 +117,48 @@ async def deduplicate_candles(
     else:
         return {"symbol": symbol.upper(), "timeframe": timeframe, "deleted": 0, "msg": "No dedup needed for intraday"}
 
-    # Delete duplicates: keep the row with the max id per truncated period
+    # Fetch all candles, group by period, delete duplicates via ORM
     try:
-        delete_sql = text(f"""
-            DELETE FROM ohlcv_data
-            WHERE id NOT IN (
-                SELECT MAX(id)
-                FROM ohlcv_data
-                WHERE asset_id = :asset_id AND timeframe = :tf
-                GROUP BY date_trunc('{trunc}', timestamp)
-            )
-            AND asset_id = :asset_id AND timeframe = :tf
-        """)
+        from sqlalchemy import func as sqlfunc
 
-        result = await db.execute(delete_sql, {"asset_id": asset.id, "tf": timeframe})
-        deleted = result.rowcount
-        await db.commit()
+        result = await db.execute(
+            select(OHLCVData)
+            .where(OHLCVData.asset_id == asset.id, OHLCVData.timeframe == tf)
+            .order_by(OHLCVData.timestamp.desc())
+        )
+        rows = list(result.scalars().all())
+
+        # Group by period key, keep the one with highest id
+        seen: dict[str, int] = {}
+        ids_to_delete: list[int] = []
+        for r in rows:
+            ts = r.timestamp
+            if timeframe == "1d":
+                key = ts.strftime("%Y-%m-%d") if hasattr(ts, "strftime") else str(ts)[:10]
+            elif timeframe == "1w":
+                key = ts.strftime("%Y-W%W") if hasattr(ts, "strftime") else str(ts)[:10]
+            else:
+                key = ts.strftime("%Y-%m") if hasattr(ts, "strftime") else str(ts)[:7]
+
+            if key not in seen:
+                seen[key] = r.id
+            else:
+                ids_to_delete.append(r.id)
+
+        if ids_to_delete:
+            # Batch delete
+            for batch_start in range(0, len(ids_to_delete), 500):
+                batch = ids_to_delete[batch_start:batch_start + 500]
+                await db.execute(
+                    delete(OHLCVData).where(OHLCVData.id.in_(batch))
+                )
+            await db.commit()
+
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=f"Dedup failed: {str(e)}")
 
-    return {"symbol": symbol.upper(), "timeframe": timeframe, "deleted": deleted}
+    return {"symbol": symbol.upper(), "timeframe": timeframe, "deleted": len(ids_to_delete), "kept": len(seen)}
 
 
 @router.post("/fetch/batch")
