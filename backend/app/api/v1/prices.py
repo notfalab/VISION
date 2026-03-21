@@ -45,7 +45,27 @@ async def get_ohlcv(
     query = query.order_by(OHLCVData.timestamp.desc()).limit(limit)
 
     result = await db.execute(query)
-    return result.scalars().all()
+    rows = list(result.scalars().all())
+
+    # Deduplicate daily/weekly/monthly candles by period (keep latest per day/week)
+    if timeframe in ("1d", "1w", "1M"):
+        seen: dict[str, object] = {}
+        deduped = []
+        for r in rows:
+            ts = r.timestamp
+            if timeframe == "1d":
+                key = ts.strftime("%Y-%m-%d") if hasattr(ts, "strftime") else str(ts)[:10]
+            elif timeframe == "1w":
+                # Week key: ISO year-week
+                key = ts.strftime("%Y-W%W") if hasattr(ts, "strftime") else str(ts)[:10]
+            else:
+                key = ts.strftime("%Y-%m") if hasattr(ts, "strftime") else str(ts)[:7]
+            if key not in seen:
+                seen[key] = True
+                deduped.append(r)
+        rows = deduped
+
+    return rows
 
 
 @router.post("/{symbol}/fetch")
@@ -64,6 +84,56 @@ async def fetch_prices(
         return {"symbol": symbol.upper(), "timeframe": actual_tf, "rows_ingested": count}
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Fetch failed: {str(e)}")
+
+
+@router.post("/{symbol}/dedup")
+async def deduplicate_candles(
+    symbol: str,
+    timeframe: str = Query("1d"),
+    db: AsyncSession = Depends(get_db),
+):
+    """Remove duplicate candles for daily/weekly/monthly timeframes.
+
+    Keeps only one candle per period (the one with the latest timestamp).
+    """
+    from sqlalchemy import text
+
+    result = await db.execute(select(Asset).where(Asset.symbol == symbol.upper()))
+    asset = result.scalar_one_or_none()
+    if not asset:
+        raise HTTPException(status_code=404, detail=f"Asset {symbol} not found")
+
+    try:
+        tf = Timeframe(timeframe)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid timeframe: {timeframe}")
+
+    if timeframe == "1d":
+        trunc = "day"
+    elif timeframe == "1w":
+        trunc = "week"
+    elif timeframe == "1M":
+        trunc = "month"
+    else:
+        return {"symbol": symbol.upper(), "timeframe": timeframe, "deleted": 0, "msg": "No dedup needed for intraday"}
+
+    # Delete duplicates: keep the row with the max id per truncated period
+    delete_sql = text(f"""
+        DELETE FROM ohlcv_data
+        WHERE id NOT IN (
+            SELECT MAX(id)
+            FROM ohlcv_data
+            WHERE asset_id = :asset_id AND timeframe = :tf
+            GROUP BY date_trunc('{trunc}', timestamp)
+        )
+        AND asset_id = :asset_id AND timeframe = :tf
+    """)
+
+    result = await db.execute(delete_sql, {"asset_id": asset.id, "tf": timeframe})
+    deleted = result.rowcount
+    await db.commit()
+
+    return {"symbol": symbol.upper(), "timeframe": timeframe, "deleted": deleted}
 
 
 @router.post("/fetch/batch")

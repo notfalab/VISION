@@ -325,8 +325,46 @@ async def ingest_ohlcv(
     return await _store_ohlcv(df, symbol, timeframe)
 
 
+def _normalize_candle_timestamp(ts: pd.Timestamp, timeframe: str) -> pd.Timestamp:
+    """Normalize a candle timestamp to its period start for deduplication.
+
+    Daily → midnight UTC, Weekly → Monday midnight UTC, Monthly → 1st midnight UTC.
+    Intraday timestamps are left as-is (they already align to their period).
+    """
+    if timeframe == "1d":
+        return pd.Timestamp(ts.date(), tz="UTC")
+    elif timeframe == "1w":
+        # Normalize to Monday 00:00 UTC of that week
+        dt = ts.to_pydatetime() if hasattr(ts, "to_pydatetime") else ts
+        monday = dt.date() - pd.Timedelta(days=dt.weekday())
+        return pd.Timestamp(monday, tz="UTC")
+    elif timeframe == "1M":
+        return pd.Timestamp(ts.year, ts.month, 1, tz="UTC")
+    return ts
+
+
 async def _store_ohlcv(df: pd.DataFrame, symbol: str, timeframe: str) -> int:
     """Store OHLCV DataFrame to DB with upsert."""
+    # Normalize timestamps for daily+ timeframes to ensure deduplication
+    if timeframe in ("1d", "1w", "1M"):
+        df = df.copy()
+        df["timestamp"] = df["timestamp"].apply(
+            lambda ts: _normalize_candle_timestamp(ts, timeframe)
+        )
+        # After normalization, aggregate duplicates (same period)
+        df = (
+            df.groupby("timestamp", as_index=False)
+            .agg({
+                "open": "first",
+                "high": "max",
+                "low": "min",
+                "close": "last",
+                "volume": "sum",
+            })
+            .sort_values("timestamp")
+            .reset_index(drop=True)
+        )
+
     async with async_session() as session:
         result = await session.execute(
             select(Asset).where(Asset.symbol == symbol.upper())
