@@ -119,7 +119,7 @@ export default function DashboardContent({ initialSymbol, initialTimeframe }: { 
     { id: "calendar", label: "Economic Calendar", delay: 1000 },
     { id: "sentiment", label: "News Sentiment", delay: 1000 },
     { id: "volatility", label: "Volatility Forecast", delay: 1200 },
-    { id: "heatmap", label: "Currency Heatmap", delay: 1500 },
+    // CurrencyHeatmap removed — only works for forex pairs, not gold
     { id: "ml-prediction", label: "ML Prediction", delay: 1000 },
     { id: "order-flow", label: "Order Flow", delay: 1000 },
     { id: "tpsl", label: "TP/SL Heatmap", delay: 1000 },

@@ -61,13 +61,27 @@ const TIMEFRAMES: { label: string; value: Timeframe }[] = [
 ];
 
 /* ── Data conversion helpers ── */
-function toTime(ts: string): UTCTimestamp {
+const DAILY_TFS = new Set(["1d", "1w", "1M"]);
+
+function toTime(ts: string, tf?: string): Time {
+  // For daily/weekly/monthly: use YYYY-MM-DD string → lightweight-charts
+  // treats these as "business days" with NO gaps on weekends/holidays
+  if (tf && DAILY_TFS.has(tf)) {
+    const d = new Date(ts);
+    const yyyy = d.getUTCFullYear();
+    const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+    const dd = String(d.getUTCDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}` as unknown as Time;
+  }
+  // For intraday: use UTCTimestamp (seconds) → shows time axis
   return (new Date(ts).getTime() / 1000) as UTCTimestamp;
 }
 
+let _currentTf: string = "1h"; // module-level ref for helper fns
+
 function toChartData(c: OHLCV) {
   return {
-    time: toTime(c.timestamp),
+    time: toTime(c.timestamp, _currentTf),
     open: c.open,
     high: c.high,
     low: c.low,
@@ -77,7 +91,7 @@ function toChartData(c: OHLCV) {
 
 function toVolumeData(c: OHLCV, bullAlpha: string, bearAlpha: string) {
   return {
-    time: toTime(c.timestamp),
+    time: toTime(c.timestamp, _currentTf),
     value: c.volume,
     color: c.close >= c.open ? bullAlpha : bearAlpha,
   };
@@ -114,7 +128,7 @@ function updateMAFromData(
   ema200: ISeriesApi<"Line"> | null,
 ) {
   if (data.length < 20) return;
-  const lastTime = toTime(data[data.length - 1].timestamp);
+  const lastTime = toTime(data[data.length - 1].timestamp, _currentTf);
 
   try {
     // SMA 20: average of last 20 closes
@@ -928,9 +942,9 @@ export default function PriceChart() {
       volumeSeriesRef.current?.setData(
         newData.map((c) => toVolumeData(c, tc.bullAlpha, tc.bearAlpha))
       );
-      sma20Ref.current?.setData(computeSMA(newData, 20));
-      ema50Ref.current?.setData(computeEMA(newData, 50));
-      ema200Ref.current?.setData(computeEMA(newData, 200));
+      sma20Ref.current?.setData(computeSMA(newData, 20, _currentTf));
+      ema50Ref.current?.setData(computeEMA(newData, 50, _currentTf));
+      ema200Ref.current?.setData(computeEMA(newData, 200, _currentTf));
       // Force chart to rescale Y-axis and fit all data after series update
       if (chart) {
         chart.priceScale("right").applyOptions({ autoScale: true });
@@ -954,6 +968,7 @@ export default function PriceChart() {
     const sym = activeSymbol;
     const tf = activeTimeframe;
     const key = `${sym}_${tf}`;
+    _currentTf = tf; // Update module-level ref for toChartData/toVolumeData
 
     /**
      * Push data to chart ONLY if it hasn't been pushed yet for this key.
@@ -1120,9 +1135,9 @@ export default function PriceChart() {
                   volumeSeriesRef.current?.setData(
                     merged.map((c) => toVolumeData(c, tc.bullAlpha, tc.bearAlpha))
                   );
-                  sma20Ref.current?.setData(computeSMA(merged, 20));
-                  ema50Ref.current?.setData(computeEMA(merged, 50));
-                  ema200Ref.current?.setData(computeEMA(merged, 200));
+                  sma20Ref.current?.setData(computeSMA(merged, 20, _currentTf));
+                  ema50Ref.current?.setData(computeEMA(merged, 50, _currentTf));
+                  ema200Ref.current?.setData(computeEMA(merged, 200, _currentTf));
                   if (savedRange) {
                     chart?.timeScale().setVisibleLogicalRange(savedRange);
                   }

@@ -336,7 +336,8 @@ def _normalize_candle_timestamp(ts: pd.Timestamp, timeframe: str) -> pd.Timestam
     elif timeframe == "1w":
         # Normalize to Monday 00:00 UTC of that week
         dt = ts.to_pydatetime() if hasattr(ts, "to_pydatetime") else ts
-        monday = dt.date() - pd.Timedelta(days=dt.weekday())
+        from datetime import timedelta
+        monday = dt.date() - timedelta(days=dt.weekday())
         return pd.Timestamp(monday, tz="UTC")
     elif timeframe == "1M":
         return pd.Timestamp(ts.year, ts.month, 1, tz="UTC")

@@ -275,6 +275,12 @@ class OandaAdapter(DataSourceAdapter):
                     "volume": float(c.get("volume", 0)),
                 }
 
+                # If tick volume is 0, estimate from price range × base factor
+                # This gives volume-based indicators meaningful data for gold
+                if row["volume"] <= 0 and row["high"] > row["low"]:
+                    range_pct = (row["high"] - row["low"]) / row["close"] * 100
+                    row["volume"] = round(range_pct * 10000, 2)  # Scale to meaningful numbers
+
                 # Capture spread if bid/ask available
                 bid = c.get("bid")
                 ask = c.get("ask")
