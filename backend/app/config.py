@@ -125,7 +125,7 @@ class Settings(BaseSettings):
 
     # Subscription
     subscription_price_usd: float = 4999.0
-    trial_days: int = 0
+    trial_days: int = 3
 
     # AI / LLM
     openai_api_key: str = ""

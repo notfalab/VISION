@@ -13,6 +13,7 @@ import LazyWidget from "@/components/LazyWidget";
 import SortableWidgetList from "@/components/SortableWidgetList";
 import { useMarketStore, getMarketType } from "@/stores/market";
 import { useWidgetLayoutStore } from "@/stores/widgetLayout";
+import { useAuthStore } from "@/stores/auth";
 import OnboardingTour from "@/components/OnboardingTour";
 
 // Lazy-load heavy widgets — they won't be included in the initial JS bundle
@@ -74,6 +75,9 @@ const WIDGET_COMPONENTS: Record<string, () => React.ReactNode> = {
   "cot": () => <ErrorBoundary><COTReport /></ErrorBoundary>,
 };
 
+// Widgets available during trial (limited set)
+const TRIAL_WIDGETS = new Set(["narrator", "zones", "calendar", "cot"]);
+
 export default function DashboardContent({ initialSymbol, initialTimeframe }: { initialSymbol?: string; initialTimeframe?: import("@/types/market").Timeframe | null }) {
   const activeSymbol = useMarketStore((s) => s.activeSymbol);
   const setActiveSymbol = useMarketStore((s) => s.setActiveSymbol);
@@ -82,6 +86,10 @@ export default function DashboardContent({ initialSymbol, initialTimeframe }: { 
   const marketType = getMarketType(activeSymbol);
   const isGold = activeSymbol === "XAUUSD";
   const isCrypto = marketType === "crypto";
+
+  const user = useAuthStore((s) => s.user);
+  const isTrial = user?.subscription_status === "trial";
+  const trialDays = user?.days_remaining ?? 0;
 
   const hiddenWidgets = useWidgetLayoutStore((s) => s.hiddenWidgets);
   const toggleWidget = useWidgetLayoutStore((s) => s.toggleWidget);
@@ -125,11 +133,12 @@ export default function DashboardContent({ initialSymbol, initialTimeframe }: { 
     { id: "cot", label: "COT Report", delay: 2500 },
   ], [isCrypto, isGold]);
 
-  // Build widget entries for sortable list (filtered by condition + hidden)
+  // Build widget entries for sortable list (filtered by condition + hidden + trial)
   const widgetEntries = useMemo(() => {
     return WIDGET_DEFS
       .filter((def) => def.condition !== false)
       .filter((def) => !hiddenWidgets.includes(def.id))
+      .filter((def) => !isTrial || TRIAL_WIDGETS.has(def.id))
       .map((def) => ({
         id: def.id,
         node: def.delay > 0 ? (
@@ -140,7 +149,7 @@ export default function DashboardContent({ initialSymbol, initialTimeframe }: { 
           WIDGET_COMPONENTS[def.id]()
         ),
       }));
-  }, [WIDGET_DEFS, hiddenWidgets]);
+  }, [WIDGET_DEFS, hiddenWidgets, isTrial]);
 
   // Widgets available for settings panel (only those passing condition)
   const availableWidgets = useMemo(
@@ -197,15 +206,17 @@ export default function DashboardContent({ initialSymbol, initialTimeframe }: { 
               <span className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
                 Widgets ({widgetEntries.length})
               </span>
-              <button
-                onClick={() => setShowSettings(!showSettings)}
-                className={`p-1.5 rounded transition-colors ${
-                  showSettings ? "bg-[var(--color-neon-blue)]/10 text-[var(--color-neon-blue)]" : "hover:bg-[var(--color-bg-hover)] text-[var(--color-text-muted)]"
-                }`}
-                title="Toggle widget visibility"
-              >
-                <Settings className="w-3.5 h-3.5" />
-              </button>
+              {!isTrial && (
+                <button
+                  onClick={() => setShowSettings(!showSettings)}
+                  className={`p-1.5 rounded transition-colors ${
+                    showSettings ? "bg-[var(--color-neon-blue)]/10 text-[var(--color-neon-blue)]" : "hover:bg-[var(--color-bg-hover)] text-[var(--color-text-muted)]"
+                  }`}
+                  title="Toggle widget visibility"
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
 
             {showSettings && (
@@ -240,6 +251,31 @@ export default function DashboardContent({ initialSymbol, initialTimeframe }: { 
             )}
 
             <SortableWidgetList widgets={widgetEntries} />
+
+            {/* Trial upgrade banner */}
+            {isTrial && (
+              <div className="mt-3 rounded-lg border border-[var(--color-neon-amber)]/30 bg-[var(--color-neon-amber)]/5 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-2 h-2 rounded-full bg-[var(--color-neon-amber)] animate-pulse" />
+                  <span className="text-[11px] font-bold text-[var(--color-neon-amber)] uppercase tracking-wider">
+                    Free Trial — {trialDays} day{trialDays !== 1 ? "s" : ""} remaining
+                  </span>
+                </div>
+                <p className="text-[10px] text-[var(--color-text-muted)] mb-3 leading-relaxed">
+                  You're viewing a limited preview. Upgrade to unlock{" "}
+                  <span className="font-semibold text-[var(--color-text-secondary)]">20+ professional widgets</span>,{" "}
+                  <span className="font-semibold text-[var(--color-text-secondary)]">ML predictions</span>,{" "}
+                  <span className="font-semibold text-[var(--color-text-secondary)]">smart money analysis</span>,{" "}
+                  <span className="font-semibold text-[var(--color-text-secondary)]">order flow</span>, and more.
+                </p>
+                <a
+                  href="/subscription"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-md text-[10px] font-bold uppercase tracking-wider bg-[var(--color-neon-amber)] text-black hover:bg-[var(--color-neon-amber)]/90 transition-all"
+                >
+                  Upgrade — $4,999/year
+                </a>
+              </div>
+            )}
           </div>
         </div>
       </div>

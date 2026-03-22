@@ -204,6 +204,7 @@ export default function SubscriptionPage() {
                 </span>
               </div>
               <p className="text-[10px] text-[var(--color-text-muted)]">
+                {user?.subscription_status === "trial" && `Free trial — ${user.days_remaining} day${user.days_remaining !== 1 ? "s" : ""} remaining (limited access)`}
                 {user?.subscription_status === "active" && `Subscription renews in ${user.days_remaining} day${user.days_remaining !== 1 ? "s" : ""}`}
                 {user?.subscription_status === "expired" && "Your free trial has ended. Subscribe to access VISION."}
                 {user?.subscription_status === "admin" && "Admin access \u2014 unlimited"}

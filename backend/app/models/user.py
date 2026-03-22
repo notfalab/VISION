@@ -52,7 +52,8 @@ class User(Base):
         now = datetime.now(timezone.utc)
         if self.subscription_ends_at and self.subscription_ends_at > now:
             return "active"
-        # Trial disabled — all non-paying, non-admin users are expired
+        if self.trial_ends_at and self.trial_ends_at > now:
+            return "trial"
         return "expired"
 
     @property
