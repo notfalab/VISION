@@ -124,8 +124,8 @@ class Settings(BaseSettings):
     wallet_address_solana: str = ""
 
     # Subscription
-    subscription_price_usd: float = 99.0
-    trial_days: int = 3
+    subscription_price_usd: float = 4999.0
+    trial_days: int = 0
 
     # AI / LLM
     openai_api_key: str = ""
