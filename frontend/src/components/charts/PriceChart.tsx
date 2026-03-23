@@ -226,6 +226,7 @@ export default function PriceChart() {
   const [showFVG, setShowFVG] = useState(false);
   const [showOB, setShowOB] = useState(false);
   const [showKillZones, setShowKillZones] = useState(true);
+  const [showVolume, setShowVolume] = useState(true);
   const wallLinesRef = useRef<any[]>([]);
   const [isPannedAway, _setIsPannedAway] = useState(false);
 
@@ -1469,6 +1470,13 @@ export default function PriceChart() {
     sessionPrimRef.current?.update(showSessions, isIntraday, showKillZones);
   }, [showSessions, isIntraday, showKillZones]);
 
+  // Volume series visibility toggle
+  useEffect(() => {
+    const vol = volumeSeriesRef.current;
+    if (!vol) return;
+    vol.applyOptions({ visible: showVolume });
+  }, [showVolume]);
+
   /* ──────────────────────────────────────────────────
      FVG + Order Block overlays (use OHLCV data, no API)
      ────────────────────────────────────────────────── */
@@ -1786,6 +1794,18 @@ export default function PriceChart() {
       <div className="overflow-x-auto scrollbar-hide border-b border-[var(--color-border-primary)]">
         <div className="flex items-center gap-1.5 px-3 md:px-4 py-1.5 min-w-max">
           {/* Overlay toggles */}
+          <button
+            onClick={() => setShowVolume(!showVolume)}
+            className={`
+              shrink-0 px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[28px]
+              ${showVolume
+                ? "border-[var(--color-text-muted)]/30 text-[var(--color-text-secondary)] bg-[var(--color-text-muted)]/10"
+                : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
+              }
+            `}
+          >
+            Vol
+          </button>
           {isIntraday && (
             <button
               onClick={() => setShowSessions(!showSessions)}
