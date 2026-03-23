@@ -70,7 +70,8 @@ class TradeCounterRenderer implements IPrimitivePaneRenderer {
     if (this._bars.length === 0) return;
 
     target.useMediaCoordinateSpace(({ context: ctx, mediaSize }) => {
-      const baseline = this._bars[0]?.baseline ?? mediaSize.height * 0.85;
+      const baseline = mediaSize.height * 0.87;
+      const maxBarH = mediaSize.height * 0.10;
 
       // Draw baseline
       ctx.strokeStyle = BASELINE_COLOR;
@@ -80,27 +81,29 @@ class TradeCounterRenderer implements IPrimitivePaneRenderer {
       ctx.lineTo(mediaSize.width, baseline);
       ctx.stroke();
 
-      // Draw bars
+      // Draw bars — buyH/sellH are 0-1 intensity, scale to maxBarH pixels
       for (const bar of this._bars) {
         const halfW = bar.w / 2;
-        const barW = Math.max(1, bar.w - 1); // 1px gap between bars
+        const barW = Math.max(1, bar.w - 1);
+        const buyPx = bar.buyH * maxBarH;
+        const sellPx = bar.sellH * maxBarH;
 
         // Buy bar (upward from baseline)
-        if (bar.buyH > 0.5) {
+        if (buyPx > 0.5) {
           ctx.fillStyle = BUY_FILL;
-          ctx.fillRect(bar.x - halfW + 0.5, baseline - bar.buyH, barW, bar.buyH);
+          ctx.fillRect(bar.x - halfW + 0.5, baseline - buyPx, barW, buyPx);
           ctx.strokeStyle = BUY_STROKE;
           ctx.lineWidth = 0.5;
-          ctx.strokeRect(bar.x - halfW + 0.5, baseline - bar.buyH, barW, bar.buyH);
+          ctx.strokeRect(bar.x - halfW + 0.5, baseline - buyPx, barW, buyPx);
         }
 
         // Sell bar (downward from baseline)
-        if (bar.sellH > 0.5) {
+        if (sellPx > 0.5) {
           ctx.fillStyle = SELL_FILL;
-          ctx.fillRect(bar.x - halfW + 0.5, baseline, barW, bar.sellH);
+          ctx.fillRect(bar.x - halfW + 0.5, baseline, barW, sellPx);
           ctx.strokeStyle = SELL_STROKE;
           ctx.lineWidth = 0.5;
-          ctx.strokeRect(bar.x - halfW + 0.5, baseline, barW, bar.sellH);
+          ctx.strokeRect(bar.x - halfW + 0.5, baseline, barW, sellPx);
         }
       }
 
@@ -111,17 +114,18 @@ class TradeCounterRenderer implements IPrimitivePaneRenderer {
         ctx.textAlign = "center";
 
         for (const bar of this._bars) {
-          // Buy count above buy bar
-          if (bar.buyH > 10) {
+          const buyPx = bar.buyH * maxBarH;
+          const sellPx = bar.sellH * maxBarH;
+
+          if (buyPx > 10) {
             ctx.textBaseline = "bottom";
             ctx.fillStyle = "rgba(16,185,129,0.9)";
-            ctx.fillText(String(Math.round(bar.buyCount)), bar.x, baseline - bar.buyH - 1);
+            ctx.fillText(String(Math.round(bar.buyCount)), bar.x, baseline - buyPx - 1);
           }
-          // Sell count below sell bar
-          if (bar.sellH > 10) {
+          if (sellPx > 10) {
             ctx.textBaseline = "top";
             ctx.fillStyle = "rgba(239,68,68,0.9)";
-            ctx.fillText(String(Math.round(bar.sellCount)), bar.x, baseline + bar.sellH + 1);
+            ctx.fillText(String(Math.round(bar.sellCount)), bar.x, baseline + sellPx + 1);
           }
         }
       }
@@ -171,33 +175,17 @@ class TradeCounterView implements IPrimitivePaneView {
       }
     }
 
-    // Get chart pane height from series coordinate system
-    // Use priceToCoordinate with extreme values to estimate pane height
-    const logicalHeight = (() => {
-      try {
-        const top = _series.priceToCoordinate(999999);
-        const bot = _series.priceToCoordinate(0.001);
-        if (top !== null && bot !== null) return Math.abs(bot - top);
-      } catch { /* ignore */ }
-      return 600; // fallback
-    })();
-
-    const baseline = logicalHeight * 0.87;
-    const maxBarHeight = logicalHeight * 0.08;
-
+    // Pass entries with x coordinates — baseline/height computed in renderer with mediaSize
     for (const entry of _entries) {
       const x = timeScale.timeToCoordinate(entry.time);
       if (x === null) continue;
 
-      const buyH = (entry.buyIntensity) * maxBarHeight;
-      const sellH = (entry.sellIntensity) * maxBarHeight;
-
       bars.push({
         x,
         w: barWidth,
-        buyH,
-        sellH,
-        baseline,
+        buyH: entry.buyIntensity,   // 0-1, renderer scales to pixels
+        sellH: entry.sellIntensity, // 0-1, renderer scales to pixels
+        baseline: 0, // computed in renderer
         buyCount: entry.buyCount,
         sellCount: entry.sellCount,
       });

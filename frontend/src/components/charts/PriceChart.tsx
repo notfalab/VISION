@@ -232,8 +232,22 @@ export default function PriceChart() {
   const handleScreenshot = useCallback(() => {
     const chart = chartRef.current;
     if (!chart) return;
-    const canvas = chart.takeScreenshot();
-    canvas.toBlob((blob) => {
+    const srcCanvas = chart.takeScreenshot();
+
+    // Composite onto a canvas with solid dark background
+    // (takeScreenshot renders with transparent bg, causing color issues)
+    const outCanvas = document.createElement("canvas");
+    outCanvas.width = srcCanvas.width;
+    outCanvas.height = srcCanvas.height;
+    const ctx = outCanvas.getContext("2d");
+    if (!ctx) return;
+
+    // Dark background matching the app theme
+    ctx.fillStyle = "#000000";
+    ctx.fillRect(0, 0, outCanvas.width, outCanvas.height);
+    ctx.drawImage(srcCanvas, 0, 0);
+
+    outCanvas.toBlob((blob) => {
       if (!blob) return;
       if (navigator.clipboard && typeof ClipboardItem !== "undefined") {
         navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]).then(
