@@ -47,11 +47,11 @@ interface TradeEntry {
 }
 
 /* ── Colors ── */
-const BUY_FILL = "rgba(16,185,129,0.35)";   // emerald
-const BUY_STROKE = "rgba(16,185,129,0.6)";
-const SELL_FILL = "rgba(239,68,68,0.35)";    // red
-const SELL_STROKE = "rgba(239,68,68,0.6)";
-const BASELINE_COLOR = "rgba(148,163,184,0.2)"; // slate-400
+const BUY_FILL = "rgba(16,185,129,0.50)";   // emerald
+const BUY_STROKE = "rgba(16,185,129,0.8)";
+const SELL_FILL = "rgba(239,68,68,0.50)";    // red
+const SELL_STROKE = "rgba(239,68,68,0.8)";
+const BASELINE_COLOR = "rgba(148,163,184,0.3)"; // slate-400
 
 /* ── Renderer ── */
 class TradeCounterRenderer implements IPrimitivePaneRenderer {
@@ -70,8 +70,8 @@ class TradeCounterRenderer implements IPrimitivePaneRenderer {
     if (this._bars.length === 0) return;
 
     target.useMediaCoordinateSpace(({ context: ctx, mediaSize }) => {
-      const baseline = mediaSize.height * 0.87;
-      const maxBarH = mediaSize.height * 0.10;
+      const baseline = mediaSize.height * 0.78;
+      const maxBarH = mediaSize.height * 0.14;
 
       // Draw baseline
       ctx.strokeStyle = BASELINE_COLOR;
