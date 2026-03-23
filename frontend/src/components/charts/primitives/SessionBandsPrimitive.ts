@@ -47,6 +47,32 @@ const SESSIONS: TradingSession[] = [
 const OVERLAP_COLOR = "rgba(168, 85, 247, 0.06)";
 const OVERLAP_LABEL_COLOR = "rgba(168, 85, 247, 0.45)";
 
+/* ── Kill Zones (high-probability trading windows) ── */
+interface KillZone {
+  name: string;
+  startHour: number;
+  endHour: number;
+  color: string;
+  labelColor: string;
+}
+
+const KILL_ZONES: KillZone[] = [
+  {
+    name: "LDN KZ",
+    startHour: 2,
+    endHour: 5,
+    color: "rgba(16, 185, 129, 0.10)",
+    labelColor: "rgba(16, 185, 129, 0.7)",
+  },
+  {
+    name: "NY KZ",
+    startHour: 12,
+    endHour: 15,
+    color: "rgba(245, 158, 11, 0.10)",
+    labelColor: "rgba(245, 158, 11, 0.7)",
+  },
+];
+
 function getSessionForHour(hour: number): {
   sessions: string[];
   isOverlap: boolean;
@@ -67,17 +93,20 @@ class SessionBandsRenderer implements IPrimitivePaneRenderer {
   private _series: ISeriesApi<SeriesType, Time>;
   private _visible: boolean;
   private _isIntraday: boolean;
+  private _showKillZones: boolean;
 
   constructor(
     chart: IChartApiBase<Time>,
     series: ISeriesApi<SeriesType, Time>,
     visible: boolean,
-    isIntraday: boolean
+    isIntraday: boolean,
+    showKillZones: boolean = true,
   ) {
     this._chart = chart;
     this._series = series;
     this._visible = visible;
     this._isIntraday = isIntraday;
+    this._showKillZones = showKillZones;
   }
 
   drawBackground(target: CanvasRenderingTarget2D): void {
@@ -160,6 +189,65 @@ class SessionBandsRenderer implements IPrimitivePaneRenderer {
           bandLabelColor = labelColor;
         }
       }
+
+      // ── Kill Zones (drawn on top of session bands) ──
+      if (this._showKillZones) {
+        let kzKey = "";
+        let kzStartX = -1;
+        let kzColor = "";
+        let kzLabelColor = "";
+
+        for (let i = from; i <= to; i++) {
+          const time = this._series.dataByIndex(i as unknown as Logical)?.time;
+          let currentKZ = "";
+          let currentColor = "";
+          let currentLabel = "";
+
+          if (time !== undefined && time !== null) {
+            const d = new Date((time as number) * 1000);
+            const hour = d.getUTCHours();
+            for (const kz of KILL_ZONES) {
+              if (hour >= kz.startHour && hour < kz.endHour) {
+                currentKZ = kz.name;
+                currentColor = kz.color;
+                currentLabel = kz.labelColor;
+                break;
+              }
+            }
+          }
+
+          if (currentKZ !== kzKey || i === to) {
+            if (kzStartX >= 0 && kzKey && kzColor) {
+              const currentX = timeScale.logicalToCoordinate(i as unknown as Logical) ?? mediaSize.width;
+              const bandW = currentX - kzStartX;
+
+              // Brighter fill for kill zones
+              ctx.fillStyle = kzColor;
+              ctx.fillRect(kzStartX, 0, bandW, mediaSize.height);
+
+              // Bold top border
+              ctx.strokeStyle = kzLabelColor;
+              ctx.lineWidth = 1.5;
+              ctx.beginPath();
+              ctx.moveTo(kzStartX, 0);
+              ctx.lineTo(kzStartX + bandW, 0);
+              ctx.stroke();
+
+              // Kill zone label
+              if (bandW > 40) {
+                ctx.font = "bold 9px JetBrains Mono, monospace";
+                ctx.fillStyle = kzLabelColor;
+                ctx.textAlign = "center";
+                ctx.fillText(kzKey, kzStartX + bandW / 2, 26);
+              }
+            }
+            kzStartX = timeScale.logicalToCoordinate(i as unknown as Logical) ?? 0;
+            kzKey = currentKZ;
+            kzColor = currentColor;
+            kzLabelColor = currentLabel;
+          }
+        }
+      }
     });
   }
 
@@ -174,17 +262,20 @@ class SessionBandsView implements IPrimitivePaneView {
   private _series: ISeriesApi<SeriesType, Time> | null = null;
   private _visible = true;
   private _isIntraday = true;
+  private _showKillZones = true;
 
   setParams(
     chart: IChartApiBase<Time>,
     series: ISeriesApi<SeriesType, Time>,
     visible: boolean,
-    isIntraday: boolean
+    isIntraday: boolean,
+    showKillZones: boolean = true,
   ) {
     this._chart = chart;
     this._series = series;
     this._visible = visible;
     this._isIntraday = isIntraday;
+    this._showKillZones = showKillZones;
   }
 
   zOrder(): "bottom" {
@@ -197,7 +288,8 @@ class SessionBandsView implements IPrimitivePaneView {
       this._chart,
       this._series,
       this._visible,
-      this._isIntraday
+      this._isIntraday,
+      this._showKillZones,
     );
     return this._renderer;
   }
@@ -211,6 +303,7 @@ export class SessionBandsPrimitive implements ISeriesPrimitive<Time> {
   private _paneViews: readonly IPrimitivePaneView[] = [this._view];
   private _visible = true;
   private _isIntraday = true;
+  private _showKillZones = true;
 
   attached(param: SeriesAttachedParameter<Time, SeriesType>): void {
     this._chart = param.chart;
@@ -230,7 +323,8 @@ export class SessionBandsPrimitive implements ISeriesPrimitive<Time> {
         this._chart,
         this._series,
         this._visible,
-        this._isIntraday
+        this._isIntraday,
+        this._showKillZones,
       );
     }
   }
@@ -239,9 +333,10 @@ export class SessionBandsPrimitive implements ISeriesPrimitive<Time> {
     return this._paneViews;
   }
 
-  update(visible: boolean, isIntraday: boolean): void {
+  update(visible: boolean, isIntraday: boolean, showKillZones: boolean = true): void {
     this._visible = visible;
     this._isIntraday = isIntraday;
+    this._showKillZones = showKillZones;
     this._requestUpdate?.();
   }
 }

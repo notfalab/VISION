@@ -49,6 +49,8 @@ import { toast } from "sonner";
 import { Camera } from "lucide-react";
 import { type DrawingMode } from "./DrawingToolbar";
 import { TrendLinePrimitive, type TrendLineData, type HitResult } from "./primitives/TrendLinePrimitive";
+import { FVGPrimitive } from "./primitives/FVGPrimitive";
+import { OrderBlockPrimitive } from "./primitives/OrderBlockPrimitive";
 
 const TIMEFRAMES: { label: string; value: Timeframe }[] = [
   { label: "1m", value: "1m" },
@@ -195,6 +197,8 @@ export default function PriceChart() {
   const volBubblesPrimRef = useRef<VolumeBubblesPrimitive | null>(null);
   const barStatsPrimRef = useRef<BarStatsPrimitive | null>(null);
   const tradeCounterPrimRef = useRef<TradeCounterPrimitive | null>(null);
+  const fvgPrimRef = useRef<FVGPrimitive | null>(null);
+  const obPrimRef = useRef<OrderBlockPrimitive | null>(null);
 
   const activeSymbol = useMarketStore((s) => s.activeSymbol);
   const activeTimeframe = useMarketStore((s) => s.activeTimeframe);
@@ -219,6 +223,9 @@ export default function PriceChart() {
   const [showVolBubbles, setShowVolBubbles] = useState(false);
   const [showBarStats, setShowBarStats] = useState(false);
   const [showTradeCounter, setShowTradeCounter] = useState(false);
+  const [showFVG, setShowFVG] = useState(false);
+  const [showOB, setShowOB] = useState(false);
+  const [showKillZones, setShowKillZones] = useState(true);
   const wallLinesRef = useRef<any[]>([]);
   const [isPannedAway, _setIsPannedAway] = useState(false);
 
@@ -464,6 +471,15 @@ export default function PriceChart() {
     barStatsPrimRef.current = barStatsPrim;
     tradeCounterPrimRef.current = tradeCounterPrim;
 
+    // FVG + Order Block primitives
+    const fvgPrim = new FVGPrimitive();
+    candleSeries.attachPrimitive(fvgPrim);
+    fvgPrimRef.current = fvgPrim;
+
+    const obPrim = new OrderBlockPrimitive();
+    candleSeries.attachPrimitive(obPrim);
+    obPrimRef.current = obPrim;
+
     // Drawing tools primitive
     const trendPrim = new TrendLinePrimitive();
     candleSeries.attachPrimitive(trendPrim);
@@ -487,6 +503,8 @@ export default function PriceChart() {
       volBubblesPrimRef.current = null;
       barStatsPrimRef.current = null;
       tradeCounterPrimRef.current = null;
+      fvgPrimRef.current = null;
+      obPrimRef.current = null;
       trendLinePrimRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1434,8 +1452,29 @@ export default function PriceChart() {
      Session bands toggle
      ────────────────────────────────────────────────── */
   useEffect(() => {
-    sessionPrimRef.current?.update(showSessions, isIntraday);
-  }, [showSessions, isIntraday]);
+    sessionPrimRef.current?.update(showSessions, isIntraday, showKillZones);
+  }, [showSessions, isIntraday, showKillZones]);
+
+  /* ──────────────────────────────────────────────────
+     FVG + Order Block overlays (use OHLCV data, no API)
+     ────────────────────────────────────────────────── */
+  useEffect(() => {
+    if (showFVG && data.length > 0) {
+      const mapped = data.map((c) => ({ time: new Date(c.timestamp).getTime() / 1000, open: c.open, high: c.high, low: c.low, close: c.close }));
+      fvgPrimRef.current?.update(true, mapped);
+    } else {
+      fvgPrimRef.current?.setVisible(false);
+    }
+  }, [showFVG, data]);
+
+  useEffect(() => {
+    if (showOB && data.length > 0) {
+      const mapped = data.map((c) => ({ time: new Date(c.timestamp).getTime() / 1000, open: c.open, high: c.high, low: c.low, close: c.close }));
+      obPrimRef.current?.update(true, mapped);
+    } else {
+      obPrimRef.current?.setVisible(false);
+    }
+  }, [showOB, data]);
 
   /* ──────────────────────────────────────────────────
      TP/SL Heatmap overlay
@@ -1843,6 +1882,46 @@ export default function PriceChart() {
           >
             Trades
           </button>
+          {/* SMC Tools */}
+          <div className="w-px h-5 bg-[var(--color-border-primary)] shrink-0 mx-0.5" />
+          <button
+            onClick={() => setShowFVG(!showFVG)}
+            className={`
+              shrink-0 px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[28px]
+              ${showFVG
+                ? "border-green-500/30 text-green-500 bg-green-500/10"
+                : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
+              }
+            `}
+          >
+            FVG
+          </button>
+          <button
+            onClick={() => setShowOB(!showOB)}
+            className={`
+              shrink-0 px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[28px]
+              ${showOB
+                ? "border-blue-500/30 text-blue-500 bg-blue-500/10"
+                : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
+              }
+            `}
+          >
+            OB
+          </button>
+          {isIntraday && (
+            <button
+              onClick={() => setShowKillZones(!showKillZones)}
+              className={`
+                shrink-0 px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[28px]
+                ${showKillZones
+                  ? "border-amber-500/30 text-amber-500 bg-amber-500/10"
+                  : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
+                }
+              `}
+            >
+              KZ
+            </button>
+          )}
           {/* Separator */}
           <div className="w-px h-5 bg-[var(--color-border-primary)] shrink-0 mx-0.5" />
           {/* Timeframe selector */}

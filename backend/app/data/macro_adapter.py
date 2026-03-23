@@ -270,6 +270,33 @@ class MacroAdapter:
                                 else "Moderate inflation — neutral for gold."),
             }
 
+        # Real Yield = 10Y Nominal - CPI YoY
+        if "treasury_10y" in summary and "cpi" in summary:
+            try:
+                nominal_10y = summary["treasury_10y"]["value"]
+                cpi_val = summary["cpi"].get("value", 0)
+                # CPI YoY approximation from inflation if available
+                cpi_yoy = summary.get("inflation", {}).get("value", 0)
+                if not cpi_yoy and cpi_val > 0:
+                    cpi_yoy = 3.0  # fallback estimate
+                real_yield = round(nominal_10y - cpi_yoy, 3)
+                summary["real_yield"] = {
+                    "value": real_yield,
+                    "nominal_10y": nominal_10y,
+                    "cpi_yoy": round(cpi_yoy, 2),
+                    "gold_signal": "bullish" if real_yield < 0 else "bearish" if real_yield > 2.0 else "neutral",
+                    "explanation": (
+                        f"Real yield: {real_yield:.2f}% (10Y {nominal_10y}% - Inflation {cpi_yoy:.1f}%). "
+                        + ("Negative real yields = strong gold tailwind."
+                           if real_yield < 0
+                           else "High real yields = gold headwind."
+                           if real_yield > 2.0
+                           else "Moderate real yields — neutral for gold.")
+                    ),
+                }
+            except Exception:
+                pass
+
         # Overall macro score for gold
         signals = [v.get("gold_signal") for v in summary.values() if "gold_signal" in v]
         bull = signals.count("bullish")

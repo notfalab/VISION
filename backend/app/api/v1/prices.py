@@ -161,6 +161,55 @@ async def deduplicate_candles(
     return {"symbol": symbol.upper(), "timeframe": timeframe, "deleted": len(ids_to_delete), "kept": len(seen)}
 
 
+# ── Spread monitor ────────────────────────────────────────────
+from collections import deque
+_spread_history: dict[str, deque] = {}
+
+@router.get("/{symbol}/spread")
+async def get_spread(symbol: str):
+    """Real-time bid/ask spread from OANDA."""
+    try:
+        from backend.app.data.registry import data_registry
+        adapter = data_registry.route_symbol(symbol)
+        await adapter.connect()
+        try:
+            ticker = await adapter.fetch_ticker(symbol)
+        finally:
+            await adapter.disconnect()
+
+        if not ticker or ticker.get("bid", 0) <= 0:
+            raise HTTPException(status_code=404, detail="Spread data unavailable")
+
+        spread = ticker.get("spread", 0)
+        bid = ticker.get("bid", 0)
+        ask = ticker.get("ask", 0)
+        ts = int(datetime.now(timezone.utc).timestamp())
+
+        # Track history in-memory (last 200 readings)
+        key = symbol.upper()
+        if key not in _spread_history:
+            _spread_history[key] = deque(maxlen=200)
+        _spread_history[key].append({"t": ts, "s": round(spread, 4)})
+
+        # Compute average
+        readings = list(_spread_history[key])
+        avg = sum(r["s"] for r in readings) / len(readings) if readings else spread
+
+        return {
+            "symbol": key,
+            "bid": round(bid, 5),
+            "ask": round(ask, 5),
+            "spread": round(spread, 4),
+            "avg_spread": round(avg, 4),
+            "is_wide": spread > 2 * avg if avg > 0 else False,
+            "history": readings[-50:],
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Spread fetch failed: {str(e)}")
+
+
 @router.post("/fetch/batch")
 async def fetch_batch(
     symbols: str = Query(..., description="Comma-separated: EURUSD,BTCUSD,XAUUSD"),

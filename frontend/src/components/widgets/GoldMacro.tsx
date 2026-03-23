@@ -34,6 +34,7 @@ const INDICATOR_LABELS: Record<string, string> = {
   fed_rate: "Fed Funds Rate",
   cpi: "CPI Index",
   inflation: "Annual Inflation",
+  real_yield: "Real Yield (10Y - CPI)",
 };
 
 function SignalDot({ signal }: { signal: string }) {
@@ -57,6 +58,7 @@ function formatMacroValue(key: string, ind: MacroIndicator): string {
   if (key === "fed_rate") return `${ind.value}%`;
   if (key === "cpi") return `${ind.value}`;
   if (key === "inflation") return `${Number(ind.value).toFixed(2)}%`;
+  if (key === "real_yield") return `${ind.value}%`;
   return `${ind.value}`;
 }
 

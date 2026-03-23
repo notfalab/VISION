@@ -39,6 +39,9 @@ const VolatilityForecast = dynamic(() => import("@/components/widgets/Volatility
 const DivergenceWidget = dynamic(() => import("@/components/widgets/DivergenceWidget"), { ssr: false });
 const LiquidityForecast = dynamic(() => import("@/components/widgets/LiquidityForecast"), { ssr: false });
 const ZoneRetestProbability = dynamic(() => import("@/components/widgets/ZoneRetestProbability"), { ssr: false });
+const SpreadMonitor = dynamic(() => import("@/components/widgets/SpreadMonitor"), { ssr: false });
+const GoldETFFlows = dynamic(() => import("@/components/widgets/GoldETFFlows"), { ssr: false });
+const CentralBankGold = dynamic(() => import("@/components/widgets/CentralBankGold"), { ssr: false });
 
 /** Widget registry entry */
 interface WidgetDef {
@@ -73,6 +76,9 @@ const WIDGET_COMPONENTS: Record<string, () => React.ReactNode> = {
   "correlations": () => <ErrorBoundary><Correlations /></ErrorBoundary>,
   "gold-macro": () => <ErrorBoundary><GoldMacro /></ErrorBoundary>,
   "cot": () => <ErrorBoundary><COTReport /></ErrorBoundary>,
+  "spread-monitor": () => <ErrorBoundary><SpreadMonitor /></ErrorBoundary>,
+  "etf-flows": () => <ErrorBoundary><GoldETFFlows /></ErrorBoundary>,
+  "central-bank": () => <ErrorBoundary><CentralBankGold /></ErrorBoundary>,
 };
 
 // Widgets available during trial (limited set)

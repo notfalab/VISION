@@ -14,6 +14,8 @@ celery_app = Celery(
     include=[
         "backend.app.tasks.scalper_scan",
         "backend.app.tasks.fetch_cot",
+        "backend.app.tasks.check_volatility",
+        "backend.app.tasks.check_cot_change",
     ],
 )
 
@@ -59,6 +61,16 @@ celery_app.conf.update(
         "fetch-cot-weekly": {
             "task": "backend.app.tasks.fetch_cot.fetch_latest_cot",
             "schedule": 604800.0,  # 7 days
+        },
+        # ── Volatility spike alerts: every 5 minutes ──
+        "check-volatility-spikes": {
+            "task": "check_volatility_spikes",
+            "schedule": 300.0,
+        },
+        # ── COT change alerts: every Saturday after COT refresh ──
+        "check-cot-changes": {
+            "task": "check_cot_changes",
+            "schedule": crontab(hour=12, minute=0, day_of_week="saturday"),
         },
     },
 )

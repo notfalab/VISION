@@ -1,0 +1,18 @@
+{
+  "updated": "2024-Q4",
+  "source": "World Gold Council",
+  "banks": [
+    {"country": "United States", "tonnes": 8133, "quarterly_change": 0, "rank": 1},
+    {"country": "Germany", "tonnes": 3352, "quarterly_change": 0, "rank": 2},
+    {"country": "Italy", "tonnes": 2452, "quarterly_change": 0, "rank": 3},
+    {"country": "France", "tonnes": 2437, "quarterly_change": 0, "rank": 4},
+    {"country": "Russia", "tonnes": 2333, "quarterly_change": 3, "rank": 5},
+    {"country": "China", "tonnes": 2265, "quarterly_change": 30, "rank": 6},
+    {"country": "Switzerland", "tonnes": 1040, "quarterly_change": 0, "rank": 7},
+    {"country": "India", "tonnes": 876, "quarterly_change": 18, "rank": 8},
+    {"country": "Japan", "tonnes": 846, "quarterly_change": 0, "rank": 9},
+    {"country": "Poland", "tonnes": 420, "quarterly_change": 25, "rank": 10},
+    {"country": "Turkey", "tonnes": 585, "quarterly_change": 12, "rank": 11},
+    {"country": "Singapore", "tonnes": 236, "quarterly_change": 5, "rank": 12}
+  ]
+}

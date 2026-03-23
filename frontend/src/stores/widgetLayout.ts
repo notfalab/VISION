@@ -15,6 +15,8 @@ export const DEFAULT_WIDGET_ORDER = [
   "ml-prediction", "order-flow", "tpsl", "deep-orderbook",
   // Institutional
   "mtf", "smart-money", "whale-tracker", "gold-macro", "cot",
+  // Gold-specific
+  "spread-monitor", "etf-flows", "central-bank",
 ];
 
 interface WidgetLayoutState {
