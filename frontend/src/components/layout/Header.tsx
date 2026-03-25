@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useTransition } from "react";
-import { ChevronDown, LogOut, User, Palette, GraduationCap, Shield, Bell, Activity } from "lucide-react";
+import { ChevronDown, LogOut, User, Palette, GraduationCap, Shield, Bell, Activity, BarChart2 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -215,6 +215,13 @@ export default function Header() {
           </Link>
 
           <div className="flex items-center gap-3 shrink-0 ml-auto">
+            <Link
+              href="/performance"
+              className="flex items-center justify-center w-9 h-9 rounded-lg transition-colors hover:bg-[var(--color-bg-hover)]"
+              title="Performance Dashboard"
+            >
+              <BarChart2 className="w-[18px] h-[18px] text-[var(--color-neon-green)]" />
+            </Link>
             <Link
               href="/learn"
               className="flex items-center justify-center w-9 h-9 rounded-lg transition-colors hover:bg-[var(--color-bg-hover)]"

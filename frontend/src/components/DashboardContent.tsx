@@ -42,6 +42,9 @@ const ZoneRetestProbability = dynamic(() => import("@/components/widgets/ZoneRet
 const SpreadMonitor = dynamic(() => import("@/components/widgets/SpreadMonitor"), { ssr: false });
 const GoldETFFlows = dynamic(() => import("@/components/widgets/GoldETFFlows"), { ssr: false });
 const CentralBankGold = dynamic(() => import("@/components/widgets/CentralBankGold"), { ssr: false });
+const TradeJournal = dynamic(() => import("@/components/widgets/TradeJournal"), { ssr: false });
+const AlertsPanel = dynamic(() => import("@/components/widgets/AlertsPanel"), { ssr: false });
+const SessionStats = dynamic(() => import("@/components/widgets/SessionStats"), { ssr: false });
 
 /** Widget registry entry */
 interface WidgetDef {
@@ -79,6 +82,9 @@ const WIDGET_COMPONENTS: Record<string, () => React.ReactNode> = {
   "spread-monitor": () => <ErrorBoundary><SpreadMonitor /></ErrorBoundary>,
   "etf-flows": () => <ErrorBoundary><GoldETFFlows /></ErrorBoundary>,
   "central-bank": () => <ErrorBoundary><CentralBankGold /></ErrorBoundary>,
+  "trade-journal": () => <ErrorBoundary><TradeJournal /></ErrorBoundary>,
+  "alerts": () => <ErrorBoundary><AlertsPanel /></ErrorBoundary>,
+  "session-stats": () => <ErrorBoundary><SessionStats /></ErrorBoundary>,
 };
 
 // Widgets available during trial (limited set)

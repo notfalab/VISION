@@ -17,6 +17,8 @@ export const DEFAULT_WIDGET_ORDER = [
   "mtf", "smart-money", "whale-tracker", "gold-macro", "cot",
   // Gold-specific
   "spread-monitor", "etf-flows", "central-bank",
+  // Premium tools
+  "trade-journal", "alerts", "session-stats",
 ];
 
 interface WidgetLayoutState {

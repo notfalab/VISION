@@ -51,6 +51,11 @@ import { type DrawingMode } from "./DrawingToolbar";
 import { TrendLinePrimitive, type TrendLineData, type HitResult } from "./primitives/TrendLinePrimitive";
 import { FVGPrimitive } from "./primitives/FVGPrimitive";
 import { OrderBlockPrimitive } from "./primitives/OrderBlockPrimitive";
+import { SMCPrimitive } from "./primitives/SMCPrimitive";
+import ReplayPanel, { type ReplayTrade } from "./ReplayPanel";
+import RiskCalcPanel from "./RiskCalcPanel";
+import { EconCalendarPrimitive, type CalendarEvent } from "./primitives/EconCalendarPrimitive";
+import { COTOverlayPrimitive, type COTBar } from "./primitives/COTOverlayPrimitive";
 
 const TIMEFRAMES: { label: string; value: Timeframe }[] = [
   { label: "1m", value: "1m" },
@@ -199,6 +204,9 @@ export default function PriceChart() {
   const tradeCounterPrimRef = useRef<TradeCounterPrimitive | null>(null);
   const fvgPrimRef = useRef<FVGPrimitive | null>(null);
   const obPrimRef = useRef<OrderBlockPrimitive | null>(null);
+  const smcPrimRef = useRef<SMCPrimitive | null>(null);
+  const econCalPrimRef = useRef<EconCalendarPrimitive | null>(null);
+  const cotOverlayPrimRef = useRef<COTOverlayPrimitive | null>(null);
 
   const activeSymbol = useMarketStore((s) => s.activeSymbol);
   const activeTimeframe = useMarketStore((s) => s.activeTimeframe);
@@ -227,6 +235,23 @@ export default function PriceChart() {
   const [showOB, setShowOB] = useState(false);
   const [showKillZones, setShowKillZones] = useState(true);
   const [showVolume, setShowVolume] = useState(true);
+  const [showSMC, setShowSMC] = useState(false);
+  const [showCalOverlay, setShowCalOverlay] = useState(false);
+  const [showCOT, setShowCOT] = useState(false);
+
+  // Replay mode
+  const [replayMode, setReplayMode] = useState(false);
+  const [replayIndex, setReplayIndex] = useState(0);
+  const [replaySpeed, setReplaySpeed] = useState(1);
+  const [replayPlaying, setReplayPlaying] = useState(false);
+  const [replayTrades, setReplayTrades] = useState<ReplayTrade[]>([]);
+
+  // Risk calculator
+  const [riskCalcMode, setRiskCalcMode] = useState(false);
+  const [riskCalcStep, setRiskCalcStep] = useState(0); // 0=entry, 1=SL, 2=TP
+  const [riskCalcEntry, setRiskCalcEntry] = useState<number | null>(null);
+  const [riskCalcSL, setRiskCalcSL] = useState<number | null>(null);
+  const [riskCalcTP, setRiskCalcTP] = useState<number | null>(null);
   const wallLinesRef = useRef<any[]>([]);
   const [isPannedAway, _setIsPannedAway] = useState(false);
 
@@ -495,6 +520,19 @@ export default function PriceChart() {
     candleSeries.attachPrimitive(obPrim);
     obPrimRef.current = obPrim;
 
+    // SMC + Calendar + COT primitives
+    const smcPrim = new SMCPrimitive();
+    candleSeries.attachPrimitive(smcPrim);
+    smcPrimRef.current = smcPrim;
+
+    const econCalPrim = new EconCalendarPrimitive();
+    candleSeries.attachPrimitive(econCalPrim);
+    econCalPrimRef.current = econCalPrim;
+
+    const cotPrim = new COTOverlayPrimitive();
+    candleSeries.attachPrimitive(cotPrim);
+    cotOverlayPrimRef.current = cotPrim;
+
     // Drawing tools primitive
     const trendPrim = new TrendLinePrimitive();
     candleSeries.attachPrimitive(trendPrim);
@@ -520,6 +558,9 @@ export default function PriceChart() {
       tradeCounterPrimRef.current = null;
       fvgPrimRef.current = null;
       obPrimRef.current = null;
+      smcPrimRef.current = null;
+      econCalPrimRef.current = null;
+      cotOverlayPrimRef.current = null;
       trendLinePrimRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -586,6 +627,14 @@ export default function PriceChart() {
       if (price === null) return;
       const time = param.time as number;
 
+      // Risk calculator click handling
+      if (riskCalcMode) {
+        if (riskCalcStep === 0) { setRiskCalcEntry(price); setRiskCalcStep(1); }
+        else if (riskCalcStep === 1) { setRiskCalcSL(price); setRiskCalcStep(2); }
+        else if (riskCalcStep === 2) { setRiskCalcTP(price); setRiskCalcStep(3); setRiskCalcMode(false); }
+        return;
+      }
+
       if (drawingMode === "hline") {
         const id = crypto.randomUUID();
         const priceLine = createHLine(price);
@@ -623,7 +672,7 @@ export default function PriceChart() {
       chart.unsubscribeClick(clickHandler);
       if (container) container.style.cursor = "";
     };
-  }, [drawingMode, pendingPoint, createHLine, hitTestHLine]);
+  }, [drawingMode, pendingPoint, createHLine, hitTestHLine, riskCalcMode, riskCalcStep]);
 
   // ── Drawing: mouse interaction (hover, drag) ──
   useEffect(() => {
@@ -1478,6 +1527,32 @@ export default function PriceChart() {
   }, [showVolume]);
 
   /* ──────────────────────────────────────────────────
+     Replay mode — auto-advance timer
+     ────────────────────────────────────────────────── */
+  useEffect(() => {
+    if (!replayMode || !replayPlaying || replayIndex >= data.length - 1) return;
+    const interval = setInterval(() => {
+      setReplayIndex(prev => {
+        const next = prev + 1;
+        if (next >= data.length - 1) setReplayPlaying(false);
+        return Math.min(next, data.length - 1);
+      });
+    }, 1000 / replaySpeed);
+    return () => clearInterval(interval);
+  }, [replayMode, replayPlaying, replaySpeed, replayIndex, data.length]);
+
+  // When replay index changes, update chart data
+  useEffect(() => {
+    if (!replayMode || !candleSeriesRef.current || data.length === 0) return;
+    const sliced = data.slice(0, replayIndex + 1);
+    const tc = THEME_CANVAS[theme];
+    candleSeriesRef.current.setData(sliced.map(toChartData));
+    volumeSeriesRef.current?.setData(
+      sliced.map((c) => toVolumeData(c, tc.bullAlpha, tc.bearAlpha))
+    );
+  }, [replayMode, replayIndex, data, theme]);
+
+  /* ──────────────────────────────────────────────────
      FVG + Order Block overlays (use OHLCV data, no API)
      ────────────────────────────────────────────────── */
   useEffect(() => {
@@ -1497,6 +1572,69 @@ export default function PriceChart() {
       obPrimRef.current?.setVisible(false);
     }
   }, [showOB, data]);
+
+  /* ──────────────────────────────────────────────────
+     SMC Auto-Detection (CHoCH, BOS, Equal H/L, Premium/Discount)
+     ────────────────────────────────────────────────── */
+  useEffect(() => {
+    if (showSMC && data.length > 0) {
+      const mapped = data.map((c) => ({ time: new Date(c.timestamp).getTime() / 1000, open: c.open, high: c.high, low: c.low, close: c.close }));
+      smcPrimRef.current?.update(true, mapped);
+    } else {
+      smcPrimRef.current?.setVisible(false);
+    }
+  }, [showSMC, data]);
+
+  /* ──────────────────────────────────────────────────
+     Economic Calendar Overlay (vertical event lines)
+     ────────────────────────────────────────────────── */
+  useEffect(() => {
+    econCalPrimRef.current?.setVisible(showCalOverlay);
+    if (!showCalOverlay) return;
+
+    let cancelled = false;
+    const fetchCal = async () => {
+      try {
+        const events = await api.calendarEvents(14);
+        if (cancelled || !events?.length) return;
+        const mapped: CalendarEvent[] = events
+          .filter((e: any) => e.impact === "high" || e.impact === "medium")
+          .map((e: any) => ({
+            time: Math.floor(new Date(e.datetime || e.date).getTime() / 1000),
+            title: e.title || e.event || "Event",
+            impact: e.impact || "medium",
+          }));
+        econCalPrimRef.current?.update(true, mapped);
+      } catch { /* ignore */ }
+    };
+
+    fetchCal();
+    return () => { cancelled = true; };
+  }, [showCalOverlay, activeSymbol]);
+
+  /* ──────────────────────────────────────────────────
+     COT Institutional Positioning Overlay
+     ────────────────────────────────────────────────── */
+  useEffect(() => {
+    cotOverlayPrimRef.current?.setVisible(showCOT);
+    if (!showCOT) return;
+
+    let cancelled = false;
+    const fetchCOT = async () => {
+      try {
+        const result = await api.cotGold();
+        if (cancelled || !result?.reports?.length) return;
+        const bars: COTBar[] = result.reports.map((r: any) => ({
+          time: Math.floor(new Date(r.report_date || r.date).getTime() / 1000),
+          netPosition: (r.managed_money?.long || 0) - (r.managed_money?.short || 0),
+        }));
+        cotOverlayPrimRef.current?.update(true, bars);
+      } catch { /* ignore */ }
+    };
+
+    fetchCOT();
+    return () => { cancelled = true; };
+  }, [showCOT]);
 
   /* ──────────────────────────────────────────────────
      TP/SL Heatmap overlay
@@ -1770,6 +1908,36 @@ export default function PriceChart() {
         {/* Spacer + Screenshot + Expand button */}
         <div className="flex-1" />
         <button
+          onClick={() => {
+            if (replayMode) {
+              setReplayMode(false); setReplayPlaying(false); setReplayTrades([]);
+            } else {
+              setReplayMode(true); setReplayIndex(Math.max(0, Math.floor(data.length * 0.3))); setReplayPlaying(false); setReplayTrades([]);
+            }
+          }}
+          className={`shrink-0 px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[28px] ${
+            replayMode ? "border-[var(--color-neon-amber)]/30 text-[var(--color-neon-amber)] bg-[var(--color-neon-amber)]/10" : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
+          }`}
+          title="Trade Replay"
+        >
+          Replay
+        </button>
+        <button
+          onClick={() => {
+            if (riskCalcMode) {
+              setRiskCalcMode(false);
+            } else {
+              setRiskCalcMode(true); setRiskCalcStep(0); setRiskCalcEntry(null); setRiskCalcSL(null); setRiskCalcTP(null);
+            }
+          }}
+          className={`shrink-0 px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[28px] ${
+            riskCalcMode || riskCalcEntry ? "border-[var(--color-neon-cyan)]/30 text-[var(--color-neon-cyan)] bg-[var(--color-neon-cyan)]/10" : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
+          }`}
+          title="Risk Calculator"
+        >
+          Risk
+        </button>
+        <button
           onClick={handleScreenshot}
           className="shrink-0 px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[28px] md:min-h-[32px] border-[var(--color-border-primary)] text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
           title="Screenshot (copy to clipboard)"
@@ -1956,6 +2124,42 @@ export default function PriceChart() {
               KZ
             </button>
           )}
+          <button
+            onClick={() => setShowSMC(!showSMC)}
+            className={`
+              shrink-0 px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[28px]
+              ${showSMC
+                ? "border-violet-500/30 text-violet-500 bg-violet-500/10"
+                : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
+              }
+            `}
+          >
+            SMC
+          </button>
+          <button
+            onClick={() => setShowCalOverlay(!showCalOverlay)}
+            className={`
+              shrink-0 px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[28px]
+              ${showCalOverlay
+                ? "border-red-500/30 text-red-500 bg-red-500/10"
+                : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
+              }
+            `}
+          >
+            Cal
+          </button>
+          <button
+            onClick={() => setShowCOT(!showCOT)}
+            className={`
+              shrink-0 px-2 py-1 text-[11px] font-mono rounded transition-all border min-h-[28px]
+              ${showCOT
+                ? "border-blue-400/30 text-blue-400 bg-blue-400/10"
+                : "border-[var(--color-border-primary)] text-[var(--color-text-muted)]"
+              }
+            `}
+          >
+            COT
+          </button>
           {/* Separator */}
           <div className="w-px h-5 bg-[var(--color-border-primary)] shrink-0 mx-0.5" />
           {/* Timeframe selector */}
@@ -2000,6 +2204,59 @@ export default function PriceChart() {
           ref={chartContainerRef}
           className="absolute inset-0"
         />
+
+        {/* Replay Panel */}
+        {replayMode && (
+          <ReplayPanel
+            replayIndex={replayIndex}
+            maxIndex={data.length - 1}
+            speed={replaySpeed}
+            playing={replayPlaying}
+            trades={replayTrades}
+            onPlay={() => setReplayPlaying(true)}
+            onPause={() => setReplayPlaying(false)}
+            onSpeedChange={setReplaySpeed}
+            onStepForward={() => setReplayIndex(prev => Math.min(prev + 1, data.length - 1))}
+            onBuy={() => {
+              const price = data[replayIndex]?.close;
+              if (price) setReplayTrades(prev => [...prev, { type: "buy", entryPrice: price, entryIndex: replayIndex }]);
+            }}
+            onSell={() => {
+              const price = data[replayIndex]?.close;
+              if (price) setReplayTrades(prev => [...prev, { type: "sell", entryPrice: price, entryIndex: replayIndex }]);
+            }}
+            onClosePosition={() => {
+              const price = data[replayIndex]?.close;
+              if (price) {
+                setReplayTrades(prev => {
+                  const updated = [...prev];
+                  const open = updated.findLast(t => t.exitPrice === undefined);
+                  if (open) {
+                    open.exitPrice = price;
+                    open.exitIndex = replayIndex;
+                    open.pnl = open.type === "buy" ? (price - open.entryPrice) : (open.entryPrice - price);
+                  }
+                  return updated;
+                });
+              }
+            }}
+            onExit={() => { setReplayMode(false); setReplayPlaying(false); setReplayTrades([]); }}
+            hasOpenPosition={replayTrades.some(t => t.exitPrice === undefined)}
+            currentPrice={data[replayIndex]?.close || 0}
+          />
+        )}
+
+        {/* Risk Calculator Panel */}
+        {(riskCalcMode || riskCalcEntry) && (
+          <RiskCalcPanel
+            entry={riskCalcEntry}
+            sl={riskCalcSL}
+            tp={riskCalcTP}
+            step={riskCalcStep}
+            onReset={() => { setRiskCalcStep(0); setRiskCalcEntry(null); setRiskCalcSL(null); setRiskCalcTP(null); setRiskCalcMode(true); }}
+            onClose={() => { setRiskCalcMode(false); setRiskCalcEntry(null); setRiskCalcSL(null); setRiskCalcTP(null); setRiskCalcStep(0); }}
+          />
+        )}
 
         {/* Snap to latest button */}
         {isPannedAway && !loading && (
