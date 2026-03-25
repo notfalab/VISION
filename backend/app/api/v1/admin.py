@@ -174,6 +174,42 @@ async def update_user(
     }
 
 
+class GrantSubscriptionBody(BaseModel):
+    days: int = 365
+    amount_usd: float = 4999.0
+    token: str = "USDT"
+
+
+@router.post("/users/{user_id}/grant-subscription")
+async def grant_subscription(
+    user_id: int,
+    body: GrantSubscriptionBody,
+    _admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """Manually grant subscription to a user (admin only)."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    target = result.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    now = datetime.now(timezone.utc)
+    current_end = target.subscription_ends_at or now
+    period_start = max(current_end, now)
+    period_end = period_start + timedelta(days=body.days)
+    target.subscription_ends_at = period_end
+    await db.commit()
+
+    return {
+        "user_id": target.id,
+        "username": target.username,
+        "email": target.email,
+        "subscription_status": target.subscription_status,
+        "subscription_ends_at": period_end.isoformat(),
+        "days_granted": body.days,
+    }
+
+
 @router.delete("/users/{user_id}", status_code=204)
 async def delete_user(
     user_id: int,
