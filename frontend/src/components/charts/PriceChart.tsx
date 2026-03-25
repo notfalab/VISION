@@ -1448,9 +1448,9 @@ export default function PriceChart() {
       }
     };
 
-    fetchZones();
-    const interval = setInterval(fetchZones, 60000);
-    return () => { cancelled = true; clearInterval(interval); };
+    const t0 = setTimeout(fetchZones, 10_000); // stagger: 10s delay
+    const interval = setInterval(fetchZones, 75_000); // +15s offset
+    return () => { cancelled = true; clearTimeout(t0); clearInterval(interval); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSymbol]);
 
@@ -1521,9 +1521,9 @@ export default function PriceChart() {
       } catch { /* ignore */ }
     };
 
-    fetchTPSL();
-    const interval = setInterval(fetchTPSL, 60000);
-    return () => { cancelled = true; clearInterval(interval); };
+    const t0 = setTimeout(fetchTPSL, 0); // immediate
+    const interval = setInterval(fetchTPSL, 65_000); // stagger: 65s
+    return () => { cancelled = true; clearTimeout(t0); clearInterval(interval); };
   }, [showTPSL, activeSymbol]);
 
   /* ──────────────────────────────────────────────────
@@ -1545,11 +1545,10 @@ export default function PriceChart() {
       } catch { /* ignore */ }
     };
 
-    fetchLiq();
-    // Crypto with real data: 60s; others: 120s
+    const t0 = setTimeout(fetchLiq, 2_000); // stagger: 2s delay
     const pollMs = getMarketType(activeSymbol) === "crypto" ? 60_000 : 120_000;
-    const interval = setInterval(fetchLiq, pollMs);
-    return () => { cancelled = true; clearInterval(interval); };
+    const interval = setInterval(fetchLiq, pollMs + 7_000); // +7s offset
+    return () => { cancelled = true; clearTimeout(t0); clearInterval(interval); };
   }, [showLiq, activeSymbol, activeTimeframe]);
 
   /* ──────────────────────────────────────────────────
@@ -1571,10 +1570,10 @@ export default function PriceChart() {
       } catch { /* ignore */ }
     };
 
-    fetchStops();
+    const t0 = setTimeout(fetchStops, 4_000); // stagger: 4s delay
     const pollMs = getMarketType(activeSymbol) === "crypto" ? 60_000 : 120_000;
-    const interval = setInterval(fetchStops, pollMs);
-    return () => { cancelled = true; clearInterval(interval); };
+    const interval = setInterval(fetchStops, pollMs + 13_000); // +13s offset
+    return () => { cancelled = true; clearTimeout(t0); clearInterval(interval); };
   }, [showStops, activeSymbol, activeTimeframe]);
 
   /* ──────────────────────────────────────────────────
@@ -1596,9 +1595,9 @@ export default function PriceChart() {
       } catch { /* ignore */ }
     };
 
-    fetchMBO();
-    const interval = setInterval(fetchMBO, 30_000);
-    return () => { cancelled = true; clearInterval(interval); };
+    const t0 = setTimeout(fetchMBO, 6_000); // stagger: 6s delay
+    const interval = setInterval(fetchMBO, 35_000); // +5s offset
+    return () => { cancelled = true; clearTimeout(t0); clearInterval(interval); };
   }, [showMBO, activeSymbol]);
 
   /* ──────────────────────────────────────────────────
@@ -1657,10 +1656,11 @@ export default function PriceChart() {
       } catch { /* ignore */ }
     };
 
-    fetchWalls();
-    const interval = setInterval(fetchWalls, 60_000);
+    const t0 = setTimeout(fetchWalls, 8_000); // stagger: 8s delay
+    const interval = setInterval(fetchWalls, 70_000); // +10s offset
     return () => {
       cancelled = true;
+      clearTimeout(t0);
       clearInterval(interval);
       // Clean up lines on unmount/toggle off
       if (series) {
