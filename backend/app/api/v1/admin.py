@@ -16,6 +16,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 class AdminUserUpdate(BaseModel):
     role: str | None = None
     is_active: bool | None = None
+    subscription_days: int | None = None
 
 
 @router.get("/stats")
@@ -161,6 +162,12 @@ async def update_user(
 
     if body.is_active is not None:
         target.is_active = body.is_active
+
+    if body.subscription_days is not None:
+        now = datetime.now(timezone.utc)
+        current_end = target.subscription_ends_at or now
+        start = max(current_end, now)
+        target.subscription_ends_at = start + timedelta(days=body.subscription_days)
 
     await db.flush()
     await db.refresh(target)
