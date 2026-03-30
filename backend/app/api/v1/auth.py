@@ -86,6 +86,9 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
     if not user or not verify_password(body.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
+    if not user.is_active:
+        raise HTTPException(status_code=403, detail="ACCOUNT_SUSPENDED")
+
     token, expires_in = create_access_token(user.id)
     return TokenResponse(access_token=token, expires_in=expires_in)
 

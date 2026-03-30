@@ -101,6 +101,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       await get().checkAuth();
       return true;
     } catch (e: any) {
+      if (e.message === "ACCOUNT_SUSPENDED") {
+        if (typeof window !== "undefined") window.location.href = "/suspended";
+        return false;
+      }
       set({ error: e.message, loading: false });
       return false;
     }
